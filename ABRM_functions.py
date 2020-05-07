@@ -19,6 +19,7 @@ import hdbscan
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import re
+from pathlib import Path
 
 ########################
 
@@ -83,7 +84,9 @@ def swarm(x_swarm):
 def built_batch_file_for_petrel_models(x):
 
     # loading in settings that I set up on init_ABRM.py for this run
-    pickle_file = "C:/AgentBased_RM/Output/variable_settings.pickle"
+    base_path = Path(__file__).parent
+    pickle_file = base_path / "../Output/variable_settings.pickle"
+    print(pickle_file)
     with open(pickle_file, "rb") as f:
         setup = pickle.load(f)
 
@@ -92,6 +95,7 @@ def built_batch_file_for_petrel_models(x):
     runworkflow = setup["runworkflow"]
     n_particles = setup["n_particles"]
     n_parallel_petrel_licenses = setup["n_parallel_petrel_licenses"]
+    petrel_path = setup["petrel_path"]
 
     if runworkflow == "WF_2020_04_16":
         #  Petrel has problems with batch files that get too long --> if I run
@@ -168,15 +172,21 @@ def built_batch_file_for_petrel_models(x):
                 TI3[index,3] = "TI3"
 
         # set up file path to petrel, petrel license and petrel projects and seed
-        callpetrel = 'call "C:/Program Files/Schlumberger/Petrel 2017/Petrel.exe" ^'
+        callpetrel = 'call "{}" ^'.format(petrel_path)
         license = '\n/licensePackage Standard ^'
         runworkflow = '\n/runWorkflow "{}" ^\n'.format(runworkflow)
         seed_petrel = '/nParm seed={} ^\n'.format(seed) 
 
+
         projectpath = []
         parallel_petrel_licenses = np.arange(0,n_parallel_petrel_licenses,1)
         for i in range(0,len(parallel_petrel_licenses)):
-            path = '\n"C:/AgentBased_RM/Petrel_Projects/ABRM_{}.pet"'.format(parallel_petrel_licenses[i])
+            # path_petrel_projects = Path(__file__).parent / "../"
+            # base_path = Path(__file__).parent
+            path_petrel_projects = base_path / "../Petrel_Projects/ABRM_"
+            # path = '\n"C:/AgentBased_RM/Petrel_Projects/ABRM_{}.pet"'.format(parallel_petrel_licenses[i])
+            path = '\n"{}{}.pet"'.format(path_petrel_projects,parallel_petrel_licenses[i])
+            print(path)
             projectpath.append(path)
         projectpath_repeat = projectpath * (len(slicer))    
 
@@ -192,7 +202,8 @@ def built_batch_file_for_petrel_models(x):
             path = projectpath_repeat[index_2]
 
             # path to batch file
-            run_petrel_batch = 'C:/AgentBased_RM/Functions/batch_files/run_petrel_{}.bat'.format(index_2)
+            run_petrel_batch = base_path / "../ABRM_functions/batch_files/run_petrel_{}.bat".format(index_2)
+            # run_petrel_batch = 'C:/AgentBased_RM/ABRM_functions/batch_files/run_petrel_{}.bat'.format(index_2)
 
             # open batch file to start writing into it / updating it
             file = open(run_petrel_batch, "w+")
@@ -323,7 +334,7 @@ def built_batch_file_for_petrel_models(x):
         slicer = np.arange(0,slicer_length,dtype = int)     # slicer = np.arange(0,(n_particles/n_modelsperbatch),dtype = int)
 
         # set up file path to petrel, petrel license and petrel projects and seed
-        callpetrel = 'call "C:/Program Files/Schlumberger/Petrel 2017/Petrel.exe" ^'
+        callpetrel = 'call "{}" ^'.format(petrel_path)  
         license = '\n/licensePackage Standard ^'
         runworkflow = '\n/runWorkflow "{}" ^\n'.format(runworkflow)
         seed_petrel = '/nParm seed={} ^\n'.format(seed) 
@@ -331,7 +342,9 @@ def built_batch_file_for_petrel_models(x):
         projectpath = []
         parallel_petrel_licenses = np.arange(0,n_parallel_petrel_licenses,1)
         for i in range(0,len(parallel_petrel_licenses)):
-            path = '\n"C:/AgentBased_RM/Petrel_Projects/ABRM_{}.pet"'.format(parallel_petrel_licenses[i])
+            path_petrel_projects = base_path / "../Petrel_Projects/ABRM_"
+            # path = '\n"C:/AgentBased_RM/Petrel_Projects/ABRM_{}.pet"'.format(parallel_petrel_licenses[i])
+            path = '\n"{}{}.pet"'.format(path_petrel_projects,parallel_petrel_licenses[i])
             projectpath.append(path)
         projectpath_repeat = projectpath * (len(slicer))    
 
@@ -347,7 +360,7 @@ def built_batch_file_for_petrel_models(x):
             path = projectpath_repeat[index_2]
 
             # path to batch file
-            run_petrel_batch = 'C:/AgentBased_RM/Functions/batch_files/run_petrel_{}.bat'.format(index_2)
+            run_petrel_batch = base_path / "../ABRM_functions/batch_files/run_petrel_{}.bat".format(index_2)
 
             # open batch file to start writing into it / updating it
             file = open(run_petrel_batch, "w+")
@@ -387,7 +400,9 @@ def built_batch_file_for_petrel_models(x):
 def run_batch_file_for_petrel_models(x):
 
     # loading in settings that I set up on init_ABRM.py for this run
-    pickle_file = "C:/AgentBased_RM/Output/variable_settings.pickle"
+    # loading in settings that I set up on init_ABRM.py for this run
+    base_path = Path(__file__).parent
+    pickle_file = base_path / "../Output/variable_settings.pickle"    
     with open(pickle_file, "rb") as f:
         setup = pickle.load(f)
 
@@ -403,7 +418,7 @@ def run_batch_file_for_petrel_models(x):
         #how many multibat files to run
         n_multibats = int(np.ceil(n_particles / n_modelsperbatch/n_parallel_petrel_licenses))
         for i in range(0,n_multibats):
-            run_multibat = r'C:\AgentBased_RM\Functions\batch_files\multi_bat_{}.bat'.format(i)
+            run_multibat = r'{}\batch_files\multi_bat_{}.bat'.format(base_path,i)
             subprocess.call([run_multibat])
             time.sleep(30)
 
@@ -433,8 +448,9 @@ def particle(x,i):
 def save_all_models():
     
     # loading in settings that I set up on init_ABRM.py for this run
-    pickle_file = "C:/AgentBased_RM/Output/variable_settings.pickle"
-    # pickle_file = "C:/AgentBased_RM/Output/2020_04_23_12_49/variable_settings_saved.pickel"
+    # loading in settings that I set up on init_ABRM.py for this run
+    base_path = Path(__file__).parent
+    pickle_file = base_path / "../Output/variable_settings.pickle"    # pickle_file = "C:/AgentBased_RM/Output/2020_04_23_12_49/variable_settings_saved.pickel"
     with open(pickle_file, "rb") as f:
         setup = pickle.load(f)
     save_models = setup["save_all_models"]
@@ -449,7 +465,10 @@ def save_all_models():
         poro_path = include_path + "PORO"
 
         n_particles = setup["n_particles"]
-        source_path = "C:/AgentBased_RM/FD_Models/"
+        source_path = str(base_path / "../FD_Models/")
+        source_path = "{}\..\FD_Models".format(base_path)
+        print(source_path)
+        # source_path = "C:/AgentBased_RM/FD_Models/"
 
         if not os.path.exists(destination_path):
             # make folders and subfolders
@@ -462,19 +481,19 @@ def save_all_models():
             os.makedirs(poro_path)
 
             #cop and paste generic files into Data
-            DP_pvt_src_path = source_path + "INCLUDE/DP_pvt.INC"
-            GRID_src_path = source_path + "INCLUDE/GRID.GRDECL"
-            ROCK_RELPERMS_src_path = source_path + "INCLUDE/ROCK_RELPERMS.INC"
-            SCHEDULE_src_path = source_path + "INCLUDE/SCHEDULE_1.INC"
-            SOLUTION_src_path = source_path + "INCLUDE/SOLUTION.INC"
-            SUMMARY_src_path = source_path + "INCLUDE/SUMMARY.INC"
+            DP_pvt_src_path = source_path + "\INCLUDE\DP_pvt.INC"
+            GRID_src_path = source_path + "\INCLUDE\GRID.GRDECL"
+            ROCK_RELPERMS_src_path = source_path + "\INCLUDE\ROCK_RELPERMS.INC"
+            SCHEDULE_src_path = source_path + "\INCLUDE\SCHEDULE_1.INC"
+            SOLUTION_src_path = source_path + "\INCLUDE\SOLUTION.INC"
+            SUMMARY_src_path = source_path + "\INCLUDE\SUMMARY.INC"
 
-            DP_pvt_dest_path = include_path + "DP_pvt.INC"
-            GRID_dest_path = include_path + "GRID.GRDECL"
-            ROCK_RELPERMS_dest_path = include_path + "ROCK_RELPERMS.INC"
-            SCHEDULE_dest_path = include_path + "SCHEDULE_1.INC"
-            SOLUTION_dest_path = include_path + "SOLUTION.INC"
-            SUMMARY_dest_path = include_path + "SUMMARY.INC"
+            DP_pvt_dest_path = include_path + "\DP_pvt.INC"
+            GRID_dest_path = include_path + "\GRID.GRDECL"
+            ROCK_RELPERMS_dest_path = include_path + "\ROCK_RELPERMS.INC"
+            SCHEDULE_dest_path = include_path + "\SCHEDULE_1.INC"
+            SOLUTION_dest_path = include_path + "\SOLUTION.INC"
+            SUMMARY_dest_path = include_path + "\SUMMARY.INC"
             
             shutil.copy(DP_pvt_src_path,DP_pvt_dest_path)
             shutil.copy(GRID_src_path,GRID_dest_path)
@@ -485,10 +504,10 @@ def save_all_models():
 
         if os.path.exists(destination_path):
 
-            PERMX_src_path = source_path + "INCLUDE/PERMX/"
-            PERMY_src_path = source_path + "INCLUDE/PERMY/"
-            PERMZ_src_path = source_path + "INCLUDE/PERMZ/"
-            PORO_src_path = source_path + "INCLUDE/PORO/"
+            PERMX_src_path = source_path + "\INCLUDE/PERMX/"
+            PERMY_src_path = source_path + "\INCLUDE/PERMY/"
+            PERMZ_src_path = source_path + "\INCLUDE/PERMZ/"
+            PORO_src_path = source_path + "\INCLUDE/PORO/"
 
             PERMX_dest_path = include_path + "PERMX/"
             PERMY_dest_path = include_path + "PERMY/"
@@ -541,7 +560,9 @@ def built_data_file(data_file_path,model_id):
 def save_swarm_performance(swarm_performance):
 
     # loading in settings that I set up on init_ABRM.py for this run
-    pickle_file = "C:/AgentBased_RM/Output/variable_settings.pickle"
+    # loading in settings that I set up on init_ABRM.py for this run
+    base_path = Path(__file__).parent
+    pickle_file = base_path / "../Output/variable_settings.pickle"    
     with open(pickle_file, "rb") as f:
         setup = pickle.load(f)
 
@@ -577,7 +598,9 @@ def save_swarm_performance(swarm_performance):
 def save_particle_values_converted(x_swarm_converted,misfit_swarm,LC_swarm):
 
     # loading in settings that I set up on init_ABRM.py for this run
-    pickle_file = "C:/AgentBased_RM/Output/variable_settings.pickle"
+        # loading in settings that I set up on init_ABRM.py for this run
+    base_path = Path(__file__).parent
+    pickle_file = base_path / "../Output/variable_settings.pickle"
     with open(pickle_file, "rb") as f:
         setup = pickle.load(f)
 
@@ -654,7 +677,8 @@ def obj_fkt_FD(x):
 def convert_particle_values(x):
 
     # loading in settings that I set up on init_ABRM.py for this run
-    pickle_file = "C:/AgentBased_RM/Output/variable_settings.pickle"
+    base_path = Path(__file__).parent
+    pickle_file = base_path / "../Output/variable_settings.pickle"
     with open(pickle_file, "rb") as f:
         setup = pickle.load(f)
 
@@ -707,7 +731,8 @@ def convert_particle_values(x):
 def misfit_fkt(x):
     
     # loading in settings that I set up on init_ABRM.py for this run
-    pickle_file = "C:/AgentBased_RM/Output/variable_settings.pickle"
+    base_path = Path(__file__).parent
+    pickle_file = base_path / "../Output/variable_settings.pickle"
     with open(pickle_file, "rb") as f:
         setup = pickle.load(f)
 
@@ -720,7 +745,8 @@ def misfit_fkt(x):
 def misfit_fkt_F_Phi_curve(F,Phi):
     
     # loading in settings that I set up on init_ABRM.py for this run
-    pickle_file = "C:/AgentBased_RM/Output/variable_settings.pickle"
+    base_path = Path(__file__).parent
+    pickle_file = base_path / "../Output/variable_settings.pickle"
     with open(pickle_file, "rb") as f:
         setup = pickle.load(f)
     
@@ -776,13 +802,13 @@ def save_variables_to_file(setup):
     # with help of GUI generate file that contains all the variables that I want to use in my swarm function. save them and them load them into the swarm
     # save these settings to my folder so that I can recreate things within each subfunction
     # aslo set up entire folder structure and check if folders already exist to prevent overwriting
-
-    output_path = "C:/AgentBased_RM/Output/"
+    base_path = Path(__file__).parent
+    output_path = str(base_path / "../Output/")
 
     #folder name will be current date and time
     output_folder = str(datetime.datetime.today().replace(microsecond= 0, second = 0).strftime("%Y_%m_%d_%H_%M"))
     output_file_variables = "/variable_settings_saved.pickel"
-    folder_path = output_path + output_folder
+    folder_path = output_path + "/" + output_folder
     file_path = folder_path + output_file_variables
 
     setup["date"] = output_folder
@@ -797,7 +823,7 @@ def save_variables_to_file(setup):
     
     
     # also save to another file so that will always get overwritten where the filepath stays the same
-    file_path_constant = "C:/AgentBased_RM/Output/variable_settings.pickle"
+    file_path_constant = base_path / "../Output/variable_settings.pickle"
     with open(file_path_constant,'wb') as f:
         pickle.dump(setup,f)
 
@@ -818,6 +844,8 @@ def compute_LC(F,Phi):
 
 def read_data(data_to_process):
     
+    base_path = Path(__file__).parent
+
     # how many different datasets:
     n_datasets = len(data_to_process)
 
@@ -832,7 +860,7 @@ def read_data(data_to_process):
     
     # read individual datasets and conconate them to one big df. 
     for i in range(0,n_datasets):
-        path = "C:/AgentBased_RM/Output/"+ data_to_process[i] + "/"
+        path = base_path / "../Output/"+ data_to_process[i] + "/"
         performance = "swarm_performance_all_iter.csv"
         position = "swarm_particle_values_converted_all_iter.csv"
         setup = "variable_settings_saved.pickel"
@@ -1027,7 +1055,9 @@ def save_best_clustered_models(df_best,datasets):
     n_clusters = df_best.cluster.max()
     
     best_models_to_save = pd.DataFrame()
-    
+
+    base_path = Path(__file__).parent
+
     # randomly sample 1 model from each lcusters that has a perfect match to the cluster (prob =1)
     for i in range(0,n_clusters+1):
         best_per_cluster = df_best[(df_best.cluster == i) & (df_best.cluster_prob ==1)].sample()
@@ -1043,7 +1073,7 @@ def save_best_clustered_models(df_best,datasets):
     for i in range(0,n_datasets):
 
         # open df_position to figure out which models performed best
-        path = "C:/AgentBased_RM/Output/"+ datasets[i] + "/"
+        path = base_path / "../Output/"+ datasets[i] + "/"
 
         n_best_models = len(best_models_to_save)
         best_models_index = best_models_to_save.index.tolist()
@@ -1241,7 +1271,8 @@ def plot_performance(df_performance,df_position,FD_targets,setup_all,dataset,mis
 def built_batch_file_for_petrel_models_uniform(x):
 
     # loading in settings that I set up on init_ABRM.py for this run
-    pickle_file = "C:/AgentBased_RM/Output/variable_settings.pickle"
+    base_path = Path(__file__).parent
+    pickle_file = base_path / "../Output/variable_settings.pickle"
     with open(pickle_file, "rb") as f:
         setup = pickle.load(f)
 
@@ -1252,6 +1283,7 @@ def built_batch_file_for_petrel_models_uniform(x):
     n_parallel_petrel_licenses = setup["n_parallel_petrel_licenses"]
     parameter_type = setup["parameter_type"]
     parameter_name = setup["columns"]
+    petrel_path = setup["petrel_path"]
     n_parameters = len(parameter_name)
 
     #  Petrel has problems with batch files that get too long --> if I run
@@ -1274,14 +1306,15 @@ def built_batch_file_for_petrel_models_uniform(x):
     # use particle 1d array to get my column in the same length. repeat n times
 
     # set up file path to petrel, petrel license and petrel projects and seed etc
-    callpetrel = 'call "C:/Program Files/Schlumberger/Petrel 2017/Petrel.exe" ^'
+    callpetrel = 'call "{}" ^'.format(petrel_path)
     license = '\n/licensePackage Standard ^'
     runworkflow = '\n/runWorkflow "{}" ^\n'.format(runworkflow)
     seed_petrel = '/nParm seed={} ^\n'.format(seed) 
     projectpath = []
     parallel_petrel_licenses = np.arange(0,n_parallel_petrel_licenses,1)
     for i in range(0,len(parallel_petrel_licenses)):
-        path = '\n"C:/AgentBased_RM/Petrel_Projects/ABRM_{}.pet"'.format(parallel_petrel_licenses[i])
+        path_petrel_projects = base_path / "../Petrel_Projects/ABRM_"
+        path = '\n"{}{}.pet"'.format(path_petrel_projects,parallel_petrel_licenses[i])
         projectpath.append(path)
     projectpath_repeat = projectpath * (len(slicer))    
     quiet = '/quiet ^' #wf wont pop up
@@ -1296,7 +1329,7 @@ def built_batch_file_for_petrel_models_uniform(x):
         path = projectpath_repeat[i]
 
         # path to batch file
-        run_petrel_batch = 'C:/AgentBased_RM/Functions/batch_files/run_petrel_{}.bat'.format(i)
+        run_petrel_batch = base_path / "../ABRM_functions/batch_files/run_petrel_{}.bat".format(i)
 
         # open batch file to start writing into it / updating it
         file = open(run_petrel_batch, "w+")
@@ -1338,7 +1371,8 @@ def built_multibat_files():
     #### built multi_batch file bat files that can launch several petrel licenses (run_petrel) at once
 
     # loading in settings that I set up on init_ABRM.py for this run
-    pickle_file = "C:/AgentBased_RM/Output/variable_settings.pickle"
+    base_path = Path(__file__).parent
+    pickle_file = base_path / "../Output/variable_settings.pickle"
     with open(pickle_file, "rb") as f:
         setup = pickle.load(f)
 
@@ -1352,13 +1386,13 @@ def built_multibat_files():
     run_petrel_ticker = 0 # naming of petrelfiles to run. problem: will alwazs atm write 3 files into multibatfile.
 
     for i in range(0,n_multibats):
-
-        built_multibat = r'C:\AgentBased_RM\Functions\batch_files\multi_bat_{}.bat'.format(i)
+        built_multibat = r'{}\batch_files\multi_bat_{}.bat'.format(base_path,i)
+        # built_multibat = r'C:\AgentBased_RM\ABRM_functions\batch_files\multi_bat_{}.bat'.format(i)
         file = open(built_multibat, "w+")
 
-        for j in range(0,n_parallel_petrel_licenses):
+        for _j in range(0,n_parallel_petrel_licenses):
 
-            run_petrel_bat = '\nStart C:/AgentBased_RM/Functions/batch_files/run_petrel_{}.bat'.format(run_petrel_ticker)
+            run_petrel_bat = '\nStart {}/batch_files/run_petrel_{}.bat'.format(base_path,run_petrel_ticker)
             file.write(run_petrel_bat)
             run_petrel_ticker+=1
         file.write(exit_bat)
@@ -1367,7 +1401,7 @@ def built_multibat_files():
         # this bit here will overwrite the last run_petrel comman and replace the start with a call. this will allow me to wait unitl all processes are finished before the program moves on.
         file_wait = open(built_multibat, "rt")
         run_petrel_ticker_wait = run_petrel_ticker -1
-        run_petrel_bat_wait = '\nCall C:/AgentBased_RM/Functions/batch_files/run_petrel_{}.bat'.format(run_petrel_ticker_wait)
+        run_petrel_bat_wait = '\nCall {}/batch_files/run_petrel_{}.bat'.format(base_path,run_petrel_ticker_wait)
         insert_wait = file_wait.read()
         insert_wait = insert_wait.replace(run_petrel_bat,run_petrel_bat_wait)
         file_wait.close()

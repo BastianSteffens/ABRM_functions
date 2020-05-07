@@ -24,8 +24,8 @@ def init():
 
     ###### Set hyperparameters for PSO ######
     n_parameters = 30
-    n_iters = 2
-    n_particles = 9 # always pick multiple of 3. need to fix this 
+    n_iters = 20
+    n_particles = 57 # always pick multiple of 3. need to fix this 
     min_bound = 0 * np.ones(n_parameters)
     max_bound = 1 * np.ones(n_parameters)
     bounds = (min_bound, max_bound)
@@ -33,7 +33,7 @@ def init():
     cognitive_component = 2.05 # 2.05 ; 1.494 with 0 should all converge to the global minima,however good that is. 
     inertia = 0.9
     damping_factor = 0.99
-    n_neighbors  =  5
+    n_neighbors  =  57
     distance_measure  = 2 # 2 = euclidian 1 = manhatten
     dimensions = n_parameters
     options = {'c1': social_component, 'c2': cognitive_component, 'w':inertia, 'k':n_neighbors, 'p':distance_measure,'d':damping_factor}
@@ -82,6 +82,7 @@ def init():
     runworkflow = "WF_2020_04_16" #"WF_2020_04_16"#"WF_2019_09_16", "WF_test"
     # run with petrel or without for test
     petrel_on = False
+    petrel_path = "C:/Program Files/Schlumberger/Petrel 2017/Petrel.exe"
 
     # how long wait between petrel models 300 works for long wf
 
@@ -94,11 +95,11 @@ def init():
                  n_particles = n_particles,  Phi_points_target = Phi_points_target,
                  F_points_target =F_points_target, petrel_on = petrel_on,velocity_clamp = velocity_clamp, 
                 save_all_models = save_all_models, vh_strategy=vh_strategy,
-                 bh_strategy = bh_strategy, n_parallel_petrel_licenses = n_parallel_petrel_licenses,n_neighbors = n_neighbors)
+                 bh_strategy = bh_strategy, n_parallel_petrel_licenses = n_parallel_petrel_licenses,n_neighbors = n_neighbors,petrel_path = petrel_path)
 
     #save variables to pickle file and load them into pso later. this also sets up folder structure to save rest of pso resutls in
+    # ABRM_functions.save_variables_to_file(setup)
     ABRM_functions.save_variables_to_file(setup)
-
     ###### Initialize swarm ######
 
     # Call instance of PSO

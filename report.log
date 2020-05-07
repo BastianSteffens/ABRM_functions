@@ -1,1 +1,32 @@
 2020-05-07 14:15:46,617 - pyswarms.single.local_best - INFO - Optimize for 2 iters with {'c1': 2.05, 'c2': 2.05, 'w': 0.9, 'k': 5, 'p': 2, 'd': 0.99}
+2020-05-07 15:36:23,684 - pyswarms.single.local_best - INFO - Optimize for 2 iters with {'c1': 2.05, 'c2': 2.05, 'w': 0.9, 'k': 5, 'p': 2, 'd': 0.99}
+2020-05-07 15:37:36,337 - pyswarms.single.local_best - INFO - Optimize for 2 iters with {'c1': 2.05, 'c2': 2.05, 'w': 0.9, 'k': 5, 'p': 2, 'd': 0.99}
+2020-05-07 15:43:19,463 - pyswarms.single.local_best - INFO - Optimize for 2 iters with {'c1': 2.05, 'c2': 2.05, 'w': 0.9, 'k': 5, 'p': 2, 'd': 0.99}
+2020-05-07 15:50:07,882 - pyswarms.single.local_best - INFO - Optimize for 2 iters with {'c1': 2.05, 'c2': 2.05, 'w': 0.9, 'k': 5, 'p': 2, 'd': 0.99}
+2020-05-07 15:51:05,097 - pyswarms.single.local_best - INFO - Optimize for 2 iters with {'c1': 2.05, 'c2': 2.05, 'w': 0.9, 'k': 5, 'p': 2, 'd': 0.99}
+2020-05-07 15:51:43,160 - pyswarms.single.local_best - INFO - Optimize for 2 iters with {'c1': 2.05, 'c2': 2.05, 'w': 0.9, 'k': 5, 'p': 2, 'd': 0.99}
+2020-05-07 15:58:13,860 - pyswarms.single.local_best - INFO - Optimize for 2 iters with {'c1': 2.05, 'c2': 2.05, 'w': 0.9, 'k': 5, 'p': 2, 'd': 0.99}
+2020-05-07 16:05:06,424 - pyswarms.single.local_best - INFO - Optimize for 2 iters with {'c1': 2.05, 'c2': 2.05, 'w': 0.9, 'k': 5, 'p': 2, 'd': 0.99}
+2020-05-07 16:07:02,098 - pyswarms.single.local_best - INFO - Optimize for 2 iters with {'c1': 2.05, 'c2': 2.05, 'w': 0.9, 'k': 5, 'p': 2, 'd': 0.99}
+2020-05-07 16:08:32,400 - pyswarms.single.local_best - INFO - Optimize for 2 iters with {'c1': 2.05, 'c2': 2.05, 'w': 0.9, 'k': 5, 'p': 2, 'd': 0.99}
+2020-05-07 16:12:54,494 - pyswarms.single.local_best - INFO - Optimize for 2 iters with {'c1': 2.05, 'c2': 2.05, 'w': 0.9, 'k': 5, 'p': 2, 'd': 0.99}
+2020-05-07 16:40:08,684 - pyswarms.single.local_best - INFO - Optimize for 2 iters with {'c1': 2.05, 'c2': 2.05, 'w': 0.9, 'k': 5, 'p': 2, 'd': 0.99}
+2020-05-07 16:51:26,052 - pyswarms.single.local_best - INFO - Optimize for 2 iters with {'c1': 2.05, 'c2': 2.05, 'w': 0.9, 'k': 5, 'p': 2, 'd': 0.99}
+2020-05-07 16:53:10,730 - pyswarms.single.local_best - INFO - Optimize for 2 iters with {'c1': 2.05, 'c2': 2.05, 'w': 0.9, 'k': 5, 'p': 2, 'd': 0.99}
+2020-05-07 16:56:15,926 - pyswarms.single.local_best - INFO - Optimize for 2 iters with {'c1': 2.05, 'c2': 2.05, 'w': 0.9, 'k': 5, 'p': 2, 'd': 0.99}
+2020-05-07 17:14:23,527 - pyswarms.single.local_best - INFO - Optimize for 2 iters with {'c1': 2.05, 'c2': 2.05, 'w': 0.9, 'k': 5, 'p': 2, 'd': 0.99}
+2020-05-07 17:25:52,477 - pyswarms.single.local_best - INFO - Optimize for 2 iters with {'c1': 2.05, 'c2': 2.05, 'w': 0.9, 'k': 5, 'p': 2, 'd': 0.99}
+2020-05-07 17:29:43,936 - pyswarms.single.local_best - INFO - Optimize for 2 iters with {'c1': 2.05, 'c2': 2.05, 'w': 0.9, 'k': 5, 'p': 2, 'd': 0.99}
+2020-05-07 17:36:00,209 - pyswarms.single.local_best - INFO - Optimize for 2 iters with {'c1': 2.05, 'c2': 2.05, 'w': 0.9, 'k': 5, 'p': 2, 'd': 0.99}
+2020-05-07 17:38:10,410 - pyswarms.single.local_best - INFO - Optimize for 2 iters with {'c1': 2.05, 'c2': 2.05, 'w': 0.9, 'k': 5, 'p': 2, 'd': 0.99}
+2020-05-07 17:49:16,949 - pyswarms.single.local_best - INFO - Optimize for 2 iters with {'c1': 2.05, 'c2': 2.05, 'w': 0.9, 'k': 5, 'p': 2, 'd': 0.99}
+2020-05-07 17:51:50,625 - pyswarms.single.local_best - INFO - Optimize for 2 iters with {'c1': 2.05, 'c2': 2.05, 'w': 0.9, 'k': 5, 'p': 2, 'd': 0.99}
+2020-05-07 17:56:27,463 - pyswarms.single.local_best - INFO - Optimize for 2 iters with {'c1': 2.05, 'c2': 2.05, 'w': 0.9, 'k': 5, 'p': 2, 'd': 0.99}
+2020-05-07 17:58:29,510 - pyswarms.single.local_best - INFO - Optimize for 2 iters with {'c1': 2.05, 'c2': 2.05, 'w': 0.9, 'k': 5, 'p': 2, 'd': 0.99}
+2020-05-07 18:00:53,571 - pyswarms.single.local_best - INFO - Optimize for 3 iters with {'c1': 2.05, 'c2': 2.05, 'w': 0.9, 'k': 5, 'p': 2, 'd': 0.99}
+2020-05-07 18:27:29,291 - pyswarms.single.local_best - INFO - Optimization finished | best cost: 0.05205071894132436, best pos: [0.59605263 0.62221515 0.67132307 0.06919746 0.70808553 0.08771161
+ 0.60959488 1.         0.77786729 0.3388674  0.44750845 0.84746611
+ 0.64295789 0.99195634 0.40183088 0.58497202 0.32878086 0.89362025
+ 0.74732741 0.55345948 0.36464188 0.         0.71615939 0.41682123
+ 0.7191037  0.4676195  0.91226164 0.         0.         0.34862472]
+2020-05-07 21:27:36,293 - pyswarms.single.local_best - INFO - Optimize for 3 iters with {'c1': 2.05, 'c2': 2.05, 'w': 0.9, 'k': 5, 'p': 2, 'd': 0.99}
