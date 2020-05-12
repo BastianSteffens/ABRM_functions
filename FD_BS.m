@@ -81,6 +81,7 @@ function [FD_performance] = FD_BS(x)
     % sometimes Ev and tD are missing 10 values in the end. its basicallz just
     % several 1.0 that are missing. so will just add them so that reshaping
     % wont be a problem within python.
+
     if not(length(Ev)==length(F))
         values_to_add = length(F) - length(Ev);
         Ev(end + values_to_add) = 1;

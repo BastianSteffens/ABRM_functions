@@ -2,7 +2,7 @@ call "C:/Program Files/Schlumberger/Petrel 2017/Petrel.exe" ^
 /licensePackage Standard ^
 /runWorkflow "WF_2020_04_16" ^
 /nParm seed=3581025 ^
-/sparm ModelName_25=M54 ^
+/sparm ModelName_25=M59 ^
 /sparm TI1_1_25=None ^
 /sparm TI1_2_25=None ^
 /sparm TI1_3_25=None ^
@@ -42,7 +42,7 @@ call "C:/Program Files/Schlumberger/Petrel 2017/Petrel.exe" ^
 /nParm MatrixPermY_25=8.0 ^
 /nParm FracPermZ_25=757.0 ^
 /nParm MatrixPermZ_25=56.0 ^
-/sparm ModelName_26=M55 ^
+/sparm ModelName_26=M60 ^
 /sparm TI1_1_26=TI1 ^
 /sparm TI1_2_26=None ^
 /sparm TI1_3_26=None ^
@@ -82,7 +82,7 @@ call "C:/Program Files/Schlumberger/Petrel 2017/Petrel.exe" ^
 /nParm MatrixPermY_26=34.0 ^
 /nParm FracPermZ_26=977.0 ^
 /nParm MatrixPermZ_26=55.0 ^
-/sparm ModelName_27=M56 ^
+/sparm ModelName_27=M61 ^
 /sparm TI1_1_27=TI1 ^
 /sparm TI1_2_27=None ^
 /sparm TI1_3_27=None ^
