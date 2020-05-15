@@ -78,3 +78,15 @@
 2020-05-11 20:07:07,335 - pyswarms.single.local_best - INFO - Optimize for 5 iters with {'c1': 2.05, 'c2': 2.05, 'w': 0.9, 'k': 3, 'p': 2, 'd': 0.99}
 2020-05-11 22:46:29,936 - pyswarms.single.local_best - INFO - Optimization finished | best cost: 0.04858191338519306, best pos: [0.20262352 0.81961134 0.06847303 0.43502886 1.         0.50988867
  0.29498903 1.         0.68537827 0.21701472]
+2020-05-12 14:26:47,837 - pyswarms.single.local_best - INFO - Optimize for 5 iters with {'c1': 2.05, 'c2': 2.05, 'w': 0.9, 'k': 3, 'p': 2, 'd': 0.99}
+2020-05-12 14:27:42,758 - pyswarms.single.local_best - INFO - Optimize for 5 iters with {'c1': 2.05, 'c2': 2.05, 'w': 0.9, 'k': 3, 'p': 2, 'd': 0.99}
+2020-05-12 16:06:17,682 - pyswarms.single.local_best - INFO - Optimize for 5 iters with {'c1': 2.05, 'c2': 2.05, 'w': 0.9, 'k': 3, 'p': 2, 'd': 0.99}
+2020-05-12 16:07:17,179 - pyswarms.single.local_best - INFO - Optimize for 5 iters with {'c1': 2.05, 'c2': 2.05, 'w': 0.9, 'k': 3, 'p': 2, 'd': 0.99}
+2020-05-12 16:10:03,068 - pyswarms.single.local_best - INFO - Optimize for 5 iters with {'c1': 2.05, 'c2': 2.05, 'w': 0.9, 'k': 3, 'p': 2, 'd': 0.99}
+2020-05-12 16:35:47,115 - pyswarms.single.local_best - INFO - Optimize for 15 iters with {'c1': 2.05, 'c2': 2.05, 'w': 0.9, 'k': 5, 'p': 2, 'd': 0.99}
+2020-05-12 16:38:40,000 - pyswarms.single.local_best - INFO - Optimize for 15 iters with {'c1': 2.05, 'c2': 2.05, 'w': 0.9, 'k': 5, 'p': 2, 'd': 0.99}
+2020-05-12 17:43:09,039 - pyswarms.single.local_best - INFO - Optimize for 15 iters with {'c1': 2.05, 'c2': 2.05, 'w': 0.9, 'k': 5, 'p': 2, 'd': 0.99}
+2020-05-12 20:02:23,859 - pyswarms.single.local_best - INFO - Optimize for 15 iters with {'c1': 2.05, 'c2': 2.05, 'w': 0.9, 'k': 5, 'p': 2, 'd': 0.99}
+2020-05-12 20:06:37,082 - pyswarms.single.local_best - INFO - Optimize for 15 iters with {'c1': 2.05, 'c2': 2.05, 'w': 0.9, 'k': 5, 'p': 2, 'd': 0.99}
+2020-05-13 02:52:44,271 - pyswarms.single.local_best - INFO - Optimization finished | best cost: 0.018419699378234365, best pos: [0.70665285 0.78867753 0.1981124  0.0975024  0.58929613 0.64417554
+ 0.         0.94900222 0.46728904 0.41516863]

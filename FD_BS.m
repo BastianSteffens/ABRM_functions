@@ -94,6 +94,5 @@ function [FD_performance] = FD_BS(x)
     F = F(1:1000:end);
     Phi = Phi(1:1000:end);
     LC_long = zeros(length(Ev),1) + LC;
-
     FD_performance = [Ev;tD;F;Phi;LC_long];
 end

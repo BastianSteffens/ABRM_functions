@@ -23,9 +23,9 @@ import ABRM_functions
 def init():
 
     ###### Set hyperparameters for PSO ######
-    n_parameters = 10
-    n_iters = 5
-    n_particles = 18 # always pick multiple of 3. need to fix this 
+    n_parameters = 30
+    n_iters = 50
+    n_particles = 54 # always pick multiple of 3. need to fix this 
     min_bound = 0 * np.ones(n_parameters)
     max_bound = 1 * np.ones(n_parameters)
     bounds = (min_bound, max_bound)
@@ -33,7 +33,7 @@ def init():
     cognitive_component = 2.05 # 2.05 ; 1.494 with 0 should all converge to the global minima,however good that is. 
     inertia = 0.9
     damping_factor = 0.99
-    n_neighbors  =  3
+    n_neighbors  =  15
     distance_measure  = 2 # 2 = euclidian 1 = manhatten
     dimensions = n_parameters
     options = {'c1': social_component, 'c2': cognitive_component, 'w':inertia, 'k':n_neighbors, 'p':distance_measure,'d':damping_factor}
@@ -49,34 +49,38 @@ def init():
     ###### Set modelling parameters for Petrelworkflows ######
    
     # if I want to set a varaible constant, just make the range = 0 e.g. varmin=varmax
-    # varminmax = np.array([[1,4],[1,200],[1,200],[1,100],[1,100],[1,7],[1,7],
-    #                       [1,4],[1,200],[1,200],[1,100],[1,100],[1,7],[1,7],
-    #                       [1,4],[1,200],[1,200],[1,100],[1,100],[1,7],[1,7],
-    #                       [0,1],[0,1],[0,1],[1,1000],[1,50],[1,1000],
-    #                       [1,50],[1,1000],[1,50]])
-    varminmax = np.array([[0.001,1.5],[4,10],[0.1,3],[2,5],[1,100],[0,90],[0,90],[1,100],[0.00075,0.0000075],[0.000015,0.00000015]])    
+    varminmax = np.array([[1,4],[1,200],[1,200],[1,100],[1,100],[1,7],[1,7],
+                          [1,4],[1,200],[1,200],[1,100],[1,100],[1,7],[1,7],
+                          [1,4],[1,200],[1,200],[1,100],[1,100],[1,7],[1,7],
+                          [0,1],[0,1],[0,1],[1,1000],[1,50],[1,1000],
+                          [1,50],[1,1000],[1,50]])
+    # varminmax = np.array([[0.001,1.5],[4,10],[0.1,3],[2.01,5],[1,100],[0,90],[0,90],[1,100],[0.00075,0.0000075],[0.000015,0.00000015]])    
     
     # if cnotinues = 0, if discrete = 1
-    continuous_discrete = [0,1,0,0,0,0,0,0,0,0]
+    continuous_discrete = [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0]
+    # continuous_discrete = [0,1,0,0,0,0,0,0,0,0]
     # var names
-    # columns = ["TI1","F1_I_MIN","F1_I_MAX","F1_J_MIN","F1_J_MAX","F1_K_MIN","F1_K_MAX",
-    #            "TI2","F2_I_MIN","F2_I_MAX","F2_J_MIN","F2_J_MAX","F2_K_MIN","F2_K_MAX",
-    #            "TI3","F3_I_MIN","F3_I_MAX","F3_J_MIN","F3_J_MAX","F3_K_MIN","F3_K_MAX",
-    #            "F1_Curve_Prob","F2_Curve_Prob","F3_Curve_Prob","FracpermX","MatrixpermX",
-    #            "FracpermY","MatrixpermY","FracpermZ","MatrixpermZ"]   
-    columns = ["P32","n_sides","elongation_ratio","shape","scale","mean_dip",
-               "mean_dip_azimuth","concentration","aperture_mean","aperture_std"]  
+    columns = ["TI1","F1_I_MIN","F1_I_MAX","F1_J_MIN","F1_J_MAX","F1_K_MIN","F1_K_MAX",
+               "TI2","F2_I_MIN","F2_I_MAX","F2_J_MIN","F2_J_MAX","F2_K_MIN","F2_K_MAX",
+               "TI3","F3_I_MIN","F3_I_MAX","F3_J_MIN","F3_J_MAX","F3_K_MIN","F3_K_MAX",
+               "F1_Curve_Prob","F2_Curve_Prob","F3_Curve_Prob","FracpermX","MatrixpermX",
+               "FracpermY","MatrixpermY","FracpermZ","MatrixpermZ"]   
+    # columns = ["P32","n_sides","elongation_ratio","shape","scale","mean_dip",
+    #            "mean_dip_azimuth","concentration","aperture_mean","aperture_std"]  
     
     # var types str = 0, numeric =1, TI = 2
-    # parameter_type = [2,1,1,1,1,1,1,2,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
-    parameter_type = [1,1,1,1,1,1,1,1,1,1]
+    parameter_type = [2,1,1,1,1,1,1,2,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+    # parameter_type = [1,1,1,1,1,1,1,1,1,1]
 
-    n_trainingimages = 0
+    n_trainingimages = 4
     # misfit values
     # create curve and save resultign desired LC
     Phi_points_target = np.linspace(0, 1, num=11, endpoint=True)
-    F_points_target = np.array([0, 0.25, 0.45, 0.55, 0.65, 0.75, 0.90, 0.95, 0.98, 0.99, 1])
+    F_points_target = np.array([0, 0.25, 0.45, 0.65, 0.75, 0.85, 0.90, 0.95, 0.98, 0.99, 1])
     
+    # what schedule 5_spot or line_drive
+    schedule = "5_spot"
+
     # seed
     set_seed = random.randint(0,10000000)
     random.seed(set_seed)
@@ -85,7 +89,7 @@ def init():
     # how many potrel licenses to run at once
     n_parallel_petrel_licenses = 3
     # which workflow to run in petrel (atm onlz 1 wf)
-    runworkflow = "WF_2020_05_08" #"WF_2020_04_16"#"WF_2019_09_16", "WF_test"
+    runworkflow = "WF_2020_04_16" #"WF_2020_04_16"#"WF_2019_09_16", "WF_test" "WF_2020_05_08"
     # run with petrel or without for test
     petrel_on = True
     petrel_path = "C:/Program Files/Schlumberger/Petrel 2017/Petrel.exe"
@@ -100,10 +104,9 @@ def init():
                 save_all_models = save_all_models, vh_strategy=vh_strategy,
                  bh_strategy = bh_strategy, n_parallel_petrel_licenses = n_parallel_petrel_licenses,
                  n_neighbors = n_neighbors,petrel_path = petrel_path, n_trainingimages = n_trainingimages,
-                 continuous_discrete = continuous_discrete)
+                 continuous_discrete = continuous_discrete,schedule = schedule)
 
     #save variables to pickle file and load them into pso later. this also sets up folder structure to save rest of pso resutls in
-    # ABRM_functions.save_variables_to_file(setup)
     ABRM_functions.save_variables_to_file(setup)
     ###### Initialize swarm ######
 

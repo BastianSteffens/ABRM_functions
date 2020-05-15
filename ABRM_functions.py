@@ -46,7 +46,6 @@ def swarm(x_swarm):
     
     ### 2 ###
     # Built new geomodels (with batch files) in Petrel based upon converted particles.
-    # built_batch_file_for_petrel_models(x_swarm_converted)
     built_batch_file_for_petrel_models_uniform(x_swarm_converted)
 
     ### 4 ###
@@ -58,6 +57,10 @@ def swarm(x_swarm):
     run_batch_file_for_petrel_models(x_swarm_converted)
 
     ### 6 ###
+    # built FD_Data files required for model evaluation
+    built_FD_Data_files()
+
+    ### 7 ###
     # evaluate model performance
     n_particles = x_swarm.shape[0]
     misfit_swarm = np.zeros(n_particles)
@@ -72,7 +75,7 @@ def swarm(x_swarm):
     
     print('swarm {}'.format(misfit_swarm))
 
-    ### 7 ###
+    ### 8 ###
     # save swarm_particle values and swarm_performance in df also save all models
     save_swarm_performance(swarm_performance)
 
@@ -80,8 +83,7 @@ def swarm(x_swarm):
     
     save_all_models()
     
-    return np.array(misfit_swarm)
-	
+    return np.array(misfit_swarm)	
 
 def built_batch_file_for_petrel_models_uniform(x):
 
@@ -112,15 +114,12 @@ def built_batch_file_for_petrel_models_uniform(x):
     # particlesperwf = np.linspace(25,27,n_modelsperbatch, endpoint = True,dtype = int) # use 25,26,27 because of petrel wf. there the variables are named like that and cant bothered to change that.
 
     single_wf = [str(i) for i in np.tile(particlesperwf,n_particles)]
-    # single_wf_parameternames = np.tile()
     single_particle_in_wf = [str(i) for i in np.arange(0,n_particles+1)]
     particle_str = np.asarray([str(i) for i in particle_1d_array]).reshape(particle.shape[0],particle.shape[1])
     parameter_name_str = np.asarray([parameter_name * n_particles]).reshape(particle.shape[0],particle.shape[1]) # not sure at all if this is working yet
     parameter_type_str = np.asarray([parameter_type * n_particles]).reshape(particle.shape[0],particle.shape[1])
     slicer_length = int(np.ceil(n_particles/n_modelsperbatch)) # always rounds up.
     slicer = np.arange(0,slicer_length,dtype = int)     # slicer = np.arange(0,(n_particles/n_modelsperbatch),dtype = int)
-
-    # use particle 1d array to get my column in the same length. repeat n times
 
     # set up file path to petrel, petrel license and petrel projects and seed etc
     callpetrel = 'call "{}" ^'.format(petrel_path)
@@ -221,7 +220,6 @@ def built_multibat_files():
 
     for i in range(0,n_multibats):
         built_multibat = r'{}\batch_files\multi_bat_{}.bat'.format(base_path,i)
-        # built_multibat = r'C:\AgentBased_RM\ABRM_functions\batch_files\multi_bat_{}.bat'.format(i)
         file = open(built_multibat, "w+")
 
         for _j in range(0,n_parallel_petrel_licenses):
@@ -229,6 +227,7 @@ def built_multibat_files():
             run_petrel_bat = '\nStart {}/batch_files/run_petrel_{}.bat'.format(base_path,run_petrel_ticker)
             file.write(run_petrel_bat)
             run_petrel_ticker+=1
+
         file.write(exit_bat)
         file.close()
 
@@ -270,7 +269,6 @@ def run_batch_file_for_petrel_models(x):
             subprocess.call([run_multibat])
             # not continue until lock files are gone and petrel is finished.
             time.sleep(120)
-            print(glob.glob(lock_files))
             while len(glob.glob(lock_files)) >= 1:
                 time.sleep(5)
             time.sleep(30)
@@ -309,6 +307,7 @@ def save_all_models():
     with open(pickle_file, "rb") as f:
         setup = pickle.load(f)
     save_models = setup["save_all_models"]
+    schedule = setup["schedule"]
 
     if save_models == True:
         destination_path = setup["folder_path"] + '/all_models/'
@@ -322,8 +321,6 @@ def save_all_models():
         n_particles = setup["n_particles"]
         source_path = str(base_path / "../FD_Models/")
         source_path = "{}\..\FD_Models".format(base_path)
-        print(source_path)
-        # source_path = "C:/AgentBased_RM/FD_Models/"
 
         if not os.path.exists(destination_path):
             # make folders and subfolders
@@ -339,14 +336,14 @@ def save_all_models():
             DP_pvt_src_path = source_path + "\INCLUDE\DP_pvt.INC"
             GRID_src_path = source_path + "\INCLUDE\GRID.GRDECL"
             ROCK_RELPERMS_src_path = source_path + "\INCLUDE\ROCK_RELPERMS.INC"
-            SCHEDULE_src_path = source_path + "\INCLUDE\SCHEDULE_1.INC"
+            SCHEDULE_src_path = source_path + "\INCLUDE\{}.INC".format(schedule)
             SOLUTION_src_path = source_path + "\INCLUDE\SOLUTION.INC"
             SUMMARY_src_path = source_path + "\INCLUDE\SUMMARY.INC"
 
             DP_pvt_dest_path = include_path + "\DP_pvt.INC"
             GRID_dest_path = include_path + "\GRID.GRDECL"
             ROCK_RELPERMS_dest_path = include_path + "\ROCK_RELPERMS.INC"
-            SCHEDULE_dest_path = include_path + "\SCHEDULE_1.INC"
+            SCHEDULE_dest_path = include_path + "\{}.INC".format(schedule)
             SOLUTION_dest_path = include_path + "\SOLUTION.INC"
             SUMMARY_dest_path = include_path + "\SUMMARY.INC"
             
@@ -401,10 +398,39 @@ def save_all_models():
                 shutil.copy(permz_file_src_path,permz_file_dest_path)
                 shutil.copy(poro_file_src_path,poro_file_dest_path)
 
+def built_FD_Data_files():
+
+    # loading in settings that I set up on init_ABRM.py for this run
+    base_path = Path(__file__).parent
+    pickle_file = base_path / "../Output/variable_settings.pickle"    
+    with open(pickle_file, "rb") as f:
+        setup = pickle.load(f)
+
+    n_particles = setup["n_particles"]
+    schedule = setup["schedule"]
+
+    for i in range (0,n_particles+1):
+        
+        data_file = "RUNSPEC\n\nTITLE\nModel_{}\n\nDIMENS\n--NX NY NZ\n200 100 7 /\n\n--Phases\nOIL\nWATER\n\n--DUALPORO\n--NODPPM\n\n--Units\nMETRIC\n\n--Number of Saturation Tables\nTABDIMS\n1 /\n\n--Maximum number of Wells\nWELLDIMS\n10 100 5 10 /\n\n--First Oil\nSTART\n1 OCT 2017 /\n\n--Memory Allocation\nNSTACK\n100 /\n\n--How many warnings allowed, but terminate after first error\nMESSAGES\n11*5000 1 /\n\n--Unified Output Files\nUNIFOUT\n\n--======================================================================\n\nGRID\n--Include corner point geometry model\nINCLUDE\n'..\INCLUDE\GRID.GRDECL'\n/\n\nACTNUM\n140000*1 /\n\n--Porosity\nINCLUDE\n'..\INCLUDE\PORO\M{}.GRDECL'\n/\n\n--Permeability\nINCLUDE\n'..\INCLUDE\PERMX\M{}.GRDECL'\n/\nINCLUDE\n'..\INCLUDE\PERMY\M{}.GRDECL'\n/\nINCLUDE\n'..\INCLUDE\PERMZ\M{}.GRDECL'\n/\n\n--Net to Gross\nNTG\n140000*1\n/\n\n--Output .INIT file to allow viewing of grid data in post proessor\nINIT\n\n--======================================================================\n\nPROPS\n\nINCLUDE\n'..\INCLUDE\DP_pvt.inc' /\n\nINCLUDE\n'..\INCLUDE\ROCK_RELPERMS.INC' /\n\n--======================================================================\n\nREGIONS\n\nEQLNUM\n140000*1\n/\nSATNUM\n140000*1\n/\nPVTNUM\n140000*1\n/\n\n--======================================================================\n\nSOLUTION\n\nINCLUDE\n'..\INCLUDE\SOLUTION.INC' /\n\n--======================================================================\n\nSUMMARY\n\nINCLUDE\n'..\INCLUDE\SUMMARY.INC' /\n\n--======================================================================\n\nSCHEDULE\n\nINCLUDE\n'..\INCLUDE\{}.INC' /\n\nEND".format(i,i,i,i,i,schedule)  
+        data_file_path = base_path / "../FD_Models/DATA/M_FD_{}.DATA".format(i)
+
+        file = open(data_file_path, "w+")
+        # write petrelfilepath and licence part into file and seed
+        file.write(data_file)
+
+        # close file
+        file.close()
+
 def built_data_file(data_file_path,model_id):
 
-    # if schedule = 1 then 5 spot, for 0, linedrive 
-    data_file = "RUNSPEC\n\nTITLE\nModel_{}\n\nDIMENS\n--NX NY NZ\n200 100 7 /\n\n--Phases\nOIL\nWATER\n\n--DUALPORO\n--NODPPM\n\n--Units\nMETRIC\n\n--Number of Saturation Tables\nTABDIMS\n1 /\n\n--Maximum number of Wells\nWELLDIMS\n10 100 5 10 /\n\n--First Oil\nSTART\n1 OCT 2017 /\n\n--Memory Allocation\nNSTACK\n100 /\n\n--How many warnings allowed, but terminate after first error\nMESSAGES\n11*5000 1 /\n\n--Unified Output Files\nUNIFOUT\n\n--======================================================================\n\nGRID\n--Include corner point geometry model\nINCLUDE\n'..\INCLUDE\GRID.GRDECL'\n/\n\nACTNUM\n140000*1 /\n\n--Porosity\nINCLUDE\n'..\INCLUDE\PORO\M{}.GRDECL'\n/\n\n--Permeability\nINCLUDE\n'..\INCLUDE\PERMX\M{}.GRDECL'\n/\nINCLUDE\n'..\INCLUDE\PERMY\M{}.GRDECL'\n/\nINCLUDE\n'..\INCLUDE\PERMZ\M{}.GRDECL'\n/\n\n--Net to Gross\nNTG\n140000*1\n/\n\n--Output .INIT file to allow viewing of grid data in post proessor\nINIT\n\n--======================================================================\n\nPROPS\n\nINCLUDE\n'..\INCLUDE\DP_pvt.inc' /\n\nINCLUDE\n'..\INCLUDE\ROCK_RELPERMS.INC' /\n\n--======================================================================\n\nREGIONS\n\nEQLNUM\n140000*1\n/\nSATNUM\n140000*1\n/\nPVTNUM\n140000*1\n/\n\n--======================================================================\n\nSOLUTION\n\nINCLUDE\n'..\INCLUDE\SOLUTION.INC' /\n\n--======================================================================\n\nSUMMARY\n\nINCLUDE\n'..\INCLUDE\SUMMARY.INC' /\n\n--======================================================================\n\nSCHEDULE\n\nINCLUDE\n'..\INCLUDE\SCHEDULE_1.INC' /\n\nEND".format(model_id,model_id,model_id,model_id,model_id)  
+    # loading in settings that I set up on init_ABRM.py for this run
+    base_path = Path(__file__).parent
+    pickle_file = base_path / "../Output/variable_settings.pickle"    
+    with open(pickle_file, "rb") as f:
+        setup = pickle.load(f)
+
+    schedule = setup["schedule"]
+    data_file = "RUNSPEC\n\nTITLE\nModel_{}\n\nDIMENS\n--NX NY NZ\n200 100 7 /\n\n--Phases\nOIL\nWATER\n\n--DUALPORO\n--NODPPM\n\n--Units\nMETRIC\n\n--Number of Saturation Tables\nTABDIMS\n1 /\n\n--Maximum number of Wells\nWELLDIMS\n10 100 5 10 /\n\n--First Oil\nSTART\n1 OCT 2017 /\n\n--Memory Allocation\nNSTACK\n100 /\n\n--How many warnings allowed, but terminate after first error\nMESSAGES\n11*5000 1 /\n\n--Unified Output Files\nUNIFOUT\n\n--======================================================================\n\nGRID\n--Include corner point geometry model\nINCLUDE\n'..\INCLUDE\GRID.GRDECL'\n/\n\nACTNUM\n140000*1 /\n\n--Porosity\nINCLUDE\n'..\INCLUDE\PORO\M{}.GRDECL'\n/\n\n--Permeability\nINCLUDE\n'..\INCLUDE\PERMX\M{}.GRDECL'\n/\nINCLUDE\n'..\INCLUDE\PERMY\M{}.GRDECL'\n/\nINCLUDE\n'..\INCLUDE\PERMZ\M{}.GRDECL'\n/\n\n--Net to Gross\nNTG\n140000*1\n/\n\n--Output .INIT file to allow viewing of grid data in post proessor\nINIT\n\n--======================================================================\n\nPROPS\n\nINCLUDE\n'..\INCLUDE\DP_pvt.inc' /\n\nINCLUDE\n'..\INCLUDE\ROCK_RELPERMS.INC' /\n\n--======================================================================\n\nREGIONS\n\nEQLNUM\n140000*1\n/\nSATNUM\n140000*1\n/\nPVTNUM\n140000*1\n/\n\n--======================================================================\n\nSOLUTION\n\nINCLUDE\n'..\INCLUDE\SOLUTION.INC' /\n\n--======================================================================\n\nSUMMARY\n\nINCLUDE\n'..\INCLUDE\SUMMARY.INC' /\n\n--======================================================================\n\nSCHEDULE\n\nINCLUDE\n'..\INCLUDE\{}.INC' /\n\nEND".format(model_id,model_id,model_id,model_id,model_id,schedule)  
     
     file = open(data_file_path, "w+")
     # write petrelfilepath and licence part into file and seed
@@ -415,7 +441,6 @@ def built_data_file(data_file_path,model_id):
 
 def save_swarm_performance(swarm_performance):
 
-    # loading in settings that I set up on init_ABRM.py for this run
     # loading in settings that I set up on init_ABRM.py for this run
     base_path = Path(__file__).parent
     pickle_file = base_path / "../Output/variable_settings.pickle"    
@@ -522,9 +547,11 @@ def obj_fkt_FD(x):
 
     # split into Ev tD F Phi and LC column
     FD_performance = np.reshape(FD_performance,(5,len(FD_performance)//5)).T
+    # FD_performance = np.reshape(FD_performance,(6,len(FD_performance)//6)).T
 
     # convert to df
     columns = ["EV","tD","F","Phi","LC"]
+    # columns = ["EV","tD","F","Phi","LC","tof"]
 
     FD_performance = pd.DataFrame(data = FD_performance, columns= columns)
 
@@ -566,13 +593,6 @@ def convert_particle_values(x):
         # discrete values
         elif continuous_discrete[index] == 1:
             converted_vals[index] = np.around((value * (converted_vals_range[index,1] - converted_vals_range[index,0]) + converted_vals_range[index,0]))
-
-        # # continous values
-        # if converted_vals_range[index,1] == 1:
-        #     converted_vals[index] = np.around((value * (converted_vals_range[index,1] - converted_vals_range[index,0]) + converted_vals_range[index,0]),decimals= 3)
-        # # discrete values
-        # else: 
-        #     converted_vals[index] = np.around((value * (converted_vals_range[index,1] - converted_vals_range[index,0]) + converted_vals_range[index,0]))
 
     # transpose back to initial setup
     converted_particle_values = np.array(converted_vals.T)
@@ -917,6 +937,7 @@ def plot_box(df,setup_all,dataset):
 
 def save_best_clustered_models(df_best,datasets):
     
+
     n_clusters = df_best.cluster.max()
     
     best_models_to_save = pd.DataFrame()
@@ -981,14 +1002,14 @@ def save_best_clustered_models(df_best,datasets):
             DP_pvt_all_path = include_all_path + "DP_pvt.INC"
             GRID_all_path = include_all_path + "GRID.GRDECL"
             ROCK_RELPERMS_all_path = include_all_path + "ROCK_RELPERMS.INC"
-            SCHEDULE_all_path = include_all_path + "SCHEDULE_1.INC"
+            SCHEDULE_all_path = include_all_path + "5_spot.INC"
             SOLUTION_all_path = include_all_path + "SOLUTION.INC"
             SUMMARY_all_path = include_all_path + "SUMMARY.INC"
 
             DP_pvt_best_path = include_best_path + "DP_pvt.INC"
             GRID_best_path = include_best_path + "GRID.GRDECL"
             ROCK_RELPERMS_best_path = include_best_path + "ROCK_RELPERMS.INC"
-            SCHEDULE_best_path = include_best_path + "SCHEDULE_1.INC"
+            SCHEDULE_best_path = include_best_path + "5_spot.INC"
             SOLUTION_best_path = include_best_path + "SOLUTION.INC"
             SUMMARY_best_path = include_best_path + "SUMMARY.INC"
 
