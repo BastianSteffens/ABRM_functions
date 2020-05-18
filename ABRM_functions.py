@@ -110,8 +110,8 @@ def built_batch_file_for_petrel_models_uniform(x):
     #  models.
     particle = x    # all particles together    
     particle_1d_array =  particle.reshape((particle.shape[0]*particle.shape[1]))    # all particles together                
-    particlesperwf = np.linspace(0,n_modelsperbatch,n_parallel_petrel_licenses, endpoint = False,dtype = int) # this is how it should be. This is the name that each variable has per model in the petrel wf
-    # particlesperwf = np.linspace(25,27,n_modelsperbatch, endpoint = True,dtype = int) # use 25,26,27 because of petrel wf. there the variables are named like that and cant bothered to change that.
+    # particlesperwf = np.linspace(0,n_modelsperbatch,n_parallel_petrel_licenses, endpoint = False,dtype = int) # this is how it should be. This is the name that each variable has per model in the petrel wf
+    particlesperwf = np.linspace(25,27,n_modelsperbatch, endpoint = True,dtype = int) # use 25,26,27 because of petrel wf. there the variables are named like that and cant bothered to change that.
 
     single_wf = [str(i) for i in np.tile(particlesperwf,n_particles)]
     single_particle_in_wf = [str(i) for i in np.arange(0,n_particles+1)]
@@ -180,9 +180,7 @@ def built_batch_file_for_petrel_models_uniform(x):
                 # training images
                 elif parameter_type_str[j,k] == 2:
                     for i in range(1,n_trainingimages+1):
-                        print("TI test")
-                        print(particle_str[j,k])
-                        print(str(float(i)))
+           
                         if particle_str[j,k] == str(float(i)):
                             parameter = '/sParm {}_{}_{}={} ^\n'.format(parameter_name_str[j,k],str(i),single_wf[j],parameter_name_str[j,k])
                             file.write(parameter)
@@ -269,10 +267,12 @@ def run_batch_file_for_petrel_models(x):
             subprocess.call([run_multibat])
             # not continue until lock files are gone and petrel is finished.
             time.sleep(120)
-            while len(glob.glob(lock_files)) >= 1:
+            kill_timer = 1 # waits 2h before petrel project is shut down if it has a bug 
+            while len(glob.glob(lock_files)) >= 1 or kill_timer < 7200:
+                kill_timer += 1
                 time.sleep(5)
             time.sleep(30)
-            subprocess.call([kill_petrel])
+            subprocess.call([kill_petrel]) # might need to add something that removes lock file here.
 
 
         print('Building models complete')
@@ -794,7 +794,7 @@ def best_model_selection_UMAP_HDBSCAN(df,setup_all,dataset,n_neighbors,min_clust
         columns = setup_all[dataset[0]]["columns"]
         df_best =df[(df.misfit <= misfit_tolerance)].copy()
         df_best_for_clustering = df_best[columns].copy()
-        
+        df_best_for_clustering["LC"] = df_best.LC.copy()
         # Create UMAP reducer
         reducer    = umap.UMAP(n_neighbors=n_neighbors)
         embeddings = reducer.fit_transform(df_best_for_clustering)
