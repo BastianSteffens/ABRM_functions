@@ -21,6 +21,7 @@ from plotly.subplots import make_subplots
 import re
 from pathlib import Path
 import glob
+from pyentrp import entropy as ent
 
 ########################
 
@@ -64,26 +65,31 @@ def swarm(x_swarm):
     # evaluate model performance
     n_particles = x_swarm.shape[0]
     misfit_swarm = np.zeros(n_particles)
+    entropy_swarm = np.zeros(n_particles)
+    combined_misfit_entropy_swarm = np.zeros(n_particles)
     swarm_performance = pd.DataFrame()
     LC_swarm = np.zeros(n_particles)
 
     for i in range(n_particles):
-        misfit_particle, particle_performance = particle(x_swarm[i],i) # evaluate
+        particle_misfit, particle_performance, particle_entropy,particle_combined_misfit_entropy = particle(x_swarm[i],i) # evaluate
         LC_swarm[i] = particle_performance.LC[0]
-        misfit_swarm[i] = misfit_particle # store for return of function
+        misfit_swarm[i] = particle_misfit # store for return of function
+        entropy_swarm[i] = particle_entropy
+        combined_misfit_entropy_swarm[i] = particle_combined_misfit_entropy
         swarm_performance = swarm_performance.append(particle_performance) # store for data saving
     
-    print('swarm {}'.format(misfit_swarm))
+    print('swarm {}'.format(combined_misfit_entropy_swarm))
 
-    ### 8 ###
+    ### 12 ###
     # save swarm_particle values and swarm_performance in df also save all models
     save_swarm_performance(swarm_performance)
 
-    save_particle_values_converted(x_swarm_converted,misfit_swarm,LC_swarm)
+    save_particle_values(x_swarm, x_swarm_converted,misfit_swarm,LC_swarm,entropy_swarm,combined_misfit_entropy_swarm)
     
     save_all_models()
     
-    return np.array(misfit_swarm)	
+    return np.array(combined_misfit_entropy_swarm)	
+    # return np.array(misfit_swarm)	
 
 def built_batch_file_for_petrel_models_uniform(x):
 
@@ -282,28 +288,35 @@ def run_batch_file_for_petrel_models(x):
 
 def particle(x,i):
 
-    ### 5 ###
+    ### 8 ###
     # Objective Function run flow diagnostics
     particle_performance = obj_fkt_FD(i)
     print("FD_performance worked")
 
-    ### 6 ###
+    ### 9 ###
     # Compute Performance
-    misfit = misfit_fkt_F_Phi_curve(particle_performance["F"],particle_performance["Phi"])
-    print('misfit {}'.format(misfit))
+    particle_misfit = misfit_fkt_F_Phi_curve(particle_performance["F"],particle_performance["Phi"])
+    print('misfit {}'.format(particle_misfit))
 
-    # # store misfit and particle no in dataframe
+    ### 10 ###
+    # Compute entropy
+    particle_entropy = compute_particle_paramter_entropy(x)
+
+    ### 11 ###
+    # Compute entropy and misfit combined
+    particle_combined_misfit_entropy = compute_combined_misfit_entropy(particle_misfit,particle_entropy)
+
+    # store misfit and particle no in dataframe
     particle_performance["particle_no"] = i
-    particle_performance["misfit"] = misfit
+    particle_performance["misfit"] = particle_misfit
 
-    return misfit,particle_performance
+    return particle_misfit,particle_performance, particle_entropy, particle_combined_misfit_entropy
 
 def save_all_models():
     
     # loading in settings that I set up on init_ABRM.py for this run
-    # loading in settings that I set up on init_ABRM.py for this run
     base_path = Path(__file__).parent
-    pickle_file = base_path / "../Output/variable_settings.pickle"    # pickle_file = "C:/AgentBased_RM/Output/2020_04_23_12_49/variable_settings_saved.pickel"
+    pickle_file = base_path / "../Output/variable_settings.pickle"    
     with open(pickle_file, "rb") as f:
         setup = pickle.load(f)
     save_models = setup["save_all_models"]
@@ -332,7 +345,7 @@ def save_all_models():
             os.makedirs(permz_path)
             os.makedirs(poro_path)
 
-            #cop and paste generic files into Data
+            #copy and paste generic files into Data
             DP_pvt_src_path = source_path + "\INCLUDE\DP_pvt.INC"
             GRID_src_path = source_path + "\INCLUDE\GRID.GRDECL"
             ROCK_RELPERMS_src_path = source_path + "\INCLUDE\ROCK_RELPERMS.INC"
@@ -476,10 +489,9 @@ def save_swarm_performance(swarm_performance):
 
         swarm_performance.to_csv(file_path,index=False)        
 
-def save_particle_values_converted(x_swarm_converted,misfit_swarm,LC_swarm):
+def save_particle_values(x_swarm, x_swarm_converted,misfit_swarm,LC_swarm,entropy_swarm,combined_misfit_entropy_swarm):
 
     # loading in settings that I set up on init_ABRM.py for this run
-        # loading in settings that I set up on init_ABRM.py for this run
     base_path = Path(__file__).parent
     pickle_file = base_path / "../Output/variable_settings.pickle"
     with open(pickle_file, "rb") as f:
@@ -489,47 +501,67 @@ def save_particle_values_converted(x_swarm_converted,misfit_swarm,LC_swarm):
     folder_path = setup["folder_path"]
 
     particle_values_converted = pd.DataFrame(data = x_swarm_converted, columns= columns)
+    particle_values = pd.DataFrame(data = x_swarm, columns= columns)
 
     # add misfit to df
     particle_values_converted["misfit"]= misfit_swarm
+    particle_values["misfit"]= misfit_swarm
 
     # add particle no to df
     particle_no = np.arange(x_swarm_converted.shape[0], dtype = int)
     particle_values_converted["particle_no"] = particle_no
+    particle_values["particle_no"] = particle_no
 
     # add LC to df
     particle_values_converted["LC"] = LC_swarm
+    particle_values["LC"] = LC_swarm
+
+    # add entropy to df
+    particle_values_converted["entropy_swarm"] = entropy_swarm
+    particle_values["entropy_swarm"] = entropy_swarm
+
+    # add combined entropy_misfit to df
+    particle_values_converted["combined_misfit_entropy_swarm"] = combined_misfit_entropy_swarm
+    particle_values["combined_misfit_entropy_swarm"] = combined_misfit_entropy_swarm
 
     # filepath setup
     output_file_partilce_values_converted = "/swarm_particle_values_converted_all_iter.csv"
+    output_file_partilce_values = "/swarm_particle_values_all_iter.csv"
 
-    file_path = folder_path + output_file_partilce_values_converted
+    file_path_particles_values_converted = folder_path + output_file_partilce_values_converted
+    file_path_particles_values = folder_path + output_file_partilce_values
 
     # check if folder exists
     if not os.path.exists(folder_path):
         os.makedirs(folder_path)
 
-    if os.path.exists(file_path):
+    if os.path.exists(file_path_particles_values_converted):
 
-        swarm_particle_values_converted_all_iter = pd.read_csv(file_path)
+        swarm_particle_values_converted_all_iter = pd.read_csv(file_path_particles_values_converted)
+        swarm_particle_values_all_iter = pd.read_csv(file_path_particles_values)
 
         #update iterations
         iteration = swarm_particle_values_converted_all_iter.iteration.max() + 1
         particle_values_converted["iteration"] = iteration
+        particle_values["iteration"] = iteration
 
         # appends the performance of the swarm at a single iteration to the swarm performance of all previous iterations
         swarm_particle_values_converted_all_iter = swarm_particle_values_converted_all_iter.append(particle_values_converted)
+        swarm_particle_values_all_iter = swarm_particle_values_all_iter.append(particle_values)
 
         # save again
-        swarm_particle_values_converted_all_iter.to_csv(file_path,index=False)
+        swarm_particle_values_converted_all_iter.to_csv(file_path_particles_values_converted,index=False)
+        swarm_particle_values_all_iter.to_csv(file_path_particles_values,index=False)
 
     else:
         # this should only happen in first loop.
 
         # number of iterations
         particle_values_converted["iteration"] = 0
+        particle_values["iteration"] = 0
 
-        particle_values_converted.to_csv(file_path,index=False) 
+        particle_values_converted.to_csv(file_path_particles_values_converted,index=False) 
+        particle_values.to_csv(file_path_particles_values,index=False) 
 
 def obj_fkt_FD(x):
 
@@ -725,6 +757,65 @@ def compute_LC(F,Phi):
     LC = 2*(np.sum(((np.array(F[0:-1]) + np.array(F[1:]))/2*v))-0.5)
     return LC
 
+def compute_particle_paramter_entropy(x):
+    # the idea for this function is the following: for each particle, open up the csv file with the particle_parameter values. 
+    # add the current particles values to that list and calculate the entropy for each parameter column. 
+    # add the entropy for each column up to total entropy
+    # the aim is to maximize this value. 
+    # have to check if there is a way to combine this maximisation with the minimisation of the rmse. mzaybe take some sort of inverse 
+    # Another thing to keep in mind: should I include all values from the proceeding n iterations into that entropy calculations or limit it to n iterations prior?
+
+    # loading in settings that I set up on init_ABRM.py for this run
+    base_path = Path(__file__).parent
+    pickle_file = base_path / "../Output/variable_settings.pickle"
+    with open(pickle_file, "rb") as f:
+        setup = pickle.load(f)
+
+    columns = setup["columns"]
+    folder_path = setup["folder_path"]
+
+    # filepath 
+    output_file_partilce_values = "/swarm_particle_values_all_iter.csv"
+    file_path = folder_path + output_file_partilce_values
+
+    # check if file exists (after first iteration it should)
+    if os.path.exists(file_path):
+        
+        swarm_particle_values_all_iter = pd.read_csv(file_path)
+
+        # only look at particle values, not at LC,misfit etc.
+        swarm_particle_values_all_iter = swarm_particle_values_all_iter[columns].copy()
+
+        # appends the performance of the swarm at a single iteration to the swarm performance of all previous iterations
+        x_list = list(x)
+        df_x = pd.DataFrame(columns= columns )
+        df_x.loc[len(df_x)] = x_list
+        swarm_particle_values_all_iter = swarm_particle_values_all_iter.append(df_x, ignore_index = True)
+        all_parameters_entropy = []
+        parameter_entropy = []
+
+        # iterate through columns and calculate entropy
+        for i in range(0,len(columns)):
+
+            parameter = np.round(swarm_particle_values_all_iter[columns[i]],2)
+            # print(parameter)
+            parameter_entropy = ent.shannon_entropy(parameter)
+            all_parameters_entropy.append(parameter_entropy)
+
+
+        # sum up entropy for that particle
+        particle_entropy = np.sum(all_parameters_entropy)
+
+    else:
+        particle_entropy = 0
+    
+    return particle_entropy
+
+def compute_combined_misfit_entropy(particle_misfit,particle_entropy):
+    combined_misfit_entropy =1 
+
+    return combined_misfit_entropy
+    
 ### Postprocessing functions ### 
 
 def read_data(data_to_process):
@@ -1161,320 +1252,3 @@ def plot_performance(df_performance,df_position,FD_targets,setup_all,dataset,mis
                      showlegend = False)
 
     fig.show()
-
-
-# def built_batch_file_for_petrel_models(x):
-
-#     # loading in settings that I set up on init_ABRM.py for this run
-#     base_path = Path(__file__).parent
-#     pickle_file = base_path / "../Output/variable_settings.pickle"
-#     print(pickle_file)
-#     with open(pickle_file, "rb") as f:
-#         setup = pickle.load(f)
-
-#     seed = setup["set_seed"]
-#     n_modelsperbatch = setup["n_modelsperbatch"]
-#     runworkflow = setup["runworkflow"]
-#     n_particles = setup["n_particles"]
-#     n_parallel_petrel_licenses = setup["n_parallel_petrel_licenses"]
-#     petrel_path = setup["petrel_path"]
-
-#     if runworkflow == "WF_2020_04_16":
-#         #  Petrel has problems with batch files that get too long --> if I run
-#         #  20+ models at once. Therefore split it up in to sets of 3 particles / models
-#         #  per Petrel license and then run them in parallel. hard on CPU but
-#         #  shouldnt be too time expensive. Parameter iterations = number of
-#         #  models.
-#         particle = x    # all particles together    
-#         particle_1d_array =  x.reshape((x.shape[0]*x.shape[1]))    # all particles together                
-#         particlesperwf = np.linspace(25,27,n_modelsperbatch, endpoint = True,dtype = int) # use 25,26,27 because of petrel wf. there the variables are named like that and cant bothered to change that.
-#         n_particles = x.shape[0]    # how many particles
-#         single_wf = [str(i) for i in np.tile(particlesperwf,n_particles)]
-#         single_particle_in_wf = [str(i) for i in np.arange(0,n_particles+1)]
-#         particle_str = np.asarray([str(i) for i in particle_1d_array]).reshape(x.shape[0],x.shape[1])
-#         slicer_length = int(np.ceil(n_particles/n_modelsperbatch)) # always rounds up.
-#         slicer = np.arange(0,slicer_length,dtype = int)     # slicer = np.arange(0,(n_particles/n_modelsperbatch),dtype = int)
-
-#         # might need to use these variables if I also want to generate multibat files (see bottom of file)
-#         # n_parallel_petrel_licenses = 3  # how many petrel licenses can I call in parallel before I crash the CPU of my computer 3 for my machine
-#         # parallel_petrel_licenses = np.arange(0,n_parallel_petrel_licenses)
-#         # n_multibatfiles = int(np.ceil(n_particles/n_modelsperbatch/n_parallel_petrel_licenses)) # how many multibat files will I need to create
-#         # multibatfiles = np.arange(0,n_multibatfiles,dtype = int)
-
-#         #  Which TI to use (required for Petrel), still testing this out
-#         #  Idea is to swap one of the "not in use" sings with the TI that were
-#         #  using and renaming that string to TI1 and then call that with petrel.
-#         #  The other TIs (not in use) will also appear as string variables in
-#         #  the petrel workflow, but will remain unused.
-#         TI1 = np.array([ ['None'] * 4 ]*n_particles) 
-#         TI2 = np.array([ ['None'] * 4 ]*n_particles)  
-#         TI3 = np.array([ ['None'] * 4 ]*n_particles)
-
-#         for index in range (0, n_particles):
-#         # which Training image for zone 1
-#             if particle[index,0] == 1:
-#                 particle_str[index,0] = "TI1_1"
-#                 TI1[index,0] = "TI1"
-#             elif particle[index,0] == 2:
-#                 particle_str[index,0] = "TI1_2"
-#                 TI1[index,1] = "TI1"
-#             elif particle[index,0] == 3:
-#                 particle_str[index,0] = "TI1_3"
-#                 TI1[index,2] = "TI1"
-#             else:
-#                 particle_str[index,0] = "TI1_4"
-#                 TI1[index,3] = "TI1"
-
-#         # which Training image for zone 2
-#             if particle[index,7] == 1:
-#                 particle_str[index,7] = "TI2_1"
-#                 TI2[index,0] = "TI2" # figure out what this is for again
-#             elif particle[index,7] == 2:
-#                 particle_str[index,7] = "TI2_2"
-#                 TI2[index,1] = "TI2"
-#             elif particle[index,7] == 3:
-#                 particle_str[index,7] = "TI2_3"
-#                 TI2[index,2] = "TI2"
-#             else:
-#                 particle_str[index,7] = "TI2_4"
-#                 TI2[index,3] = "TI2"
-
-#         # which Training image for zone 3
-#             if particle[index,14] == 1:
-#                 particle_str[index,14] = "TI3_1"
-#                 TI3[index,0] = "TI3" # figure out what this is for again
-#             elif particle[index,14] == 2:
-#                 particle_str[index,14] = "TI3_2"
-#                 TI3[index,1] = "TI3"
-#             elif particle[index,14] == 3:
-#                 particle_str[index,14] = "TI3_3"
-#                 TI3[index,2] = "TI3"
-#             else:
-#                 particle_str[index,14] = "TI3_4"
-#                 TI3[index,3] = "TI3"
-
-#         # set up file path to petrel, petrel license and petrel projects and seed
-#         callpetrel = 'call "{}" ^'.format(petrel_path)
-#         license = '\n/licensePackage Standard ^'
-#         runworkflow = '\n/runWorkflow "{}" ^\n'.format(runworkflow)
-#         seed_petrel = '/nParm seed={} ^\n'.format(seed) 
-
-
-#         projectpath = []
-#         parallel_petrel_licenses = np.arange(0,n_parallel_petrel_licenses,1)
-#         for i in range(0,len(parallel_petrel_licenses)):
-#             # path_petrel_projects = Path(__file__).parent / "../"
-#             # base_path = Path(__file__).parent
-#             path_petrel_projects = base_path / "../Petrel_Projects/ABRM_"
-#             # path = '\n"C:/AgentBased_RM/Petrel_Projects/ABRM_{}.pet"'.format(parallel_petrel_licenses[i])
-#             path = '\n"{}{}.pet"'.format(path_petrel_projects,parallel_petrel_licenses[i])
-#             print(path)
-#             projectpath.append(path)
-#         projectpath_repeat = projectpath * (len(slicer))    
-
-#         quiet = '/quiet ^' #wf wont pop up
-#         noshowpetrel = '\n/nosplashscreen ^' # petrel wont pop up
-#         exit = '\n/exit ^'  # exit petrel
-#         exit_2 = '\nexit' 	# exit bash file
-    
-#         # set path for batch file to open and start writing into it
-#         for _i, index_2 in enumerate(slicer):
-            
-#             # path to petrel project
-#             path = projectpath_repeat[index_2]
-
-#             # path to batch file
-#             run_petrel_batch = base_path / "../ABRM_functions/batch_files/run_petrel_{}.bat".format(index_2)
-#             # run_petrel_batch = 'C:/AgentBased_RM/ABRM_functions/batch_files/run_petrel_{}.bat'.format(index_2)
-
-#             # open batch file to start writing into it / updating it
-#             file = open(run_petrel_batch, "w+")
-
-#             # write petrelfilepath and licence part into file and seed
-#             file.write(callpetrel)
-#             file.write(license)
-#             file.write(runworkflow)
-#             file.write(seed_petrel)
-
-#             # generate n models per batch file / petrel license
-#             variables_per_model = np.arange((n_modelsperbatch*slicer[index_2]),(n_modelsperbatch*(index_2+1)))
-#             for _index_3, j in enumerate(variables_per_model):
-
-#                 # parameter setup so that particles can be inserted into petrel workflow {} are place holders that will be fileld in with variable values,changing with each workflow
-#                 Modelname = '/sparm ModelName_{}=M{} ^\n'.format(single_wf[j],single_particle_in_wf[j])
-
-#                 # TI1 zonation, TI seleciton, Curvature prob
-#                 TI1_1 = '/sparm TI1_1_{}={} ^\n'.format(single_wf[j],TI1[j,0])
-#                 TI1_2 = '/sparm TI1_2_{}={} ^\n'.format(single_wf[j],TI1[j,1])
-#                 TI1_3 = '/sparm TI1_3_{}={} ^\n'.format(single_wf[j],TI1[j,2])
-#                 TI1_4 = '/sparm TI1_4_{}={} ^\n'.format(single_wf[j],TI1[j,3])
-#                 F1_I_MIN = '/nParm F1_I_MIN_{}={} ^\n'.format(single_wf[j],particle_str[j,1])
-#                 F1_I_MAX = '/nParm F1_I_MAX_{}={} ^\n'.format(single_wf[j],particle_str[j,2])
-#                 F1_J_MIN = '/nParm F1_J_MIN_{}={} ^\n'.format(single_wf[j],particle_str[j,3])
-#                 F1_J_MAX = '/nParm F1_J_MAX_{}={} ^\n'.format(single_wf[j],particle_str[j,4])
-#                 F1_K_MIN = '/nParm F1_K_MIN_{}={} ^\n'.format(single_wf[j],particle_str[j,5])
-#                 F1_K_MAX = '/nParm F1_K_MAX_{}={} ^\n'.format(single_wf[j],particle_str[j,6])
-#                 F1_Curve_Prob = '/nParm F1_Curve_Prob_{}={} ^\n'.format(single_wf[j],particle_str[j,21])
-
-#                 # TI2 zonation, TI seleciton, Curvature prob
-#                 TI2_1 = '/sparm TI2_1_{}={} ^\n'.format(single_wf[j],TI2[j,0])
-#                 TI2_2 = '/sparm TI2_2_{}={} ^\n'.format(single_wf[j],TI2[j,1])
-#                 TI2_3 = '/sparm TI2_3_{}={} ^\n'.format(single_wf[j],TI2[j,2])
-#                 TI2_4 = '/sparm TI2_4_{}={} ^\n'.format(single_wf[j],TI2[j,3])
-#                 F2_I_MIN = '/nParm F2_I_MIN_{}={} ^\n'.format(single_wf[j],particle_str[j,8])
-#                 F2_I_MAX = '/nParm F2_I_MAX_{}={} ^\n'.format(single_wf[j],particle_str[j,9])
-#                 F2_J_MIN = '/nParm F2_J_MIN_{}={} ^\n'.format(single_wf[j],particle_str[j,10])
-#                 F2_J_MAX = '/nParm F2_J_MAX_{}={} ^\n'.format(single_wf[j],particle_str[j,11])
-#                 F2_K_MIN = '/nParm F2_K_MIN_{}={} ^\n'.format(single_wf[j],particle_str[j,12])
-#                 F2_K_MAX = '/nParm F2_K_MAX_{}={} ^\n'.format(single_wf[j],particle_str[j,13])
-#                 F2_Curve_Prob = '/nParm F2_Curve_Prob_{}={} ^\n'.format(single_wf[j],particle_str[j,22])
-
-#                 # TI2 zonation, TI seleciton, Curvature prob
-#                 TI3_1 = '/sparm TI3_1_{}={} ^\n'.format(single_wf[j],TI3[j,0])
-#                 TI3_2 = '/sparm TI3_2_{}={} ^\n'.format(single_wf[j],TI3[j,1])
-#                 TI3_3 = '/sparm TI3_3_{}={} ^\n'.format(single_wf[j],TI3[j,2])
-#                 TI3_4 = '/sparm TI3_4_{}={} ^\n'.format(single_wf[j],TI3[j,3])
-#                 F3_I_MIN = '/nParm F3_I_MIN_{}={} ^\n'.format(single_wf[j],particle_str[j,15])
-#                 F3_I_MAX = '/nParm F3_I_MAX_{}={} ^\n'.format(single_wf[j],particle_str[j,16])
-#                 F3_J_MIN = '/nParm F3_J_MIN_{}={} ^\n'.format(single_wf[j],particle_str[j,17])
-#                 F3_J_MAX = '/nParm F3_J_MAX_{}={} ^\n'.format(single_wf[j],particle_str[j,18])
-#                 F3_K_MIN = '/nParm F3_K_MIN_{}={} ^\n'.format(single_wf[j],particle_str[j,19])
-#                 F3_K_MAX = '/nParm F3_K_MAX_{}={} ^\n'.format(single_wf[j],particle_str[j,20])
-#                 F3_Curve_Prob = '/nParm F3_Curve_Prob_{}={} ^\n'.format(single_wf[j],particle_str[j,23])
-
-#                 # Permeabilities
-#                 FracpermX = '/nParm FracPermX_{}={} ^\n'.format(single_wf[j],particle_str[j,24])
-#                 MatrixpermX = '/nParm MatrixPermX_{}={} ^\n'.format(single_wf[j],particle_str[j,25])
-#                 FracpermY = '/nParm FracPermY_{}={} ^\n'.format(single_wf[j],particle_str[j,26])
-#                 MatrixpermY = '/nParm MatrixPermY_{}={} ^\n'.format(single_wf[j],particle_str[j,27])
-#                 FracpermZ = '/nParm FracPermZ_{}={} ^\n'.format(single_wf[j],particle_str[j,28])
-#                 MatrixpermZ = '/nParm MatrixPermZ_{}={} ^\n'.format(single_wf[j],particle_str[j,29])
-                
-#                 # write into file
-#                 file.write(Modelname)
-#                 file.write(TI1_1)
-#                 file.write(TI1_2)
-#                 file.write(TI1_3)
-#                 file.write(TI1_4)
-#                 file.write(TI2_1)
-#                 file.write(TI2_2)
-#                 file.write(TI2_3)
-#                 file.write(TI2_4)
-#                 file.write(TI3_1)
-#                 file.write(TI3_2)
-#                 file.write(TI3_3)
-#                 file.write(TI3_4)
-#                 file.write(F1_I_MIN)
-#                 file.write(F1_I_MAX)
-#                 file.write(F1_J_MIN)
-#                 file.write(F1_J_MAX)
-#                 file.write(F1_K_MIN)
-#                 file.write(F1_K_MAX)
-#                 file.write(F2_I_MIN)
-#                 file.write(F2_I_MAX)
-#                 file.write(F2_J_MIN)
-#                 file.write(F2_J_MAX)
-#                 file.write(F2_K_MIN)
-#                 file.write(F2_K_MAX)
-#                 file.write(F3_I_MIN)
-#                 file.write(F3_I_MAX)
-#                 file.write(F3_J_MIN)
-#                 file.write(F3_J_MAX)
-#                 file.write(F3_K_MIN)
-#                 file.write(F3_K_MAX)
-#                 file.write(F1_Curve_Prob)
-#                 file.write(F2_Curve_Prob)
-#                 file.write(F3_Curve_Prob)
-#                 file.write(FracpermX)
-#                 file.write(MatrixpermX) 
-#                 file.write(FracpermY)
-#                 file.write(MatrixpermY)
-#                 file.write(FracpermZ)
-#                 file.write(MatrixpermZ)
-#             # write into file
-#             file.write(quiet)
-#             file.write(noshowpetrel)
-#             file.write(exit)
-#             file.write(path)
-#             file.write(exit_2)
-
-
-#             # close file
-#             file.close()
-
-#     elif runworkflow == "WF_test":
-    
-#         particle = x    # all particles together    
-#         particle_1d_array =  x.reshape((x.shape[0]*x.shape[1]))    # all particles together                
-#         # n_modelsperbatch = 3    # limitation for how logn a single petrel workflow batch file can be ==> 3 models
-#         particlesperwf = np.linspace(25,30,n_modelsperbatch, endpoint = True,dtype = int) # use 25,26,27 because of petrel wf. there the variables are named like that and cant bothered to change that.
-#         n_particles = x.shape[0]    # how many particles
-#         single_wf = [str(i) for i in np.tile(particlesperwf,n_particles)]
-#         single_particle_in_wf = [str(i) for i in np.arange(0,n_particles+1)]
-#         particle_str = np.asarray([str(i) for i in particle_1d_array]).reshape(x.shape[0],x.shape[1])
-#         slicer_length = int(np.ceil(n_particles/n_modelsperbatch)) # always rounds up.
-#         slicer = np.arange(0,slicer_length,dtype = int)     # slicer = np.arange(0,(n_particles/n_modelsperbatch),dtype = int)
-
-#         # set up file path to petrel, petrel license and petrel projects and seed
-#         callpetrel = 'call "{}" ^'.format(petrel_path)  
-#         license = '\n/licensePackage Standard ^'
-#         runworkflow = '\n/runWorkflow "{}" ^\n'.format(runworkflow)
-#         seed_petrel = '/nParm seed={} ^\n'.format(seed) 
-
-#         projectpath = []
-#         parallel_petrel_licenses = np.arange(0,n_parallel_petrel_licenses,1)
-#         for i in range(0,len(parallel_petrel_licenses)):
-#             path_petrel_projects = base_path / "../Petrel_Projects/ABRM_"
-#             # path = '\n"C:/AgentBased_RM/Petrel_Projects/ABRM_{}.pet"'.format(parallel_petrel_licenses[i])
-#             path = '\n"{}{}.pet"'.format(path_petrel_projects,parallel_petrel_licenses[i])
-#             projectpath.append(path)
-#         projectpath_repeat = projectpath * (len(slicer))    
-
-#         quiet = '/quiet ^' #wf wont pop up
-#         noshowpetrel = '\n/nosplashscreen ^' # petrel wont pop up
-#         exit = '\n/exit ^'  # exit petrel
-#         exit_2 = '\nexit' 	# exit bash file
-    
-#         # set path for batch file to open and start writing into it
-#         for _i, index_2 in enumerate(slicer):
-            
-#             # path to petrel project
-#             path = projectpath_repeat[index_2]
-
-#             # path to batch file
-#             run_petrel_batch = base_path / "../ABRM_functions/batch_files/run_petrel_{}.bat".format(index_2)
-
-#             # open batch file to start writing into it / updating it
-#             file = open(run_petrel_batch, "w+")
-
-#             # write petrelfilepath and licence part into file and seed
-#             file.write(callpetrel)
-#             file.write(license)
-#             file.write(runworkflow)
-#             file.write(seed_petrel)
-
-#             # generate n models per batch file / petrel license
-#             variables_per_model = np.arange((n_modelsperbatch*slicer[index_2]),(n_modelsperbatch*(index_2+1)))
-#             for _index_3, j in enumerate(variables_per_model):
-
-#                 # parameter setup so that particles can be inserted into petrel workflow {} are place holders that will be fileld in with variable values,changing with each workflow
-#                 Modelname = '/sparm ModelName_{}=M{} ^\n'.format(single_wf[j],single_particle_in_wf[j])
-#                 # TI1 zonation, TI seleciton, Curvature prob
-#                 Region = '/nParm Region_{}={} ^\n'.format(single_wf[j],particle_str[j,0])
-#                 Perm = '/nParm Perm_{}={} ^\n'.format(single_wf[j],particle_str[j,1])
-#                 # example variable = "/{}Parm {}_{} = {}".fromat(n or s, column name, model name, value)
-
-#                 # write into file
-#                 file.write(Modelname)
-#                 file.write(Region)
-#                 file.write(Perm)
-                
-#             # write into file
-#             file.write(quiet)
-#             file.write(noshowpetrel)
-#             file.write(exit)
-#             file.write(path)
-#             file.write(exit_2)
-
-#             # close file
-#             file.close()
