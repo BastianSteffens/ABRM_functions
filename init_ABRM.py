@@ -25,7 +25,7 @@ def init():
     ###### Set hyperparameters for PSO ######
     n_parameters = 30
     n_iters = 20
-    n_particles = 21 # always pick multiple of 3. need to fix this 
+    n_particles = 30 # always pick multiple of 3. need to fix this 
     min_bound = 0 * np.ones(n_parameters)
     max_bound = 1 * np.ones(n_parameters)
     bounds = (min_bound, max_bound)
@@ -33,7 +33,7 @@ def init():
     cognitive_component = 2.05 # 2.05 ; 1.494 with 0 should all converge to the global minima,however good that is. 
     inertia = 0.9
     damping_factor = 0.99
-    n_neighbors  =  1
+    n_neighbors  =  n_particles
     distance_measure  = 2 # 2 = euclidian 1 = manhatten
     dimensions = n_parameters
     options = {'c1': social_component, 'c2': cognitive_component, 'w':inertia, 'k':n_neighbors, 'p':distance_measure,'d':damping_factor}
@@ -81,6 +81,8 @@ def init():
     # what schedule 5_spot or line_drive
     schedule = "5_spot"
 
+    penalty = "power_2"
+
     # seed
     set_seed = random.randint(0,10000000)
     random.seed(set_seed)
@@ -91,7 +93,7 @@ def init():
     # which workflow to run in petrel (atm onlz 1 wf)
     runworkflow = "WF_2020_04_16" #"WF_2020_04_16"#"WF_2019_09_16", "WF_test" "WF_2020_05_08"
     # run with petrel or without for test
-    petrel_on = False
+    petrel_on = True
     petrel_path = "C:/Program Files/Schlumberger/Petrel 2017/Petrel.exe"
 
     # if all models should be explicitly saved and not overwritten. 
@@ -99,12 +101,12 @@ def init():
 
     setup = dict(varminmax = varminmax, columns = columns, set_seed = set_seed, parameter_type = parameter_type,
                  n_modelsperbatch = n_modelsperbatch, runworkflow = runworkflow, n_iters = n_iters,
-                 n_particles = n_particles,  Phi_points_target = Phi_points_target,
+                 n_particles = n_particles,n_parameters = n_parameters, Phi_points_target = Phi_points_target,
                  F_points_target =F_points_target, petrel_on = petrel_on,velocity_clamp = velocity_clamp, 
-                save_all_models = save_all_models, vh_strategy=vh_strategy,
+                 save_all_models = save_all_models, vh_strategy=vh_strategy,
                  bh_strategy = bh_strategy, n_parallel_petrel_licenses = n_parallel_petrel_licenses,
                  n_neighbors = n_neighbors,petrel_path = petrel_path, n_trainingimages = n_trainingimages,
-                 continuous_discrete = continuous_discrete,schedule = schedule)
+                 continuous_discrete = continuous_discrete,schedule = schedule,penalty = penalty)
 
     #save variables to pickle file and load them into pso later. this also sets up folder structure to save rest of pso resutls in
     ABRM_functions.save_variables_to_file(setup)

@@ -12,6 +12,7 @@ from datetime import date
 import pickle
 from scipy import interpolate
 from sklearn.metrics import mean_squared_error
+from sklearn import preprocessing
 import matplotlib.pyplot as plt
 import shutil
 import umap
@@ -274,7 +275,7 @@ def run_batch_file_for_petrel_models(x):
             # not continue until lock files are gone and petrel is finished.
             time.sleep(120)
             kill_timer = 1 # waits 2h before petrel project is shut down if it has a bug 
-            while len(glob.glob(lock_files)) >= 1 or kill_timer < 7200:
+            while len(glob.glob(lock_files)) >= 1 or kill_timer > 7200:
                 kill_timer += 1
                 time.sleep(5)
             time.sleep(30)
@@ -773,7 +774,7 @@ def compute_particle_paramter_entropy(x):
 
     columns = setup["columns"]
     folder_path = setup["folder_path"]
-
+    penalty = setup["penalty"]
     # filepath 
     output_file_partilce_values = "/swarm_particle_values_all_iter.csv"
     file_path = folder_path + output_file_partilce_values
@@ -791,31 +792,108 @@ def compute_particle_paramter_entropy(x):
         df_x = pd.DataFrame(columns= columns )
         df_x.loc[len(df_x)] = x_list
         swarm_particle_values_all_iter = swarm_particle_values_all_iter.append(df_x, ignore_index = True)
-        all_parameters_entropy = []
-        parameter_entropy = []
+        
+        if penalty == "power_2":
 
-        # iterate through columns and calculate entropy
-        for i in range(0,len(columns)):
+            all_parameters_entropy = []
+            parameter_entropy = []
 
-            parameter = np.round(swarm_particle_values_all_iter[columns[i]],2)
-            # print(parameter)
-            parameter_entropy = ent.shannon_entropy(parameter)
-            all_parameters_entropy.append(parameter_entropy)
+            # iterate through columns and calculate entropy power 2
+            for i in range(0,len(columns)):
+                
+                if swarm_particle_values_all_iter.shape[0] <= 100:
+                    print(swarm_particle_values_all_iter.shape[0])
+                    parameter = np.round(swarm_particle_values_all_iter[columns[i]],2)
+                    parameter_entropy = np.power(ent.shannon_entropy(parameter),2)
+                    all_parameters_entropy.append(parameter_entropy)
+                
+                elif swarm_particle_values_all_iter.shape[0] > 100:
+                    print(swarm_particle_values_all_iter.shape[0])
+                    parameter = np.round(swarm_particle_values_all_iter[columns[i]].iloc[-100:],2)
+                    parameter_entropy = np.power(ent.shannon_entropy(parameter),2)
+                    all_parameters_entropy.append(parameter_entropy)
 
+            # sum up entropy for that particle
+            particle_entropy = np.sum(all_parameters_entropy)
 
-        # sum up entropy for that particle
-        particle_entropy = np.sum(all_parameters_entropy)
+        elif penalty == "linear":
+            
+            all_parameters_entropy = []
+            parameter_entropy = []
 
+            # iterate through columns and calculate entropy for last 
+            for i in range(0,len(columns)):
+
+                if swarm_particle_values_all_iter.shape[0] <= 100:
+                    print(swarm_particle_values_all_iter.shape[0])
+                    parameter = np.round(swarm_particle_values_all_iter[columns[i]],2)
+                    parameter_entropy = ent.shannon_entropy(parameter)
+                    all_parameters_entropy.append(parameter_entropy)
+                
+                elif swarm_particle_values_all_iter.shape[0] > 100:
+                    print(swarm_particle_values_all_iter.shape[0])
+                    parameter = np.round(swarm_particle_values_all_iter[columns[i]].iloc[-100:],2)
+                    parameter_entropy = ent.shannon_entropy(parameter)
+                    all_parameters_entropy.append(parameter_entropy)
+
+            # sum up entropy for that particle
+            particle_entropy = np.sum(all_parameters_entropy)
     else:
         particle_entropy = 0
-    
+
     return particle_entropy
 
-def compute_combined_misfit_entropy(particle_misfit,particle_entropy):
-    combined_misfit_entropy =1 
+def scale_min_max(X,xmin, xmax, lmin=0, lmax=1):
+    """Scale every value of a list between lmin and lmax"""
+    dx = xmin - xmax
+    dl = lmin - lmax
+    L = lmax-((xmax-X)*dl/dx)
 
+    return(L)
+
+def compute_combined_misfit_entropy(particle_misfit,particle_entropy):
+
+    # loading in settings that I set up on init_ABRM.py for this run
+    base_path = Path(__file__).parent
+    pickle_file = base_path / "../Output/variable_settings.pickle"
+    with open(pickle_file, "rb") as f:
+        setup = pickle.load(f)
+
+    # n_particles = setup["n_particles"]
+    # n_iterations = setup["n_iterations"]
+    n_parameters = setup["n_parameters"]
+    penalty = setup["penalty"]
+
+    if penalty == "power_2":
+        # uniform sampling should give me the maximum possible sampling. with np.round(x,2) that is around 6.65
+        max_entropy_parameter = ent.shannon_entropy(np.arange(0,100))
+        max_entropy_parameter = np.power(max_entropy_parameter,2)
+        min_entropy_parameter = 0
+
+        max_entropy_particle = max_entropy_parameter * n_parameters
+        min_entropy_particle = min_entropy_parameter * n_parameters
+
+    elif penalty == "linear":
+        # uniform sampling should give me the maximum possible sampling. with np.round(x,2) that is around 6.65
+        max_entropy_parameter = ent.shannon_entropy(np.arange(0,100))
+        min_entropy_parameter = 0
+
+        max_entropy_particle = max_entropy_parameter * n_parameters
+        min_entropy_particle = min_entropy_parameter * n_parameters
+
+
+    # scale particle_entropy
+    particle_entropy_scaled = scale_min_max(particle_entropy,xmin = min_entropy_particle, xmax = max_entropy_particle)
+    particle_entropy_scaled_inverted = 1-particle_entropy_scaled
+    print("particle_etropy, scaled,inverted, combined")
+    print(particle_entropy)
+    print(particle_entropy_scaled)
+    print(particle_entropy_scaled_inverted)
+    # combine misfit with scaled inverted entropy
+    combined_misfit_entropy =particle_entropy_scaled_inverted + particle_misfit 
+    print(combined_misfit_entropy)
     return combined_misfit_entropy
-    
+
 ### Postprocessing functions ### 
 
 def read_data(data_to_process):
