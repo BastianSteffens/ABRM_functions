@@ -10,6 +10,8 @@ from os import path
 import datetime
 from datetime import date
 import pickle
+import bz2
+import _pickle as cPickle
 from scipy import interpolate
 from sklearn.metrics import mean_squared_error
 from sklearn import preprocessing
@@ -236,18 +238,6 @@ def built_multibat_files():
         file.write(exit_bat)
         file.close()
 
-        # this bit here will overwrite the last run_petrel comman and replace the start with a call. this will allow me to wait unitl all processes are finished before the program moves on.
-        # file_wait = open(built_multibat, "rt")
-        # run_petrel_ticker_wait = run_petrel_ticker -1
-        # run_petrel_bat_wait = '\nCall {}/batch_files/run_petrel_{}.bat'.format(base_path,run_petrel_ticker_wait)
-        # insert_wait = file_wait.read()
-        # insert_wait = insert_wait.replace(run_petrel_bat,run_petrel_bat_wait)
-        # file_wait.close()
-
-        # file_wait = open(built_multibat,"w+")
-        # file_wait.write(insert_wait)
-        # file_wait.close()
-
 def run_batch_file_for_petrel_models(x):
 
     # loading in settings that I set up on init_ABRM.py for this run
@@ -292,7 +282,6 @@ def particle(x,i):
     ### 8 ###
     # Objective Function run flow diagnostics
     particle_performance = obj_fkt_FD(i)
-    print("FD_performance worked")
 
     ### 9 ###
     # Compute Performance
@@ -463,7 +452,15 @@ def save_swarm_performance(swarm_performance):
 
     folder_path = setup["folder_path"]
     output_file_performance = "/swarm_performance_all_iter.csv"
+    tof_file = "/tof_all_iter.pbz2"
+    tof_file_path = folder_path + tof_file
     file_path = folder_path + output_file_performance
+
+    #take out tof to save as zipped pickle
+    tof = swarm_performance[["tof","particle_no"]]
+
+    #cut down files that I save to every 100th value. thats enough for plotting.
+    swarm_performance_short = swarm_performance.iloc[::100,:].copy()
 
     if not os.path.exists(folder_path):
         os.makedirs(folder_path)
@@ -474,10 +471,10 @@ def save_swarm_performance(swarm_performance):
         
         #update iterations
         iteration = swarm_performance_all_iter.iteration.max() + 1
-        swarm_performance["iteration"] = iteration
+        swarm_performance_short["iteration"] = iteration
 
         # appends the performance of the swarm at a single iteration to the swarm performance of all previous iterations
-        swarm_performance_all_iter = swarm_performance_all_iter.append(swarm_performance)
+        swarm_performance_all_iter = swarm_performance_all_iter.append(swarm_performance_short)
         
         # save again
         swarm_performance_all_iter.to_csv(file_path,index=False)
@@ -486,9 +483,35 @@ def save_swarm_performance(swarm_performance):
         # this should only happen in first loop.
 
         # number of iterations
-        swarm_performance["iteration"] = 0
+        swarm_performance_short["iteration"] = 0
 
-        swarm_performance.to_csv(file_path,index=False)        
+        swarm_performance_short.to_csv(file_path,index=False)
+
+    if os.path.exists(tof_file_path):
+
+        #load compressed pickle file
+        data = bz2.BZ2File(tof_file_path,"rb")
+        tof_all_iter = cPickle.load(data)
+
+        #update iterations
+        iteration = tof_all_iter.iteration.max() + 1
+        tof["iteration"] = iteration
+
+        # appends the tof of the swarm at a single iteration to the swarm tof of all previous iterations
+        tof_all_iter = tof_all_iter.append(tof)
+
+        # save again
+        with bz2.BZ2File(tof_file_path,"w") as f:
+            cPickle.dump(tof_all_iter,f)
+
+    else:
+        # this should only happen in first loop.
+
+        # number of iterations
+        tof["iteration"] = 0
+
+        with bz2.BZ2File(tof_file_path,"w") as f:
+            cPickle.dump(tof,f)
 
 def save_particle_values(x_swarm, x_swarm_converted,misfit_swarm,LC_swarm,entropy_swarm,combined_misfit_entropy_swarm):
 
@@ -573,20 +596,18 @@ def obj_fkt_FD(x):
     # print('sucessfully launched MRST.')
 
     # run FD and output dictionary
-    FD_performance = eng.FD_BS(x)
+    FD_data = eng.FD_BS(x)
     print('sucessfully ran FD.')
-    # use this to only get data from matlab array instead of rest that matlab gives me
-    FD_performance = np.array(FD_performance._data).T.tolist()
-
-    # split into Ev tD F Phi and LC column
-    FD_performance = np.reshape(FD_performance,(5,len(FD_performance)//5)).T
-    # FD_performance = np.reshape(FD_performance,(6,len(FD_performance)//6)).T
-
-    # convert to df
-    columns = ["EV","tD","F","Phi","LC"]
-    # columns = ["EV","tD","F","Phi","LC","tof"]
-
-    FD_performance = pd.DataFrame(data = FD_performance, columns= columns)
+    # split into Ev tD F Phi and LC and tof column
+    FD_data = np.array(FD_data._data).reshape((6,len(FD_data)//6))
+    FD_performance = pd.DataFrame()
+    
+    FD_performance["EV"] = FD_data[0]
+    FD_performance["tD"] = FD_data[1]
+    FD_performance["F"] = FD_data[2]
+    FD_performance["Phi"] = FD_data[3]
+    FD_performance["LC"] = FD_data[4]
+    FD_performance["tof"] = FD_data[5]
 
     return FD_performance
 
@@ -725,7 +746,7 @@ def save_variables_to_file(setup):
 
     #folder name will be current date and time
     output_folder = str(datetime.datetime.today().replace(microsecond= 0, second = 0).strftime("%Y_%m_%d_%H_%M"))
-    output_file_variables = "/variable_settings_saved.pickel"
+    output_file_variables = "/variable_settings_saved.pickle"
     folder_path = output_path + "/" + output_folder
     file_path = folder_path + output_file_variables
 
@@ -775,6 +796,8 @@ def compute_particle_paramter_entropy(x):
     columns = setup["columns"]
     folder_path = setup["folder_path"]
     penalty = setup["penalty"]
+    n_particles = setup["n_particles"]
+    n_parameters = setup["n_parameters"]
     # filepath 
     output_file_partilce_values = "/swarm_particle_values_all_iter.csv"
     file_path = folder_path + output_file_partilce_values
@@ -802,19 +825,33 @@ def compute_particle_paramter_entropy(x):
             for i in range(0,len(columns)):
                 
                 if swarm_particle_values_all_iter.shape[0] <= 100:
-                    print(swarm_particle_values_all_iter.shape[0])
                     parameter = np.round(swarm_particle_values_all_iter[columns[i]],2)
                     parameter_entropy = np.power(ent.shannon_entropy(parameter),2)
                     all_parameters_entropy.append(parameter_entropy)
                 
                 elif swarm_particle_values_all_iter.shape[0] > 100:
-                    print(swarm_particle_values_all_iter.shape[0])
                     parameter = np.round(swarm_particle_values_all_iter[columns[i]].iloc[-100:],2)
                     parameter_entropy = np.power(ent.shannon_entropy(parameter),2)
                     all_parameters_entropy.append(parameter_entropy)
 
-            # sum up entropy for that particle
-            particle_entropy = np.sum(all_parameters_entropy)
+        elif penalty == "exponential":
+
+            all_parameters_entropy = []
+            parameter_entropy = []
+
+            # iterate through columns and calculate exp(entropy)
+            for i in range(0,len(columns)):
+                
+                if swarm_particle_values_all_iter.shape[0] <= 100:
+                    parameter = np.round(swarm_particle_values_all_iter[columns[i]],2)
+                    parameter_entropy = np.exp(ent.shannon_entropy(parameter))
+                    all_parameters_entropy.append(parameter_entropy)
+                
+                elif swarm_particle_values_all_iter.shape[0] > 100:
+                    parameter = np.round(swarm_particle_values_all_iter[columns[i]].iloc[-100:],2)
+                    parameter_entropy = np.exp(ent.shannon_entropy(parameter))
+                    all_parameters_entropy.append(parameter_entropy)
+
 
         elif penalty == "linear":
             
@@ -825,21 +862,21 @@ def compute_particle_paramter_entropy(x):
             for i in range(0,len(columns)):
 
                 if swarm_particle_values_all_iter.shape[0] <= 100:
-                    print(swarm_particle_values_all_iter.shape[0])
                     parameter = np.round(swarm_particle_values_all_iter[columns[i]],2)
                     parameter_entropy = ent.shannon_entropy(parameter)
                     all_parameters_entropy.append(parameter_entropy)
                 
                 elif swarm_particle_values_all_iter.shape[0] > 100:
-                    print(swarm_particle_values_all_iter.shape[0])
                     parameter = np.round(swarm_particle_values_all_iter[columns[i]].iloc[-100:],2)
                     parameter_entropy = ent.shannon_entropy(parameter)
                     all_parameters_entropy.append(parameter_entropy)
 
-            # sum up entropy for that particle
-            particle_entropy = np.sum(all_parameters_entropy)
+        # sum up entropy for that particle
+        particle_entropy = np.sum(all_parameters_entropy)
     else:
-        particle_entropy = 0
+        # as I am using lating hypercube sampling in the first iteration there should be 0 overlap between the values.
+        # therefore maxentropy that is possible for number of particles used times the nubmer of parameters is the entropy
+        particle_entropy = n_parameters * np.round(ent.shannon_entropy(np.arange(0,n_particles)),2)
 
     return particle_entropy
 
@@ -873,6 +910,15 @@ def compute_combined_misfit_entropy(particle_misfit,particle_entropy):
         max_entropy_particle = max_entropy_parameter * n_parameters
         min_entropy_particle = min_entropy_parameter * n_parameters
 
+    elif penalty == "exponential":
+        # uniform sampling should give me the maximum possible sampling. with np.round(x,2) that is around 6.65
+        max_entropy_parameter = ent.shannon_entropy(np.arange(0,100))
+        max_entropy_parameter = np.exp(max_entropy_parameter)
+        min_entropy_parameter = 0
+
+        max_entropy_particle = max_entropy_parameter * n_parameters
+        min_entropy_particle = min_entropy_parameter * n_parameters
+
     elif penalty == "linear":
         # uniform sampling should give me the maximum possible sampling. with np.round(x,2) that is around 6.65
         max_entropy_parameter = ent.shannon_entropy(np.arange(0,100))
@@ -885,13 +931,9 @@ def compute_combined_misfit_entropy(particle_misfit,particle_entropy):
     # scale particle_entropy
     particle_entropy_scaled = scale_min_max(particle_entropy,xmin = min_entropy_particle, xmax = max_entropy_particle)
     particle_entropy_scaled_inverted = 1-particle_entropy_scaled
-    print("particle_etropy, scaled,inverted, combined")
-    print(particle_entropy)
-    print(particle_entropy_scaled)
-    print(particle_entropy_scaled_inverted)
+
     # combine misfit with scaled inverted entropy
     combined_misfit_entropy =particle_entropy_scaled_inverted + particle_misfit 
-    print(combined_misfit_entropy)
     return combined_misfit_entropy
 
 ### Postprocessing functions ### 
@@ -917,7 +959,7 @@ def read_data(data_to_process):
         path = str(base_path / "../Output/")+ "/"+ data_to_process[i] + "/"
         performance = "swarm_performance_all_iter.csv"
         position = "swarm_particle_values_converted_all_iter.csv"
-        setup = "variable_settings_saved.pickel"
+        setup = "variable_settings_saved.pickle"
 
         performance_path = path + performance
         position_path = path + position
