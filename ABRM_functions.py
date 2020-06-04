@@ -25,6 +25,7 @@ import re
 from pathlib import Path
 import glob
 from pyentrp import entropy as ent
+from skimage.util.shape import view_as_windows
 
 ########################
 
@@ -69,15 +70,17 @@ def swarm(x_swarm):
     n_particles = x_swarm.shape[0]
     misfit_swarm = np.zeros(n_particles)
     entropy_swarm = np.zeros(n_particles)
+    tof_upscaled_entropy_swarm = np.zeros(n_particles)
     combined_misfit_entropy_swarm = np.zeros(n_particles)
     swarm_performance = pd.DataFrame()
     LC_swarm = np.zeros(n_particles)
 
     for i in range(n_particles):
-        particle_misfit, particle_performance, particle_entropy,particle_combined_misfit_entropy = particle(x_swarm[i],i) # evaluate
+        particle_misfit, particle_performance, particle_entropy,particle_tof_upscaled_entropy,particle_combined_misfit_entropy = particle(x_swarm[i],i) # evaluate
         LC_swarm[i] = particle_performance.LC[0]
-        misfit_swarm[i] = particle_misfit # store for return of function
+        misfit_swarm[i] = particle_misfit 
         entropy_swarm[i] = particle_entropy
+        tof_upscaled_entropy_swarm[i] = particle_tof_upscaled_entropy
         combined_misfit_entropy_swarm[i] = particle_combined_misfit_entropy
         swarm_performance = swarm_performance.append(particle_performance) # store for data saving
     
@@ -87,12 +90,11 @@ def swarm(x_swarm):
     # save swarm_particle values and swarm_performance in df also save all models
     save_swarm_performance(swarm_performance)
 
-    save_particle_values(x_swarm, x_swarm_converted,misfit_swarm,LC_swarm,entropy_swarm,combined_misfit_entropy_swarm)
+    save_particle_values(x_swarm, x_swarm_converted,misfit_swarm,LC_swarm,entropy_swarm,tof_upscaled_entropy_swarm,combined_misfit_entropy_swarm)
     
     save_all_models()
     
-    return np.array(combined_misfit_entropy_swarm)	
-    # return np.array(misfit_swarm)	
+    return np.array(misfit_swarm)	
 
 def built_batch_file_for_petrel_models_uniform(x):
 
@@ -289,18 +291,22 @@ def particle(x,i):
     print('misfit {}'.format(particle_misfit))
 
     ### 10 ###
-    # Compute entropy
+    # Compute particle parameter entropy
     particle_entropy = compute_particle_paramter_entropy(x)
 
     ### 11 ###
+    # compute upscaled model entropy
+    particle_tof_upscaled_entropy = compute_upscaled_model_entropy(particle_performance["tof"])
+    print("upscale entropy worked")
+    ### 12 ###
     # Compute entropy and misfit combined
-    particle_combined_misfit_entropy = compute_combined_misfit_entropy(particle_misfit,particle_entropy)
+    particle_combined_misfit_entropy = compute_combined_misfit_entropy(particle_misfit,particle_entropy,particle_tof_upscaled_entropy )
 
     # store misfit and particle no in dataframe
     particle_performance["particle_no"] = i
     particle_performance["misfit"] = particle_misfit
 
-    return particle_misfit,particle_performance, particle_entropy, particle_combined_misfit_entropy
+    return particle_misfit,particle_performance, particle_entropy,particle_tof_upscaled_entropy, particle_combined_misfit_entropy
 
 def save_all_models():
     
@@ -443,6 +449,8 @@ def built_data_file(data_file_path,model_id):
     file.close()
 
 def save_swarm_performance(swarm_performance):
+    
+    print("start saving swarm iteration")
 
     # loading in settings that I set up on init_ABRM.py for this run
     base_path = Path(__file__).parent
@@ -457,7 +465,7 @@ def save_swarm_performance(swarm_performance):
     file_path = folder_path + output_file_performance
 
     #take out tof to save as zipped pickle
-    tof = swarm_performance[["tof","particle_no"]]
+    tof = swarm_performance[["tof","misfit","particle_no"]]
 
     #cut down files that I save to every 100th value. thats enough for plotting.
     swarm_performance_short = swarm_performance.iloc[::100,:].copy()
@@ -513,7 +521,7 @@ def save_swarm_performance(swarm_performance):
         with bz2.BZ2File(tof_file_path,"w") as f:
             cPickle.dump(tof,f)
 
-def save_particle_values(x_swarm, x_swarm_converted,misfit_swarm,LC_swarm,entropy_swarm,combined_misfit_entropy_swarm):
+def save_particle_values(x_swarm, x_swarm_converted,misfit_swarm,LC_swarm,entropy_swarm,tof_upscaled_entropy_swarm,combined_misfit_entropy_swarm):
 
     # loading in settings that I set up on init_ABRM.py for this run
     base_path = Path(__file__).parent
@@ -542,7 +550,11 @@ def save_particle_values(x_swarm, x_swarm_converted,misfit_swarm,LC_swarm,entrop
 
     # add entropy to df
     particle_values_converted["entropy_swarm"] = entropy_swarm
-    particle_values["entropy_swarm"] = entropy_swarm
+    particle_values_converted["entropy_swarm"] = entropy_swarm
+
+    # add tof_upscaled_entropy to df
+    particle_values_converted["tof_upscaled_entropy_swarm"] = tof_upscaled_entropy_swarm
+    particle_values_converted["tof_upscaled_entropy_swarm"] = tof_upscaled_entropy_swarm
 
     # add combined entropy_misfit to df
     particle_values_converted["combined_misfit_entropy_swarm"] = combined_misfit_entropy_swarm
@@ -880,6 +892,104 @@ def compute_particle_paramter_entropy(x):
 
     return particle_entropy
 
+def compute_upscaled_model_entropy(x):
+    # calculate + entropy of larger blocks (of mean or sum or median) (upscaled) 
+    # inbetween iterations and then of each model take the similar block, and
+    # calculate their entropy. use that as a penalty function. want that to be high.
+
+    # loading in settings that I set up on init_ABRM.py for this run
+    base_path = Path(__file__).parent
+    pickle_file = base_path / "../Output/variable_settings.pickle"
+    with open(pickle_file, "rb") as f:
+        setup = pickle.load(f)
+
+    folder_path = setup["folder_path"]
+    penalty = setup["penalty"]
+    n_particles = setup["n_particles"]
+    n_parameters = setup["n_parameters"]
+
+    # filepath 
+    tof_all_iter = "/tof_all_iter.pbz2."
+    tof_file_path = folder_path + tof_all_iter
+
+    particle_tof = np.array(x)
+ 
+    # check if file exists (after first iteration it should)
+    if os.path.exists(tof_file_path):
+
+        #load compressed pickle file
+        data = bz2.BZ2File(tof_file_path,"rb")
+        tof_all_iter = cPickle.load(data)
+        
+        #upscale and calculate mean for upscaled cell, then transpose and append to new df where one column equals one cell.
+        window_shape = (10,10,7)
+        step_size = 10
+
+        df_upscaled_models = pd.DataFrame(columns = np.arange(20*10*1))
+
+        for iteration in range (0,tof_all_iter.iteration.max()+1):
+            for particle_no in range(0,tof_all_iter.particle_no.max()+1):
+                tof_single_particle = np.array(tof_all_iter[(tof_all_iter.iteration == iteration) & (tof_all_iter.particle_no == particle_no)].tof)
+                tof_single_particle_3d = tof_single_particle.reshape((200,100,7))
+                tof_single_particle_moving_window = view_as_windows(tof_single_particle_3d, window_shape, step= step_size)
+                tof_single_particle_upscaled = []
+                for i in range(0,20):
+                    for j in range(0,10):
+                        for k in range(0,1):
+                            single_cell_temp = np.round(np.mean(tof_single_particle_moving_window[i,j,k]),2)
+                            tof_single_particle_upscaled.append(single_cell_temp)
+
+                df_tof_single_particle_upscaled = pd.DataFrame(np.log10(np.array(tof_single_particle_upscaled)))
+                df_tof_single_particle_upscaled_transposed = df_tof_single_particle_upscaled.T
+                df_upscaled_models = df_upscaled_models.append(df_tof_single_particle_upscaled_transposed)
+
+       # do the same for new particle
+        particle_tof_3d = particle_tof.reshape((200,100,7))
+        particle_tof_moving_window = view_as_windows(particle_tof_3d, window_shape, step = step_size)
+        particle_tof_upscaled = []
+        for i in range(0,20):
+            for j in range(0,10):
+                for k in range(0,1):
+                    single_cell_temp = np.round((np.mean(particle_tof_moving_window[i,j,k]),2))
+                    particle_tof_upscaled.append(single_cell_temp)
+                    
+        df_particle_tof_upscaled = pd.DataFrame(np.log10(np.array(particle_tof_upscaled)))
+        df_particle_tof_upscaled_transposed = df_particle_tof_upscaled.T
+        df_upscaled_models = df_upscaled_models.append(df_particle_tof_upscaled_transposed)
+
+
+        if penalty == "exponential":
+            all_cells_entropy = []
+
+            # calculate entropy for each column of newly created df
+            for i in range(0,df_upscaled_models.shape[1]):
+                    
+                cell = np.round(df_upscaled_models[i],2)
+                parameter_entropy = np.exp(np.array(ent.shannon_entropy(cell)))
+                all_cells_entropy.append(parameter_entropy)
+
+        elif penalty == "linear":
+            all_cells_entropy = []
+
+            # calculate entropy for each column of newly created df
+            for i in range(0,df_upscaled_models.shape[1]):
+                    
+                cell = np.round(df_upscaled_models[i],2)
+                parameter_entropy = np.array(ent.shannon_entropy(cell))
+                all_cells_entropy.append(parameter_entropy)
+        # sum up entropy for that particle
+        particle_upscaled_entropy = np.sum(all_cells_entropy)
+
+    else:
+    # as I am using lating hypercube sampling in the first iteration there should be 0 overlap between the values.
+    # therefore maxentropy that is possible for number of particles used times the nubmer of parameters is the entropy
+        particle_upscaled_entropy = n_parameters * np.round(ent.shannon_entropy(np.arange(0,n_particles)),2)
+
+
+    print("upscaled entropy")
+    print(particle_upscaled_entropy)
+    return particle_upscaled_entropy
+ 
 def scale_min_max(X,xmin, xmax, lmin=0, lmax=1):
     """Scale every value of a list between lmin and lmax"""
     dx = xmin - xmax
@@ -888,7 +998,7 @@ def scale_min_max(X,xmin, xmax, lmin=0, lmax=1):
 
     return(L)
 
-def compute_combined_misfit_entropy(particle_misfit,particle_entropy):
+def compute_combined_misfit_entropy(particle_misfit,particle_entropy,particle_upscaled_entropy):
 
     # loading in settings that I set up on init_ABRM.py for this run
     base_path = Path(__file__).parent
@@ -903,33 +1013,33 @@ def compute_combined_misfit_entropy(particle_misfit,particle_entropy):
 
     if penalty == "power_2":
         # uniform sampling should give me the maximum possible sampling. with np.round(x,2) that is around 6.65
-        max_entropy_parameter = ent.shannon_entropy(np.arange(0,100))
+        max_entropy_parameter = ent.shannon_entropy(np.arange(0,1000))
         max_entropy_parameter = np.power(max_entropy_parameter,2)
         min_entropy_parameter = 0
 
-        max_entropy_particle = max_entropy_parameter * n_parameters
-        min_entropy_particle = min_entropy_parameter * n_parameters
+        max_entropy_particle = max_entropy_parameter * 200 #n_parameters
+        min_entropy_particle = min_entropy_parameter * 200 #n_parameters
 
     elif penalty == "exponential":
         # uniform sampling should give me the maximum possible sampling. with np.round(x,2) that is around 6.65
-        max_entropy_parameter = ent.shannon_entropy(np.arange(0,100))
+        max_entropy_parameter = ent.shannon_entropy(np.arange(0,1000))
         max_entropy_parameter = np.exp(max_entropy_parameter)
         min_entropy_parameter = 0
 
-        max_entropy_particle = max_entropy_parameter * n_parameters
-        min_entropy_particle = min_entropy_parameter * n_parameters
+        max_entropy_particle = max_entropy_parameter *200 # n_parameters
+        min_entropy_particle = min_entropy_parameter * 200 #n_parameters
 
     elif penalty == "linear":
         # uniform sampling should give me the maximum possible sampling. with np.round(x,2) that is around 6.65
-        max_entropy_parameter = ent.shannon_entropy(np.arange(0,100))
+        max_entropy_parameter = ent.shannon_entropy(np.arange(0,1000))
         min_entropy_parameter = 0
 
-        max_entropy_particle = max_entropy_parameter * n_parameters
-        min_entropy_particle = min_entropy_parameter * n_parameters
+        max_entropy_particle = max_entropy_parameter *200 # n_parameters
+        min_entropy_particle = min_entropy_parameter * 200 #n_parameters
 
 
     # scale particle_entropy
-    particle_entropy_scaled = scale_min_max(particle_entropy,xmin = min_entropy_particle, xmax = max_entropy_particle)
+    particle_entropy_scaled = scale_min_max(particle_upscaled_entropy,xmin = min_entropy_particle, xmax = max_entropy_particle)
     particle_entropy_scaled_inverted = 1-particle_entropy_scaled
 
     # combine misfit with scaled inverted entropy
@@ -948,6 +1058,7 @@ def read_data(data_to_process):
     # df to store all datasets in
     df_position = pd.DataFrame()
     df_performance = pd.DataFrame()
+    df_tof = pd.DataFrame()
     setup_all = dict()
     FD_targets = dict()
     Phi_interpolated = []
@@ -960,18 +1071,27 @@ def read_data(data_to_process):
         performance = "swarm_performance_all_iter.csv"
         position = "swarm_particle_values_converted_all_iter.csv"
         setup = "variable_settings_saved.pickle"
+        tof = "tof_all_iter.pbz2"
 
         performance_path = path + performance
         position_path = path + position
         setup_path = path + setup
+        tof_path = path + tof
 
+        # load data
         df_performance_single = pd.read_csv(performance_path)
         df_position_single = pd.read_csv(position_path)
         with open(setup_path,'rb') as f:
-            setup_single = pickle.load(f)        
+            setup_single = pickle.load(f)      
+        
+        #load compressed pickle file
+        data = bz2.BZ2File(tof_path,"rb")
+        df_tof_single = cPickle.load(data)
+  
         
         df_position_single["dataset"] = data_to_process[i]
         df_performance_single["dataset"] = data_to_process[i]
+        df_tof_single["dataset"] = data_to_process[i]
         
         # get F Phi curve and LC for interpolation
         Phi_points_target = setup_single["Phi_points_target"]
@@ -989,23 +1109,70 @@ def read_data(data_to_process):
         # Concate all data together
         df_position = df_position.append(df_position_single)
         df_performance = df_performance.append(df_performance_single)
+        df_tof = df_tof.append(df_tof_single)
         setup_all[data_to_process[i]] = setup_single
         FD_targets[data_to_process[i]] = dict(Phi_interpolated = Phi_interpolated,F_interpolated =F_interpolated,LC_interpolated = LC_interpolated)
 
         # uniform index
         df_position.reset_index(drop = True,inplace = True)
         df_performance.reset_index(drop = True,inplace = True)
+        df_tof.reset_index(drop = True, inplace = True)
     
-    return df_performance,df_position,setup_all,FD_targets
+    return df_performance,df_position,df_tof,setup_all,FD_targets
 
-def best_model_selection_UMAP_HDBSCAN(df,setup_all,dataset,n_neighbors,min_cluster_size,misfit_tolerance,use_UMAP = True):
+def best_model_selection_UMAP_HDBSCAN(df_position,df_tof,cluster_parameter,setup_all,dataset,n_neighbors,min_cluster_size,misfit_tolerance,use_UMAP = True):
     # at some point make n_eighbours and min cluster size nad misfit tolernaze sliding scales
     # model parameters that generate lowest misfit
-    if use_UMAP == True:
+    if cluster_parameter == "particle_parameters":
+        # particle_parameters used for clustering
         columns = setup_all[dataset[0]]["columns"]
-        df_best =df[(df.misfit <= misfit_tolerance)].copy()
+        df_best =df_position[(df_position.misfit <= misfit_tolerance)].copy()
         df_best_for_clustering = df_best[columns].copy()
         df_best_for_clustering["LC"] = df_best.LC.copy()
+
+    elif cluster_parameter == "tof":
+        #cluster based upon tof.
+        #upscale and calculate mean for upscaled cell, then transpose and append to new df where one column equals one cell.
+
+        window_shape = (1,1,1)
+        step_size = 1
+
+        df_best_index =df_position[(df_position.misfit <= misfit_tolerance)].copy()
+        index = df_best_index.index
+        df_best_for_clustering = pd.DataFrame(columns = np.arange(200*100*7))
+        df_best_temp =df_tof[(df_tof.misfit <= misfit_tolerance)].copy()
+        iterations = df_best_temp["iteration"].unique().tolist()
+
+        for i in range(0,len(iterations)):
+            iteration = iterations[i]
+            particle_no = df_best_temp[ df_best_temp.iteration == iteration].particle_no.unique().tolist()
+            for j in range(0,len(particle_no)):
+                particle = particle_no[j]
+                tof_single_particle = np.array(df_best_temp[(df_best_temp.iteration == iteration) & (df_best_temp.particle_no == particle)].tof)
+                tof_single_particle_3d = tof_single_particle.reshape((200,100,7))
+                tof_single_particle_moving_window = view_as_windows(tof_single_particle_3d, window_shape, step= step_size)
+                tof_single_particle_upscaled = []
+                for k in range(0,200):
+                    for l in range(0,100):
+                        for m in range(0,7):
+                            single_cell_temp = np.round(np.mean(tof_single_particle_moving_window[k,l,m]),2)
+                            tof_single_particle_upscaled.append(single_cell_temp)
+
+                df_tof_single_particle_upscaled = pd.DataFrame(np.log10(np.array(tof_single_particle_upscaled)))
+                df_tof_single_particle_upscaled_transposed = df_tof_single_particle_upscaled.T
+                df_tof_single_particle_upscaled_transposed["particle_no"] = particle
+                df_tof_single_particle_upscaled_transposed["iteration"] = iteration
+                df_best_for_clustering = df_best_for_clustering.append(df_tof_single_particle_upscaled_transposed)
+
+        df_best = pd.DataFrame()
+        df_best = df_best_for_clustering.copy()
+        df_best.index = index
+        df_best_for_clustering.drop(columns = ["particle_no","iteration"], inplace = True)
+
+
+
+    if use_UMAP == True:
+
         # Create UMAP reducer
         reducer    = umap.UMAP(n_neighbors=n_neighbors)
         embeddings = reducer.fit_transform(df_best_for_clustering)
@@ -1013,13 +1180,13 @@ def best_model_selection_UMAP_HDBSCAN(df,setup_all,dataset,n_neighbors,min_clust
         # Create HDBSCAN clusters
         hdb = hdbscan.HDBSCAN(min_cluster_size=min_cluster_size)
         scoreTitles = hdb.fit(embeddings)
-        
+
         df_best["cluster_prob"] = scoreTitles.probabilities_
         df_best["cluster"] = scoreTitles.labels_
-        
+
         fig = go.Figure(data=go.Scatter(x = embeddings[:,0],
                                         y = embeddings[:,1],
-                                
+
                                         mode='markers',
                                         text = df_best.index,
                                         marker=dict(
@@ -1032,12 +1199,9 @@ def best_model_selection_UMAP_HDBSCAN(df,setup_all,dataset,n_neighbors,min_clust
                                         ))
         fig.update_layout(title='Clustering of {} best models - Number of clusters found: {} - Unclustered models: {}'.format(df_best.shape[0],df_best.cluster.max()+1,abs(df_best.cluster[df_best.cluster == -1].sum())))
         fig.show()
-    
+
     else:
-        columns = setup_all[dataset[0]]["columns"]
-        df_best =df[(df.misfit <= misfit_tolerance)].copy()
-        df_best_for_clustering = df_best[columns].copy()
-        
+
         # Create UMAP reducer
         reducer    = umap.UMAP(n_neighbors=n_neighbors)
         embeddings = reducer.fit_transform(df_best_for_clustering)
@@ -1045,13 +1209,13 @@ def best_model_selection_UMAP_HDBSCAN(df,setup_all,dataset,n_neighbors,min_clust
         # Create HDBSCAN clusters
         hdb = hdbscan.HDBSCAN(min_cluster_size=min_cluster_size)
         scoreTitles = hdb.fit(df_best_for_clustering)
-        
+
         df_best["cluster_prob"] = scoreTitles.probabilities_
         df_best["cluster"] = scoreTitles.labels_
-        
+
         fig = go.Figure(data=go.Scatter(x = embeddings[:,0],
                                         y = embeddings[:,1],
-                                
+
                                         mode='markers',
                                         text = df_best.index,
                                         marker=dict(
@@ -1107,7 +1271,7 @@ def plot_hist(df,setup_all,dataset, misfit_tolerance = None):
         fig.update_layout(autosize=False,
             title= "Histogram Parameters",
             width=1000,
-            height=650*(n_subplots)
+            height=750*(n_subplots)
         )
         fig.show()
 
@@ -1122,7 +1286,7 @@ def plot_hist(df,setup_all,dataset, misfit_tolerance = None):
         fig.update_layout(autosize=False,
             title= "Histogram Parameters",
             width=1000,
-            height=650*(n_subplots)
+            height=750*(n_subplots)
         )
         fig.show()
 
