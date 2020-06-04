@@ -87,12 +87,12 @@ function [FD_performance] = FD_BS(x)
         Ev(end + values_to_add) = 1;
         tD(end + values_to_add) = 1;
     end
-
-    %% shorten data output due to storage 
-    Ev = Ev(1:1000:end);
-    tD = tD(1:1000:end);
-    F = F(1:1000:end);
-    Phi = Phi(1:1000:end);
+        
+    Ev(end)= [];
+    tD(end)= [];
+    F(end)= [];
+    Phi(end)= [];
     LC_long = zeros(length(Ev),1) + LC;
-    FD_performance = [Ev;tD;F;Phi;LC_long];
+    tof = D.tof(:,1);
+    FD_performance = [Ev;tD;F;Phi;LC_long;tof];
 end

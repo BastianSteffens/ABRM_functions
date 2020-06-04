@@ -14,26 +14,31 @@ import datetime
 from datetime import date
 from numpy.random import seed
 from numpy.random import rand
-
+import lhsmdu
 ###### Import required functions #######
 import ABRM_functions
 
 ############################################################################
 
 def init():
+    
+    # seed
+    set_seed = random.randint(0,10000000)
+    random.seed(set_seed)
+
 
     ###### Set hyperparameters for PSO ######
     n_parameters = 30
-    n_iters = 20
-    n_particles = 30 # always pick multiple of 3. need to fix this 
+    n_iters = 50
+    n_particles = 54 # always pick multiple of 3. need to fix this 
     min_bound = 0 * np.ones(n_parameters)
     max_bound = 1 * np.ones(n_parameters)
     bounds = (min_bound, max_bound)
-    social_component = 2.05 #1.994 #2.05
-    cognitive_component = 2.05 # 2.05 ; 1.494 with 0 should all converge to the global minima,however good that is. 
+    social_component = 1.49618 #1.994 #2.05
+    cognitive_component = 1.49618 # 2.05 ; 1.494 with 0 should all converge to the global minima,however good that is. 
     inertia = 0.9
     damping_factor = 0.99
-    n_neighbors  =  n_particles
+    n_neighbors  =  10
     distance_measure  = 2 # 2 = euclidian 1 = manhatten
     dimensions = n_parameters
     options = {'c1': social_component, 'c2': cognitive_component, 'w':inertia, 'k':n_neighbors, 'p':distance_measure,'d':damping_factor}
@@ -45,6 +50,7 @@ def init():
     # static: bool
     #         a boolean that decides whether the Ring topology
     #         used is static or dynamic. Default is `False`
+    init_pos = np.array(lhsmdu.sample(numDimensions = n_particles,numSamples = n_parameters,randomSeed = set_seed))
 
     ###### Set modelling parameters for Petrelworkflows ######
    
@@ -81,7 +87,7 @@ def init():
     # what schedule 5_spot or line_drive
     schedule = "5_spot"
 
-    penalty = "power_2"
+    penalty = "linear"
 
     # seed
     set_seed = random.randint(0,10000000)
@@ -115,7 +121,7 @@ def init():
     # Call instance of PSO
     optimizer = ps.single.LocalBestPSO(n_particles=n_particles, dimensions=dimensions, options=options, 
                                        bounds= bounds, velocity_clamp= velocity_clamp, vh_strategy=vh_strategy,
-                                       bh_strategy = bh_strategy)
+                                       bh_strategy = bh_strategy,init_pos= init_pos)
 
 
     # Perform optimization

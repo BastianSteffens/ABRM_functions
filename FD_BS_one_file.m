@@ -6,10 +6,9 @@ function [FD_performance] = FD_BS_one_file(x)
     disp('Loading Data files into Matlab and running Flow Diagnostics')
 
     %% Load File into MRST 
-    x = x;
     ModelName = 'M_FD_%s.DATA';
     ModelIndex = string(x);
-    ModelNameIndex = sprintf(ModelName,ModelIndex)
+    ModelNameIndex = sprintf(ModelName,ModelIndex);
 
     current_dir = 'C:\AgentBased_RM\FD_Models\DATA\';
     fn = fullfile(current_dir, ModelNameIndex);
@@ -87,17 +86,13 @@ function [FD_performance] = FD_BS_one_file(x)
         tD(end + values_to_add) = 1;
     end
         
-
-    %% shorten data output due to storage 
-    %Ev = Ev(1:1000:end);
-    %tD = tD(1:1000:end);
-    %F = F(1:1000:end);
-    %Phi = Phi(1:1000:end);
+    Ev(end)= [];
+    tD(end)= [];
+    F(end)= [];
+    Phi(end)= [];
     LC_long = zeros(length(Ev),1) + LC;
-    tof = D.tof(:,1)
-    tracer = D.tof(:,1);
+    tof = D.tof(:,1);
     FD_performance = [Ev;tD;F;Phi;LC_long;tof];
-    FD_performance = tof;
 
 
 
