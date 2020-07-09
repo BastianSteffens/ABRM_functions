@@ -26,6 +26,9 @@ from pathlib import Path
 import glob
 from pyentrp import entropy as ent
 from skimage.util.shape import view_as_windows
+from GRDECL2VTK import *
+from geovoronoi import voronoi_regions_from_coords
+
 
 ########################
 
@@ -62,10 +65,14 @@ def swarm(x_swarm):
     run_batch_file_for_petrel_models(x_swarm_converted)
 
     ### 6 ###
+    # if working with voronoi tesselation for zonation. now its time to patch the previously built models together
+    patch_voronoi_models(x_swarm_converted)
+
+    ### 7 ###
     # built FD_Data files required for model evaluation
     built_FD_Data_files()
 
-    ### 7 ###
+    ### 8 ###
     # evaluate model performance
     n_particles = x_swarm.shape[0]
     misfit_swarm = np.zeros(n_particles)
@@ -131,8 +138,8 @@ def built_batch_file_for_petrel_models_uniform(x):
     #  models.
     particle = x    # all particles together    
     particle_1d_array =  particle.reshape((particle.shape[0]*particle.shape[1]))    # all particles together                
-    # particlesperwf = np.linspace(0,n_modelsperbatch,n_parallel_petrel_licenses, endpoint = False,dtype = int) # this is how it should be. This is the name that each variable has per model in the petrel wf
-    particlesperwf = np.linspace(25,27,n_modelsperbatch, endpoint = True,dtype = int) # use 25,26,27 because of petrel wf. there the variables are named like that and cant bothered to change that.
+    particlesperwf = np.linspace(0,n_modelsperbatch,n_parallel_petrel_licenses, endpoint = False,dtype = int) # this is how it should be. This is the name that each variable has per model in the petrel wf
+    # particlesperwf = np.linspace(25,27,n_modelsperbatch, endpoint = True,dtype = int) # use 25,26,27 because of petrel wf. there the variables are named like that and cant bothered to change that.
 
     single_wf = [str(i) for i in np.tile(particlesperwf,n_particles)]
     single_particle_in_wf = [str(i) for i in np.arange(0,n_particles+1)]
@@ -208,6 +215,10 @@ def built_batch_file_for_petrel_models_uniform(x):
                         else:
                             parameter = '/sParm {}_{}_{}=None ^\n'.format(parameter_name_str[j,k],str(i),single_wf[j])
                             file.write(parameter)
+
+                # voronoi positioning --> not done in petrel therefore dont need to write in batch file
+                elif parameter_type_str[j,k] ==3:
+                    pass
 
         # write into file
         file.write(quiet)
@@ -417,6 +428,160 @@ def save_all_models():
                 shutil.copy(permz_file_src_path,permz_file_dest_path)
                 shutil.copy(poro_file_src_path,poro_file_dest_path)
 
+
+def patch_voronoi_models(x_swarm_converted):
+
+    # loading in settings that I set up on init_ABRM.py for this run
+    base_path = Path(__file__).parent
+    pickle_file = base_path / "../Output/variable_settings.pickle"    
+    with open(pickle_file, "rb") as f:
+        setup = pickle.load(f)
+
+    n_particles = setup["n_particles"]
+    n_polygons = setup["n_polygons"]
+    parameter_type = setup["parameter_type"]
+    n_paramters = setup["n_parameters"]
+    parameter_name = setup["columns"]
+    nx = setup["nx"]
+    ny = setup["ny"]
+    nz = setup["nz"]
+
+    x = particle
+
+    for i in range(n_particles):
+        # first figure out which points I am interested and append them to new list
+        voronoi_x = []
+        voronoi_y = []
+        # voronoi_z = []
+        for j in range(n_parameters):
+
+            # find voronoi positions
+            if parameter_type[j] == 3:
+                if "x" in parameter_name[j]:
+                    voronoi_x_temp = x_swarm_converted[i,j]
+                    voronoi_x.append(voronoi_x_temp)
+                elif "y" in parameter_name[j]:
+                    voronoi_y_temp = x_swarm_converted[i,j]
+                    voronoi_y.append(voronoi_y_temp)
+                # elif "z" in parameter_name[j]:
+                #     voronoi_z_temp = x_swarm_converted[i,j]
+                #     voronoi_z.append(voronoi_z_temp)
+
+        # use these points to built a voronoi tesselation
+        voronoi_x = np.array(voronoi_x)
+        voronoi_y = np.array(voronoi_y)
+        # voronoi_z = np.array(voronoi_z)
+
+        # #define grid and  position initianinon points of n polygons
+        polygon_points = np.concatenate((voronoi_x,voronoi_y),axis = 0)
+        grid = grid = Polygon([(0, 0), (0, ny), (nx, ny), (nx, 0)])
+
+        # generate 2D mesh
+        x = np.arange(0,nx+1,1,)
+        y = np.arange(0,ny+1,1)
+        x_grid, y_grid = np.meshgrid(x,y)
+
+        #get cell centers of mesh
+        x_cell_center = x_grid[:-1,:-1]+0.5
+        y_cell_center = y_grid[:-1,:-1]+0.5
+        cell_center_which_polygon = np.zeros(len(x_cell_center.flatten()))
+
+        # array to assign polygon id [ last column] to cell id [first 2 columns]
+        all_cell_center = np.column_stack((x_cell_center.flatten(),y_cell_center.flatten(),cell_center_which_polygon))
+
+        # get voronoi regions
+        poly_shapes, pts, poly_to_pt_assignments = voronoi_regions_from_coords(polygon_points, grid)
+
+        # in what voronoi polygon do cell centers plot
+        for j in range(len(all_cell_center)):
+            for voronoi_polygon_id in range(n_polygons):
+                
+                polygon = poly_shapes[voronoi_polygon_id]
+                cell_id = Point(all_cell_center[j,0],all_cell_center[j,1])
+                
+                if polygon.intersects(cell_id):
+                    all_cell_center[j,2] = voronoi_polygon_id
+
+        
+        # load and assign correct grdecl files to each polygon zone and patch togetehr to new model
+        #output from reservoir modelling
+        cell_vornoi_combination_flatten = cell_vornoi_combination.flatten()
+
+        all_model_values_permx = np.zeros((n_polygons,len(cell_vornoi_combination_flatten)))
+        all_model_values_permy = np.zeros((n_polygons,len(cell_vornoi_combination_flatten)))
+        all_model_values_permz = np.zeros((n_polygons,len(cell_vornoi_combination_flatten)))
+        all_model_values_poro = np.zeros((n_polygons,len(cell_vornoi_combination_flatten)))
+        
+        geomodel_path = base_path / "../FD_Models/Data/M_FD_0.DATA"
+        Model = GeologyModel(filename = geomodel_path)
+        data_file_path = base_path / "../FD_Models/DATA/M_FD_{}.DATA".format(i)
+
+        for j in range(n_polygons):
+            temp_model_path_permx = base_path / '../FD_Models/INCLUDE/Voronoi/Patch_{}/PERMX/M{}.GRDECL'.format(j,i)
+            temp_model_path_permy = base_path / '../FD_Models/INCLUDE/Voronoi/Patch_{}/PERMY/M{}.GRDECL'.format(j,i)
+            temp_model_path_permz = base_path / '../FD_Models/INCLUDE/Voronoi/Patch_{}/PERMZ/M{}.GRDECL'.format(j,i)
+            temp_model_path_poro = base_path / '../FD_Models/INCLUDE/Voronoi/Patch_{}/PORO/M{}.GRDECL'.format(j,i)
+        
+            temp_model_permx = Model.LoadCellData(varname="PERMX",filename=temp_model_path_permx)
+            temp_model_permy = Model.LoadCellData(varname="PERMY",filename=temp_model_path_permy)
+            temp_model_permz = Model.LoadCellData(varname="PERMZ",filename=temp_model_path_permz)
+            temp_model_poro = Model.LoadCellData(varname="PORO",filename=temp_model_path_poro)
+        
+            all_model_values_permx[i] = temp_model_permx
+            all_model_values_permy[i] = temp_model_permy
+            all_model_values_permz[i] = temp_model_permz
+            all_model_values_poro[i] = temp_model_poro
+        
+        # patch things together
+        patch_permx  = []
+        patch_permy  = []
+        patch_permz  = []
+        patch_poro  = []
+
+        for j in range(len(cell_vornoi_combination_flatten)):
+            for k in range(n_polygons):
+                if cell_vornoi_combination_flatten[j] == k:
+                    permx = all_model_values_permx[k,j]
+                    permy = all_model_values_permy[k,j]
+                    permz = all_model_values_permz[k,j]
+                    poro = all_model_values_poro[k,j]
+
+                    patch_permx.append(permx)
+                    patch_permy.append(permy)
+                    patch_permz.append(permz)
+                    patch_poro.append(poro)
+
+        patch_permx = np.array(patch_permx)#.reshape((nx,ny,nz))
+        patch_permy = np.array(patch_permy)#.reshape((nx,ny,nz))
+        patch_permz = np.array(patch_permz)#.reshape((nx,ny,nz))
+        patch_poro = np.array(patch_poro)#.reshape((nx,ny,nz))
+        
+        # export that model into FD_model include folder
+        file_permx = "FILEUNIT\n\METRIC /\nPERMX\n{} /".format(patch_permx)
+        permx_file_path = base_path / "../FD_Models/INCLUDE/PERMX/M_FD_{}.DATA".format(i)
+        file = open(permx_file_path, "w+")
+        file.write(file_permx)
+        file.close()
+
+        file_permy = "FILEUNIT\n\METRIC /\nPERMY\n{} /".format(patch_permy)
+        permy_file_path = base_path / "../FD_Models/INCLUDE/PERMY/M_FD_{}.DATA".format(i)
+        file = open(permy_file_path, "w+")
+        file.write(file_permy)
+        file.close()
+
+        file_permz = "FILEUNIT\n\METRIC /\nPERMZ\n{} /".format(patch_permz)
+        permz_file_path = base_path / "../FD_Models/INCLUDE/PERMZ/M_FD_{}.DATA".format(i)
+        file = open(permz_file_path, "w+")
+        file.write(file_permz)
+        file.close()
+
+        file_poro = "FILEUNIT\n\METRIC /\nPORO\n{} /".format(patch_poro)
+        poro_file_path = base_path / "../FD_Models/INCLUDE/PORO/M_FD_{}.DATA".format(i)
+        file = open(poro_file_path, "w+")
+        file.write(file_poro)
+        file.close()
+
+        
 def built_FD_Data_files():
 
     # loading in settings that I set up on init_ABRM.py for this run
@@ -767,8 +932,10 @@ def save_variables_to_file(setup):
     # with help of GUI generate file that contains all the variables that I want to use in my swarm function. save them and them load them into the swarm
     # save these settings to my folder so that I can recreate things within each subfunction
     # aslo set up entire folder structure and check if folders already exist to prevent overwriting
-    base_path = Path(__file__).parent
-    output_path = str(base_path / "../Output/")
+    # type(Path(__file__).resolve())
+    base_path = Path(__file__).parent.parent
+    # output_path = str(base_path / "../Output/")
+    output_path = base_path / "../Output/"
 
     #folder name will be current date and time
     output_folder = str(datetime.datetime.today().replace(microsecond= 0, second = 0).strftime("%Y_%m_%d_%H_%M"))
@@ -937,10 +1104,12 @@ def compute_diversity_swarm(swarm_performance):
         for i in range(0,20):
             for j in range(0,10):
                 for k in range(0,1):
-                    single_cell_temp = np.round(np.mean(tof_single_particle_moving_window[i,j,k]),2)
+                    single_cell_temp = np.mean(tof_single_particle_moving_window[i,j,k])
+                                        # single_cell_temp = np.round(np.mean(tof_single_particle_moving_window[i,j,k]),2)
+
                     tof_single_particle_upscaled.append(single_cell_temp)
 
-        df_tof_single_particle_upscaled = pd.DataFrame(np.log10(np.array(tof_single_particle_upscaled)))
+        df_tof_single_particle_upscaled = pd.DataFrame(np.array(tof_single_particle_upscaled))
         df_tof_single_particle_upscaled_transposed = df_tof_single_particle_upscaled.T
         df_upscaled_tof = df_upscaled_tof.append(df_tof_single_particle_upscaled_transposed)
 
@@ -948,9 +1117,25 @@ def compute_diversity_swarm(swarm_performance):
 
     # calculate entropy for each column of newly created df
     for i in range(0,df_upscaled_tof.shape[1]):
-            
-        cell = np.round(df_upscaled_tof[i],2)
-        parameter_entropy = np.array(ent.shannon_entropy(cell))
+
+        # single cell in all models    
+        cell = np.array(np.round(df_upscaled_tof[i])).reshape(-1,1)
+        # print(cell)
+        # scale tof
+        # scaler = preprocessing.MinMaxScaler(feature_range=(-1,1))
+        # cell = scaler.fit_transform(cell)#.reshape(-1,1))l
+        # print(cell_scaled)
+        # discretize with the help of HDBSCAN
+        # Create HDBSCAN clusters
+        hdb = hdbscan.HDBSCAN(min_cluster_size=2, cluster_selection_epsilon = 10000000, min_samples = 2, cluster_selection_method = "leaf")#,min_samples  =1)
+        scoreTitles = hdb.fit(cell)
+        cell_cluster_id = scoreTitles.labels_
+        # unclustered cells get unique value
+        for i in range(0,len(cell_cluster_id)):
+            if cell_cluster_id[i] == -1:
+                cell_cluster_id[i] = np.max(cell_cluster_id) + 1
+
+        parameter_entropy = np.array(ent.shannon_entropy(cell_cluster_id))
         all_cells_entropy.append(parameter_entropy)
 
     # sum up entropy for that particle
@@ -959,7 +1144,7 @@ def compute_diversity_swarm(swarm_performance):
     print(swarm_upscaled_entropy)
     # diversity
     n_cells = df_upscaled_tof.shape[1]
-    diversity_swarm = 1/(n_particles*n_cells) * swarm_upscaled_entropy
+    diversity_swarm = (1/(n_particles*n_cells)) * swarm_upscaled_entropy
     print(diversity_swarm)
 
     return diversity_swarm
@@ -991,7 +1176,7 @@ def compute_diversity_best():
         # if best models exist best models
         tof_best_models_check = tof_all_iter[(tof_all_iter.misfit <= best_models)].tof
 
-        if tof_best_models_check.shape[0] > 0:
+        if tof_best_models_check.shape[0] > 140000:
             print("best modesl exists")
             tof_best_models = tof_all_iter[(tof_all_iter.misfit <= best_models)]
             df_best_tof_upscaled = pd.DataFrame(columns = np.arange(20*10*1))
@@ -1017,33 +1202,73 @@ def compute_diversity_best():
                                 single_cell_temp = np.round(np.mean(tof_single_particle_moving_window[k,l,m]),2)
                                 tof_single_particle_upscaled.append(single_cell_temp)
 
-                    df_tof_single_particle_upscaled = pd.DataFrame(np.log10(np.array(tof_single_particle_upscaled)))
+                    df_tof_single_particle_upscaled = pd.DataFrame(np.array(tof_single_particle_upscaled))
                     df_tof_single_particle_upscaled_transposed = df_tof_single_particle_upscaled.T
                     # df_tof_single_particle_upscaled_transposed["particle_no"] = particle
                     # df_tof_single_particle_upscaled_transposed["iteration"] = iteration
                     df_best_tof_upscaled = df_best_tof_upscaled.append(df_tof_single_particle_upscaled_transposed)
             
-
+            
             all_cells_entropy = []
-
             # calculate entropy for each column of newly created df
             for i in range(0,df_best_tof_upscaled.shape[1]):
-                    
-                cell = np.round(df_best_tof_upscaled[i],2)
-                parameter_entropy = np.array(ent.shannon_entropy(cell))
+            # for i in range(0,10):
+                # single cell in all models    
+                cell = np.array(df_best_tof_upscaled[i])
+                cell = cell.reshape(-1,1)
+                print(cell)
+                # scale tof
+                # scaler = preprocessing.MinMaxScaler(feature_range=(-1,1))
+                # cell = scaler.fit_transform(cell)#.reshape(-1,1))l
+            #     print(cell_scaled)
+                # discretize with the help of HDBSCAN
+                # Create HDBSCAN clusters
+                hdb = hdbscan.HDBSCAN(min_cluster_size=2,
+                                    min_samples=2, 
+                                    cluster_selection_epsilon=10000000,
+                                    cluster_selection_method = "leaf")#, cluster_selection_epsilon = 0.1)#,min_samples  =1)
+                scoreTitles = hdb.fit(cell)
+                cell_cluster_id = scoreTitles.labels_
+                
+                # unclustered cells get unique value
+                for i in range(0,len(cell_cluster_id)):
+                    if cell_cluster_id[i] == -1:
+                        cell_cluster_id[i] = np.max(cell_cluster_id) + 1
+                                
+            #     print(cell_cluster_id)
+
+                parameter_entropy = np.array(ent.shannon_entropy(cell_cluster_id))
                 all_cells_entropy.append(parameter_entropy)
 
             # sum up entropy for that particle
-            best_upscaled_entropy = np.sum(all_cells_entropy)
-            print(best_upscaled_entropy)
+            swarm_upscaled_entropy = np.sum(all_cells_entropy)
+            print("swarm_diverstiy")
+            print(swarm_upscaled_entropy)
             # diversity
-            n_best_models = df_best_tof_upscaled.shape[0]
             n_cells = df_best_tof_upscaled.shape[1]
-            diversity_best = 1/(n_best_models*n_cells) * best_upscaled_entropy
+            diversity_best = (1/(n_particles*n_cells)) * swarm_upscaled_entropy
             print(diversity_best)
+
+        #     all_cells_entropy = []
+
+        #     # calculate entropy for each column of newly created df
+        #     for i in range(0,df_best_tof_upscaled.shape[1]):
+                    
+        #         cell = np.round(df_best_tof_upscaled[i],2)
+        #         parameter_entropy = np.array(ent.shannon_entropy(cell))
+        #         all_cells_entropy.append(parameter_entropy)
+
+        #     # sum up entropy for that particle
+        #     best_upscaled_entropy = np.sum(all_cells_entropy)
+        #     print(best_upscaled_entropy)
+        #     # diversity
+        #     n_best_models = df_best_tof_upscaled.shape[0]
+        #     n_cells = df_best_tof_upscaled.shape[1]
+        #     diversity_best = 1/(n_best_models*n_cells) * best_upscaled_entropy
+        #     print(diversity_best)
         else:
             diversity_best = 0
-
+    
     return diversity_best
 
 

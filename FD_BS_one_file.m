@@ -91,7 +91,7 @@ function [FD_performance] = FD_BS_one_file(x)
     F(end)= [];
     Phi(end)= [];
     LC_long = zeros(length(Ev),1) + LC;
-    tof = D.tof(:,1);
+    tof = D.tof(:,2);
     FD_performance = [Ev;tD;F;Phi;LC_long;tof];
 
 

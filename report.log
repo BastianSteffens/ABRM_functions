@@ -399,3 +399,100 @@ AttributeError: 'numpy.ndarray' object has no attribute 'velocity'
  0.45006368 0.51729101 0.97626697 0.41635739 0.17588353 0.08897386
  0.84379381 0.         0.57872813 0.24224443 0.10260537 0.66085839]
 2020-06-18 17:31:28,689 - pyswarms.single.local_best - INFO - Optimize for 30 iters with {'c1': 1.49618, 'c2': 1.49618, 'w': 0.9, 'k': 30, 'p': 2, 'd': 0.99, 'direction': 1}
+2020-06-22 14:07:43,438 - pyswarms.single.local_best - INFO - Optimize for 3 iters with {'c1': 1.49618, 'c2': 1.49618, 'w': 0.9, 'k': 30, 'p': 2, 'd': 0.99, 'direction': 1}
+2020-06-22 14:09:02,255 - pyswarms.single.local_best - INFO - Optimize for 3 iters with {'c1': 1.49618, 'c2': 1.49618, 'w': 0.9, 'k': 30, 'p': 2, 'd': 0.99, 'direction': 1}
+2020-06-22 14:14:42,471 - pyswarms.single.local_best - INFO - Optimize for 3 iters with {'c1': 1.49618, 'c2': 1.49618, 'w': 0.9, 'k': 30, 'p': 2, 'd': 0.99, 'direction': 1}
+2020-06-22 14:19:32,847 - pyswarms.single.local_best - INFO - Optimize for 3 iters with {'c1': 1.49618, 'c2': 1.49618, 'w': 0.9, 'k': 30, 'p': 2, 'd': 0.99, 'direction': 1}
+2020-06-22 14:24:50,953 - pyswarms.single.local_best - INFO - Optimize for 3 iters with {'c1': 1.49618, 'c2': 1.49618, 'w': 0.9, 'k': 9, 'p': 2, 'd': 0.99, 'direction': 1}
+2020-06-22 14:34:44,512 - pyswarms.single.local_best - INFO - Optimization finished | best cost: 0.08503747069951863, best pos: [0.00546126 0.68492794 0.32977713 0.89248608 0.84580973 0.57282628
+ 0.29386426 0.09494793 0.36781837 0.43370518 0.7211779  0.26364074
+ 0.55427423 0.7912726  0.61023028 0.97715536 0.50763961 0.82835497
+ 0.35482358 0.19862466 0.21089327 0.04593765 0.49817962 0.64254847
+ 0.14600231 0.12200043 0.95136022 0.74880418 0.41628529 0.93254813]
+2020-06-22 14:37:24,810 - pyswarms.single.local_best - INFO - Optimize for 3 iters with {'c1': 1.49618, 'c2': 1.49618, 'w': 0.9, 'k': 9, 'p': 2, 'd': 0.99, 'direction': 1}
+2020-06-22 14:41:50,129 - pyswarms.single.local_best - INFO - Optimize for 3 iters with {'c1': 1.49618, 'c2': 1.49618, 'w': 0.9, 'k': 9, 'p': 2, 'd': 0.99, 'direction': 1}
+2020-06-22 14:50:24,349 - pyswarms.single.local_best - INFO - Optimize for 3 iters with {'c1': 1.49618, 'c2': 1.49618, 'w': 0.9, 'k': 9, 'p': 2, 'd': 0.99, 'direction': 1}
+2020-06-22 14:57:00,556 - pyswarms.single.local_best - INFO - Optimize for 3 iters with {'c1': 1.49618, 'c2': 1.49618, 'w': 0.9, 'k': 9, 'p': 2, 'd': 0.99, 'direction': 1}
+2020-06-22 15:02:57,585 - pyswarms.single.local_best - INFO - Optimize for 3 iters with {'c1': 1.49618, 'c2': 1.49618, 'w': 0.9, 'k': 9, 'p': 2, 'd': 0.99, 'direction': 1}
+2020-06-22 15:10:17,078 - pyswarms.single.local_best - INFO - Optimize for 3 iters with {'c1': 1.49618, 'c2': 1.49618, 'w': 0.9, 'k': 9, 'p': 2, 'd': 0.99, 'direction': 1}
+2020-06-22 15:15:04,227 - pyswarms.single.local_best - INFO - Optimize for 3 iters with {'c1': 1.49618, 'c2': 1.49618, 'w': 0.9, 'k': 9, 'p': 2, 'd': 0.99, 'direction': 1}
+2020-06-22 15:24:58,212 - pyswarms.single.local_best - INFO - Optimization finished | best cost: 0.08503747069951863, best pos: [0.61790764 0.52554566 0.40856733 0.20892604 0.31938188 0.80273505
+ 0.6716925  0.02962541 0.7408932  0.12346536 0.84919806 0.79383364
+ 0.14010374 0.56037089 0.28664356 0.57003101 0.99771599 0.66401492
+ 0.19190191 0.04228042 0.47854493 0.3993645  0.72100748 0.92130576
+ 0.07825472 0.33592229 0.9647551  0.24550333 0.44737101 0.89783499]
+2020-06-22 15:27:57,120 - pyswarms.single.local_best - INFO - Optimize for 3 iters with {'c1': 1.49618, 'c2': 1.49618, 'w': 0.9, 'k': 9, 'p': 2, 'd': 0.99, 'direction': 1}
+2020-06-22 15:34:33,429 - pyswarms.single.local_best - INFO - Optimize for 3 iters with {'c1': 1.49618, 'c2': 1.49618, 'w': 0.9, 'k': 9, 'p': 2, 'd': 0.99, 'direction': 1}
+2020-06-22 15:44:27,086 - pyswarms.single.local_best - INFO - Optimization finished | best cost: 0.08503747069951863, best pos: [0.63733649 0.42269094 0.47822878 0.3917478  0.75258901 0.83566362
+ 0.28466325 0.93844988 0.35767056 0.30161646 0.10963646 0.15562894
+ 0.98135686 0.17321239 0.26255784 0.5789426  0.22413595 0.44654548
+ 0.79936117 0.72700366 0.93078468 0.80536119 0.6679015  0.07977165
+ 0.54947095 0.03939465 0.03242267 0.86698002 0.63032023 0.51214173]
+2020-06-22 16:03:13,247 - pyswarms.single.local_best - INFO - Optimize for 3 iters with {'c1': 1.49618, 'c2': 1.49618, 'w': 0.9, 'k': 9, 'p': 2, 'd': 0.99, 'direction': 1}
+2020-06-22 16:36:44,966 - pyswarms.single.local_best - INFO - Optimization finished | best cost: 0.03988950055332114, best pos: [0.50189977 0.75495592 0.83869503 0.81092437 0.97000414 0.33027522
+ 0.42803818 0.46635879 0.135011   0.60849408 0.26856433 0.72985477
+ 0.76698585 0.6657594  0.67824387 0.38555517 0.24850704 0.17726717
+ 0.92118271 0.94808712 0.03572959 0.49127143 0.01084852 0.35220698
+ 0.58463985 0.11637131 0.53874993 0.09259624 0.2290264  0.89119493]
+2020-06-22 18:19:45,774 - pyswarms.single.local_best - INFO - Optimize for 1 iters with {'c1': 1.49618, 'c2': 1.49618, 'w': 0.9, 'k': 9, 'p': 2, 'd': 0.99, 'direction': 1}
+2020-06-22 18:24:58,214 - pyswarms.single.local_best - INFO - Optimize for 30 iters with {'c1': 1.49618, 'c2': 1.49618, 'w': 0.9, 'k': 9, 'p': 2, 'd': 0.99, 'direction': 1}
+2020-06-22 18:33:51,994 - pyswarms.single.local_best - INFO - Optimize for 30 iters with {'c1': 1.49618, 'c2': 1.49618, 'w': 0.9, 'k': 9, 'p': 2, 'd': 0.99, 'direction': 1}
+2020-06-22 19:21:44,711 - pyswarms.single.local_best - INFO - Optimize for 30 iters with {'c1': 1.49618, 'c2': 1.49618, 'w': 0.9, 'k': 3, 'p': 2, 'd': 0.99, 'direction': 1}
+2020-06-22 19:24:31,283 - pyswarms.single.local_best - INFO - Optimize for 30 iters with {'c1': 1.49618, 'c2': 1.49618, 'w': 0.9, 'k': 3, 'p': 2, 'd': 0.99, 'direction': 1}
+2020-06-22 19:28:37,071 - pyswarms.single.local_best - INFO - Optimize for 30 iters with {'c1': 1.49618, 'c2': 1.49618, 'w': 0.9, 'k': 3, 'p': 2, 'd': 0.99, 'direction': 1}
+2020-06-22 19:32:29,518 - pyswarms.single.local_best - INFO - Optimize for 30 iters with {'c1': 1.49618, 'c2': 1.49618, 'w': 0.9, 'k': 3, 'p': 2, 'd': 0.99, 'direction': 1}
+2020-06-22 19:40:53,710 - pyswarms.single.local_best - INFO - Optimize for 30 iters with {'c1': 1.49618, 'c2': 1.49618, 'w': 0.9, 'k': 30, 'p': 2, 'd': 0.99, 'direction': 1}
+2020-06-29 09:36:15,190 - matplotlib.font_manager - INFO - generated new fontManager
+2020-06-29 09:36:27,770 - pyswarms.single.local_best - INFO - Optimize for 30 iters with {'c1': 1.49618, 'c2': 1.49618, 'w': 0.9, 'k': 30, 'p': 2, 'd': 0.99, 'direction': 1}
+2020-07-06 12:08:22,627 - geovoronoi - INFO - running Voronoi tesselation for 5 points
+2020-07-06 12:08:22,633 - geovoronoi - INFO - generated 5 Voronoi regions
+2020-07-06 12:08:22,633 - geovoronoi - INFO - generating Voronoi polygon lines
+2020-07-06 12:08:22,633 - geovoronoi - INFO - generating Voronoi polygon shapes
+2020-07-06 12:08:22,633 - geovoronoi - INFO - assigning 5 points to 5 Voronoi polygons
+2020-07-06 12:09:46,029 - geovoronoi - INFO - running Voronoi tesselation for 3 points
+2020-07-06 12:09:46,034 - geovoronoi - INFO - generated 3 Voronoi regions
+2020-07-06 12:09:46,034 - geovoronoi - INFO - generating Voronoi polygon lines
+2020-07-06 12:09:46,037 - geovoronoi - INFO - generating Voronoi polygon shapes
+2020-07-06 12:09:46,039 - geovoronoi - INFO - assigning 3 points to 3 Voronoi polygons
+2020-07-06 14:28:52,661 - geovoronoi - INFO - running Voronoi tesselation for 3 points
+2020-07-06 14:28:52,665 - geovoronoi - INFO - generated 3 Voronoi regions
+2020-07-06 14:28:52,666 - geovoronoi - INFO - generating Voronoi polygon lines
+2020-07-06 14:28:52,669 - geovoronoi - INFO - generating Voronoi polygon shapes
+2020-07-06 14:28:52,670 - geovoronoi - INFO - assigning 3 points to 3 Voronoi polygons
+2020-07-06 14:29:40,765 - geovoronoi - INFO - running Voronoi tesselation for 3 points
+2020-07-06 14:29:40,769 - geovoronoi - INFO - generated 3 Voronoi regions
+2020-07-06 14:29:40,770 - geovoronoi - INFO - generating Voronoi polygon lines
+2020-07-06 14:29:40,773 - geovoronoi - INFO - generating Voronoi polygon shapes
+2020-07-06 14:29:40,775 - geovoronoi - INFO - assigning 3 points to 3 Voronoi polygons
+2020-07-06 15:16:13,048 - geovoronoi - INFO - running Voronoi tesselation for 3 points
+2020-07-06 15:16:13,053 - geovoronoi - INFO - generated 3 Voronoi regions
+2020-07-06 15:16:13,054 - geovoronoi - INFO - generating Voronoi polygon lines
+2020-07-06 15:16:13,057 - geovoronoi - INFO - generating Voronoi polygon shapes
+2020-07-06 15:16:13,059 - geovoronoi - INFO - assigning 3 points to 3 Voronoi polygons
+2020-07-06 16:57:42,338 - geovoronoi - INFO - running Voronoi tesselation for 10 points
+2020-07-06 16:57:42,342 - geovoronoi - INFO - generated 10 Voronoi regions
+2020-07-06 16:57:42,343 - geovoronoi - INFO - generating Voronoi polygon lines
+2020-07-06 16:57:42,348 - geovoronoi - INFO - generating Voronoi polygon shapes
+2020-07-06 16:57:42,351 - geovoronoi - INFO - assigning 10 points to 10 Voronoi polygons
+2020-07-06 17:01:58,802 - geovoronoi - INFO - running Voronoi tesselation for 30 points
+2020-07-06 17:01:58,806 - geovoronoi - INFO - generated 30 Voronoi regions
+2020-07-06 17:01:58,808 - geovoronoi - INFO - generating Voronoi polygon lines
+2020-07-06 17:01:58,814 - geovoronoi - INFO - generating Voronoi polygon shapes
+2020-07-06 17:01:58,814 - geovoronoi - INFO - assigning 30 points to 30 Voronoi polygons
+2020-07-06 17:07:08,313 - geovoronoi - INFO - running Voronoi tesselation for 1 points
+2020-07-06 17:07:17,586 - geovoronoi - INFO - running Voronoi tesselation for 2 points
+2020-07-06 17:07:23,873 - geovoronoi - INFO - running Voronoi tesselation for 3 points
+2020-07-06 17:07:23,877 - geovoronoi - INFO - generated 3 Voronoi regions
+2020-07-06 17:07:23,877 - geovoronoi - INFO - generating Voronoi polygon lines
+2020-07-06 17:07:23,881 - geovoronoi - INFO - generating Voronoi polygon shapes
+2020-07-06 17:07:23,882 - geovoronoi - INFO - assigning 3 points to 3 Voronoi polygons
+2020-07-06 17:28:24,372 - geovoronoi - INFO - running Voronoi tesselation for 3 points
+2020-07-06 17:28:24,377 - geovoronoi - INFO - generated 3 Voronoi regions
+2020-07-06 17:28:24,378 - geovoronoi - INFO - generating Voronoi polygon lines
+2020-07-06 17:28:24,381 - geovoronoi - INFO - generating Voronoi polygon shapes
+2020-07-06 17:28:24,383 - geovoronoi - INFO - assigning 3 points to 3 Voronoi polygons
+2020-07-06 17:30:11,155 - geovoronoi - INFO - running Voronoi tesselation for 3 points
+2020-07-06 17:30:11,159 - geovoronoi - INFO - generated 3 Voronoi regions
+2020-07-06 17:30:11,160 - geovoronoi - INFO - generating Voronoi polygon lines
+2020-07-06 17:30:11,163 - geovoronoi - INFO - generating Voronoi polygon shapes
+2020-07-06 17:30:11,165 - geovoronoi - INFO - assigning 3 points to 3 Voronoi polygons

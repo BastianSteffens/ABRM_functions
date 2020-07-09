@@ -22,6 +22,11 @@ import ABRM_functions
 
 def init():
     
+    from pathlib import Path
+    print(Path(__file__).parent.parent)
+
+
+
     # seed
     set_seed = random.randint(0,10000000)
     random.seed(set_seed)
@@ -29,8 +34,8 @@ def init():
 
     ###### Set hyperparameters for PSO ######
     n_parameters = 30
-    n_iters = 30
-    n_particles = 30 # always pick multiple of 3. need to fix this 
+    n_iters = 2
+    n_particles = 3 # always pick multiple of 3. need to fix this 
     min_bound = 0 * np.ones(n_parameters)
     max_bound = 1 * np.ones(n_parameters)
     bounds = (min_bound, max_bound)
@@ -39,7 +44,7 @@ def init():
     inertia = 0.9
     damping_factor = 0.99
     direction  = 1
-    n_neighbors  =  30
+    n_neighbors  =  1
     distance_measure  = 2 # 2 = euclidian 1 = manhatten
     dimensions = n_parameters
     options = {'c1': social_component, 'c2': cognitive_component, 'w':inertia, 'k':n_neighbors, 'p':distance_measure,'d':damping_factor, "direction": direction}
@@ -57,27 +62,38 @@ def init():
     ###### Set modelling parameters for Petrelworkflows ######
    
     # if I want to set a varaible constant, just make the range = 0 e.g. varmin=varmax
-    varminmax = np.array([[1,4],[1,200],[1,200],[1,100],[1,100],[1,7],[1,7],
-                          [1,4],[1,200],[1,200],[1,100],[1,100],[1,7],[1,7],
-                          [1,4],[1,200],[1,200],[1,100],[1,100],[1,7],[1,7],
-                          [0,1],[0,1],[0,1],[1,450],[1,100],[1,4500],
+    # varminmax = np.array([[1,4],[1,200],[1,200],[1,100],[1,100],[1,7],[1,7],
+    #                       [1,4],[1,200],[1,200],[1,100],[1,100],[1,7],[1,7],
+    #                       [1,4],[1,200],[1,200],[1,100],[1,100],[1,7],[1,7],
+    #                       [0,1],[0,1],[0,1],[1,450],[1,100],[1,4500],
+    #                       [1,100],[1,4500],[1,100]])
+    varminmax = np.array([[1,4],[1,200],[1,100],[1,4],[1,200],[1,100],[1,4],
+                          [1,200],[1,100],[1,450],[1,100],[1,4500],
                           [1,100],[1,4500],[1,100]])
     # varminmax = np.array([[0.001,1.5],[4,10],[0.1,3],[2.01,5],[1,100],[0,90],[0,90],[1,100],[0.00075,0.0000075],[0.000015,0.00000015]])    
-    
-    # if cnotinues = 0, if discrete = 1
-    continuous_discrete = [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0]
+    nx = 200
+    ny = 100
+    nz = 7
+    # if continuoes = 0, if discrete = 1
+    # continuous_discrete = [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0]
+    continuous_discrete = [1,1,1,1,1,1,1,1,1,0,0,0,0,0,0]
+
     # continuous_discrete = [0,1,0,0,0,0,0,0,0,0]
     # var names
-    columns = ["TI1","F1_I_MIN","F1_I_MAX","F1_J_MIN","F1_J_MAX","F1_K_MIN","F1_K_MAX",
-               "TI2","F2_I_MIN","F2_I_MAX","F2_J_MIN","F2_J_MAX","F2_K_MIN","F2_K_MAX",
-               "TI3","F3_I_MIN","F3_I_MAX","F3_J_MIN","F3_J_MAX","F3_K_MIN","F3_K_MAX",
-               "F1_Curve_Prob","F2_Curve_Prob","F3_Curve_Prob","FracpermX","MatrixpermX",
-               "FracpermY","MatrixpermY","FracpermZ","MatrixpermZ"]   
+    columns = ["TI1","Voronoi_x_1","Voronoi_y_1","TI2","Voronoi_x_2","Voronoi_y_2","TI3",
+               "Voronoi_x_3","Voronoi_y_3","FracpermX","MatrixpermX",
+               "FracpermY","MatrixpermY","FracpermZ","MatrixpermZ"]
+    # columns = ["TI1","F1_I_MIN","F1_I_MAX","F1_J_MIN","F1_J_MAX","F1_K_MIN","F1_K_MAX",
+    #            "TI2","F2_I_MIN","F2_I_MAX","F2_J_MIN","F2_J_MAX","F2_K_MIN","F2_K_MAX",
+    #            "TI3","F3_I_MIN","F3_I_MAX","F3_J_MIN","F3_J_MAX","F3_K_MIN","F3_K_MAX",
+    #            "F1_Curve_Prob","F2_Curve_Prob","F3_Curve_Prob","FracpermX","MatrixpermX",
+    #            "FracpermY","MatrixpermY","FracpermZ","MatrixpermZ"]     
     # columns = ["P32","n_sides","elongation_ratio","shape","scale","mean_dip",
-    #            "mean_dip_azimuth","concentration","aperture_mean","aperture_std"]  
+    #            "mean_dip_azimuth","concentration","aperture_mean","aperture_std"]
+    #  
     
-    # var types str = 0, numeric =1, TI = 2
-    parameter_type = [2,1,1,1,1,1,1,2,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+    # var types str = 0, numeric =1, TI = 2, voronoi_coordinate = 3
+    parameter_type = [2,3,3,2,3,3,2,3,3,1,1,1,1,1,1]
     # parameter_type = [1,1,1,1,1,1,1,1,1,1]
 
     n_trainingimages = 4
@@ -98,11 +114,11 @@ def init():
     set_seed = random.randint(0,10000000)
     random.seed(set_seed)
     # models per petrel workflow (limited to 3 atm)
-    n_modelsperbatch = 3
+    n_modelsperbatch = 1
     # how many potrel licenses to run at once
     n_parallel_petrel_licenses = 3
     # which workflow to run in petrel (atm onlz 1 wf)
-    runworkflow = "WF_2020_04_16" #"WF_2020_04_16"#"WF_2019_09_16", "WF_test" "WF_2020_05_08"
+    runworkflow = "WF_2020_07_03" #"WF_2020_04_16"#"WF_2019_09_16", "WF_test" "WF_2020_05_08"
     # run with petrel or without for test
     petrel_on = True
     petrel_path = "C:/Program Files/Schlumberger/Petrel 2017/Petrel.exe"
@@ -117,7 +133,8 @@ def init():
                  save_all_models = save_all_models, vh_strategy=vh_strategy,
                  bh_strategy = bh_strategy, n_parallel_petrel_licenses = n_parallel_petrel_licenses,
                  n_neighbors = n_neighbors,petrel_path = petrel_path, n_trainingimages = n_trainingimages,
-                 continuous_discrete = continuous_discrete,schedule = schedule,penalty = penalty, best_models = best_models)
+                 continuous_discrete = continuous_discrete,schedule = schedule,penalty = penalty, best_models = best_models,
+                 nx = nx, ny = ny, nz = nz)
 
     #save variables to pickle file and load them into pso later. this also sets up folder structure to save rest of pso resutls in
     ABRM_functions.save_variables_to_file(setup)
