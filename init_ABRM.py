@@ -4,7 +4,7 @@
 import pyswarms as ps       # PSO package in Python
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 from pyswarms.utils.plotters import (plot_cost_history, plot_contour, plot_surface)
 import random 
 import pickle
@@ -22,8 +22,8 @@ import ABRM_functions
 
 def init():
     
-    from pathlib import Path
-    print(Path(__file__).parent.parent)
+    # from pathlib import Path
+    # print(Path(__file__).parent)
 
 
 
@@ -33,7 +33,7 @@ def init():
 
 
     ###### Set hyperparameters for PSO ######
-    n_parameters = 30
+    n_parameters = 15
     n_iters = 2
     n_particles = 3 # always pick multiple of 3. need to fix this 
     min_bound = 0 * np.ones(n_parameters)
@@ -74,6 +74,7 @@ def init():
     nx = 200
     ny = 100
     nz = 7
+    n_voronoi = 3
     # if continuoes = 0, if discrete = 1
     # continuous_discrete = [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0]
     continuous_discrete = [1,1,1,1,1,1,1,1,1,0,0,0,0,0,0]
@@ -120,7 +121,7 @@ def init():
     # which workflow to run in petrel (atm onlz 1 wf)
     runworkflow = "WF_2020_07_03" #"WF_2020_04_16"#"WF_2019_09_16", "WF_test" "WF_2020_05_08"
     # run with petrel or without for test
-    petrel_on = True
+    petrel_on = False
     petrel_path = "C:/Program Files/Schlumberger/Petrel 2017/Petrel.exe"
 
     # if all models should be explicitly saved and not overwritten. 
@@ -134,7 +135,7 @@ def init():
                  bh_strategy = bh_strategy, n_parallel_petrel_licenses = n_parallel_petrel_licenses,
                  n_neighbors = n_neighbors,petrel_path = petrel_path, n_trainingimages = n_trainingimages,
                  continuous_discrete = continuous_discrete,schedule = schedule,penalty = penalty, best_models = best_models,
-                 nx = nx, ny = ny, nz = nz)
+                 nx = nx, ny = ny, nz = nz, n_voronoi = n_voronoi)
 
     #save variables to pickle file and load them into pso later. this also sets up folder structure to save rest of pso resutls in
     ABRM_functions.save_variables_to_file(setup)

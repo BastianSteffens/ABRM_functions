@@ -22,7 +22,8 @@ import hdbscan
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import re
-from pathlib import Path
+import pathlib
+# from pathlib import Path
 import glob
 from pyentrp import entropy as ent
 from skimage.util.shape import view_as_windows
@@ -116,7 +117,7 @@ def swarm(x_swarm):
 def built_batch_file_for_petrel_models_uniform(x):
 
     # loading in settings that I set up on init_ABRM.py for this run
-    base_path = Path(__file__).parent
+    base_path = pathlib.Path(__file__).parent
     pickle_file = base_path / "../Output/variable_settings.pickle"
     with open(pickle_file, "rb") as f:
         setup = pickle.load(f)
@@ -234,7 +235,7 @@ def built_multibat_files():
     #### built multi_batch file bat files that can launch several petrel licenses (run_petrel) at once
 
     # loading in settings that I set up on init_ABRM.py for this run
-    base_path = Path(__file__).parent
+    base_path = pathlib.Path(__file__).parent
     pickle_file = base_path / "../Output/variable_settings.pickle"
     with open(pickle_file, "rb") as f:
         setup = pickle.load(f)
@@ -264,7 +265,7 @@ def built_multibat_files():
 def run_batch_file_for_petrel_models(x):
 
     # loading in settings that I set up on init_ABRM.py for this run
-    base_path = Path(__file__).parent
+    base_path = pathlib.Path(__file__).parent
     pickle_file = base_path / "../Output/variable_settings.pickle"    
     with open(pickle_file, "rb") as f:
         setup = pickle.load(f)
@@ -332,7 +333,7 @@ def particle(x,i):
 def save_all_models():
     
     # loading in settings that I set up on init_ABRM.py for this run
-    base_path = Path(__file__).parent
+    base_path = pathlib.Path(__file__).parent
     pickle_file = base_path / "../Output/variable_settings.pickle"    
     with open(pickle_file, "rb") as f:
         setup = pickle.load(f)
@@ -432,21 +433,19 @@ def save_all_models():
 def patch_voronoi_models(x_swarm_converted):
 
     # loading in settings that I set up on init_ABRM.py for this run
-    base_path = Path(__file__).parent
+    base_path = pathlib.Path(__file__).parent
     pickle_file = base_path / "../Output/variable_settings.pickle"    
     with open(pickle_file, "rb") as f:
         setup = pickle.load(f)
 
     n_particles = setup["n_particles"]
-    n_polygons = setup["n_polygons"]
+    n_voronoi = setup["n_voronoi"]
     parameter_type = setup["parameter_type"]
-    n_paramters = setup["n_parameters"]
+    n_parameters = setup["n_parameters"]
     parameter_name = setup["columns"]
     nx = setup["nx"]
     ny = setup["ny"]
     nz = setup["nz"]
-
-    x = particle
 
     for i in range(n_particles):
         # first figure out which points I am interested and append them to new list
@@ -473,8 +472,10 @@ def patch_voronoi_models(x_swarm_converted):
         # voronoi_z = np.array(voronoi_z)
 
         # #define grid and  position initianinon points of n polygons
-        polygon_points = np.concatenate((voronoi_x,voronoi_y),axis = 0)
-        grid = grid = Polygon([(0, 0), (0, ny), (nx, ny), (nx, 0)])
+        # print(voronoi_x)
+        # print(voronoi_y)
+        polygon_points = np.vstack((voronoi_x,voronoi_y)).T
+        grid = Polygon([(0, 0), (0, ny), (nx, ny), (nx, 0)])
 
         # generate 2D mesh
         x = np.arange(0,nx+1,1,)
@@ -489,12 +490,14 @@ def patch_voronoi_models(x_swarm_converted):
         # array to assign polygon id [ last column] to cell id [first 2 columns]
         all_cell_center = np.column_stack((x_cell_center.flatten(),y_cell_center.flatten(),cell_center_which_polygon))
 
+        # print(polygon_points)
+        # print(grid)
         # get voronoi regions
         poly_shapes, pts, poly_to_pt_assignments = voronoi_regions_from_coords(polygon_points, grid)
 
         # in what voronoi polygon do cell centers plot
         for j in range(len(all_cell_center)):
-            for voronoi_polygon_id in range(n_polygons):
+            for voronoi_polygon_id in range(n_voronoi):
                 
                 polygon = poly_shapes[voronoi_polygon_id]
                 cell_id = Point(all_cell_center[j,0],all_cell_center[j,1])
@@ -505,18 +508,20 @@ def patch_voronoi_models(x_swarm_converted):
         
         # load and assign correct grdecl files to each polygon zone and patch togetehr to new model
         #output from reservoir modelling
+        cell_vornoi_combination = np.tile(all_cell_center[:,2],nz).reshape((nx,ny,nz))
         cell_vornoi_combination_flatten = cell_vornoi_combination.flatten()
 
-        all_model_values_permx = np.zeros((n_polygons,len(cell_vornoi_combination_flatten)))
-        all_model_values_permy = np.zeros((n_polygons,len(cell_vornoi_combination_flatten)))
-        all_model_values_permz = np.zeros((n_polygons,len(cell_vornoi_combination_flatten)))
-        all_model_values_poro = np.zeros((n_polygons,len(cell_vornoi_combination_flatten)))
+        all_model_values_permx = np.zeros((n_voronoi,len(cell_vornoi_combination_flatten)))
+        all_model_values_permy = np.zeros((n_voronoi,len(cell_vornoi_combination_flatten)))
+        all_model_values_permz = np.zeros((n_voronoi,len(cell_vornoi_combination_flatten)))
+        all_model_values_poro = np.zeros((n_voronoi,len(cell_vornoi_combination_flatten)))
         
-        geomodel_path = base_path / "../FD_Models/Data/M_FD_0.DATA"
+        # geomodel_path = str(base_path / "../FD_Models/Data/M_FD_0.DATA")
+        geomodel_path = "C:/PyGRDECL/pygrdecl_2.grdecl"
         Model = GeologyModel(filename = geomodel_path)
         data_file_path = base_path / "../FD_Models/DATA/M_FD_{}.DATA".format(i)
 
-        for j in range(n_polygons):
+        for j in range(n_voronoi):
             temp_model_path_permx = base_path / '../FD_Models/INCLUDE/Voronoi/Patch_{}/PERMX/M{}.GRDECL'.format(j,i)
             temp_model_path_permy = base_path / '../FD_Models/INCLUDE/Voronoi/Patch_{}/PERMY/M{}.GRDECL'.format(j,i)
             temp_model_path_permz = base_path / '../FD_Models/INCLUDE/Voronoi/Patch_{}/PERMZ/M{}.GRDECL'.format(j,i)
@@ -539,7 +544,7 @@ def patch_voronoi_models(x_swarm_converted):
         patch_poro  = []
 
         for j in range(len(cell_vornoi_combination_flatten)):
-            for k in range(n_polygons):
+            for k in range(n_voronoi):
                 if cell_vornoi_combination_flatten[j] == k:
                     permx = all_model_values_permx[k,j]
                     permy = all_model_values_permy[k,j]
@@ -585,7 +590,7 @@ def patch_voronoi_models(x_swarm_converted):
 def built_FD_Data_files():
 
     # loading in settings that I set up on init_ABRM.py for this run
-    base_path = Path(__file__).parent
+    base_path = pathlib.Path(__file__).parent
     pickle_file = base_path / "../Output/variable_settings.pickle"    
     with open(pickle_file, "rb") as f:
         setup = pickle.load(f)
@@ -608,7 +613,7 @@ def built_FD_Data_files():
 def built_data_file(data_file_path,model_id):
 
     # loading in settings that I set up on init_ABRM.py for this run
-    base_path = Path(__file__).parent
+    base_path = pathlib.Path(__file__).parent
     pickle_file = base_path / "../Output/variable_settings.pickle"    
     with open(pickle_file, "rb") as f:
         setup = pickle.load(f)
@@ -628,7 +633,7 @@ def save_swarm_performance(swarm_performance):
     print("start saving swarm iteration")
 
     # loading in settings that I set up on init_ABRM.py for this run
-    base_path = Path(__file__).parent
+    base_path = pathlib.Path(__file__).parent
     pickle_file = base_path / "../Output/variable_settings.pickle"    
     with open(pickle_file, "rb") as f:
         setup = pickle.load(f)
@@ -699,7 +704,7 @@ def save_swarm_performance(swarm_performance):
 def save_particle_values(x_swarm, x_swarm_converted,misfit_swarm,LC_swarm,entropy_swarm,diversity_swarm,diversity_best):
 
     # loading in settings that I set up on init_ABRM.py for this run
-    base_path = Path(__file__).parent
+    base_path = pathlib.Path(__file__).parent
     pickle_file = base_path / "../Output/variable_settings.pickle"
     with open(pickle_file, "rb") as f:
         setup = pickle.load(f)
@@ -805,7 +810,7 @@ def obj_fkt_FD(x):
 def convert_particle_values(x):
 
     # loading in settings that I set up on init_ABRM.py for this run
-    base_path = Path(__file__).parent
+    base_path = pathlib.Path(__file__).parent
     pickle_file = base_path / "../Output/variable_settings.pickle"
     with open(pickle_file, "rb") as f:
         setup = pickle.load(f)
@@ -861,7 +866,7 @@ def convert_particle_values(x):
 def misfit_fkt(x):
     
     # loading in settings that I set up on init_ABRM.py for this run
-    base_path = Path(__file__).parent
+    base_path = pathlib.Path(__file__).parent
     pickle_file = base_path / "../Output/variable_settings.pickle"
     with open(pickle_file, "rb") as f:
         setup = pickle.load(f)
@@ -875,7 +880,7 @@ def misfit_fkt(x):
 def misfit_fkt_F_Phi_curve(F,Phi):
     
     # loading in settings that I set up on init_ABRM.py for this run
-    base_path = Path(__file__).parent
+    base_path = pathlib.Path(__file__).parent
     pickle_file = base_path / "../Output/variable_settings.pickle"
     with open(pickle_file, "rb") as f:
         setup = pickle.load(f)
@@ -933,9 +938,16 @@ def save_variables_to_file(setup):
     # save these settings to my folder so that I can recreate things within each subfunction
     # aslo set up entire folder structure and check if folders already exist to prevent overwriting
     # type(Path(__file__).resolve())
-    base_path = Path(__file__).parent.parent
+    # print(Path(__file__).parent)
+    # print(type(__file__))
+    # print(__file__)
+    # BASE_DIR = Path(__file__).resolve().parent.parent
+    # print(BASE_DIR)
+    # from pathlib import Path
+
+    base_path = str(pathlib.Path(__file__).parent)
     # output_path = str(base_path / "../Output/")
-    output_path = base_path / "../Output/"
+    output_path = base_path + "/" + "../Output/"
 
     #folder name will be current date and time
     output_folder = str(datetime.datetime.today().replace(microsecond= 0, second = 0).strftime("%Y_%m_%d_%H_%M"))
@@ -955,7 +967,7 @@ def save_variables_to_file(setup):
     
     
     # also save to another file so that will always get overwritten where the filepath stays the same
-    file_path_constant = base_path / "../Output/variable_settings.pickle"
+    file_path_constant = base_path + "/" + "../Output/variable_settings.pickle"
     with open(file_path_constant,'wb') as f:
         pickle.dump(setup,f)
 
@@ -981,7 +993,7 @@ def compute_particle_paramter_entropy(x):
     # Another thing to keep in mind: should I include all values from the proceeding n iterations into that entropy calculations or limit it to n iterations prior?
 
     # loading in settings that I set up on init_ABRM.py for this run
-    base_path = Path(__file__).parent
+    base_path = pathlib.Path(__file__).parent
     pickle_file = base_path / "../Output/variable_settings.pickle"
     with open(pickle_file, "rb") as f:
         setup = pickle.load(f)
@@ -1079,7 +1091,7 @@ def compute_diversity_swarm(swarm_performance):
     # then divide by 1 over swarmsize and n_cell blocks
 
     # loading in settings that I set up on init_ABRM.py for this run
-    base_path = Path(__file__).parent
+    base_path = pathlib.Path(__file__).parent
     pickle_file = base_path / "../Output/variable_settings.pickle"
     with open(pickle_file, "rb") as f:
         setup = pickle.load(f)
@@ -1153,7 +1165,7 @@ def compute_diversity_best():
     # calculate entropy of large blocks of best models
 
     # loading in settings that I set up on init_ABRM.py for this run
-    base_path = Path(__file__).parent
+    base_path = pathlib.Path(__file__).parent
     pickle_file = base_path / "../Output/variable_settings.pickle"
     with open(pickle_file, "rb") as f:
         setup = pickle.load(f)
@@ -1278,7 +1290,7 @@ def compute_upscaled_model_entropy():
     # calculate their entropy. use that as a penalty function. want that to be high.
 
     # loading in settings that I set up on init_ABRM.py for this run
-    base_path = Path(__file__).parent
+    base_path = pathlib.Path(__file__).parent
     pickle_file = base_path / "../Output/variable_settings.pickle"
     with open(pickle_file, "rb") as f:
         setup = pickle.load(f)
@@ -1381,7 +1393,7 @@ def scale_min_max(X,xmin, xmax, lmin=0, lmax=1):
 def compute_combined_misfit_entropy(particle_misfit,particle_entropy):
 
     # loading in settings that I set up on init_ABRM.py for this run
-    base_path = Path(__file__).parent
+    base_path = pathlib.Path(__file__).parent
     pickle_file = base_path / "../Output/variable_settings.pickle"
     with open(pickle_file, "rb") as f:
         setup = pickle.load(f)
@@ -1430,7 +1442,7 @@ def compute_combined_misfit_entropy(particle_misfit,particle_entropy):
 
 def read_data(data_to_process):
     
-    base_path = Path(__file__).parent
+    base_path = pathlib.Path(__file__).parent
 
     # how many different datasets:
     n_datasets = len(data_to_process)
@@ -1704,7 +1716,7 @@ def save_best_clustered_models(df_best,datasets):
     
     best_models_to_save = pd.DataFrame()
 
-    base_path = Path(__file__).parent
+    base_path = pathlib.Path(__file__).parent
 
     # randomly sample 1 model from each lcusters that has a perfect match to the cluster (prob =1)
     for i in range(0,n_clusters+1):
