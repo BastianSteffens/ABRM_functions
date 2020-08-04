@@ -1,5 +1,6 @@
 #folder and files to ignore
 .ipynb_checkpoints/*
+.vscode/*
 __pycache__/*
 batch_files/*
 data/*
