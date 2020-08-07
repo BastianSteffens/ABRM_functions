@@ -14,7 +14,7 @@ import bz2
 import _pickle as cPickle
 from scipy import interpolate
 from sklearn.metrics import mean_squared_error
-from sklearn import preprocessing
+# from sklearn import preprocessing
 import matplotlib.pyplot as plt
 import shutil
 import umap
@@ -30,7 +30,7 @@ from skimage.util.shape import view_as_windows
 from GRDECL2VTK import *
 from geovoronoi import voronoi_regions_from_coords
 
-
+import pyvista as pv
 ########################
 
 def swarm(x_swarm):
@@ -472,9 +472,9 @@ def patch_voronoi_models(x_swarm_converted):
         # voronoi_z = np.array(voronoi_z)
 
         # #define grid and  position initianinon points of n polygons
-        # print(voronoi_x)
-        # print(voronoi_y)
-        polygon_points = np.vstack((voronoi_x,voronoi_y)).T
+        print(voronoi_x)
+        print(voronoi_y)
+        voronoi_points = np.vstack((voronoi_x,voronoi_y)).T
         grid = Polygon([(0, 0), (0, ny), (nx, ny), (nx, 0)])
 
         # generate 2D mesh
@@ -485,26 +485,36 @@ def patch_voronoi_models(x_swarm_converted):
         #get cell centers of mesh
         x_cell_center = x_grid[:-1,:-1]+0.5
         y_cell_center = y_grid[:-1,:-1]+0.5
-        cell_center_which_polygon = np.zeros(len(x_cell_center.flatten()))
+        # cell_center_which_polygon = np.zeros(len(x_cell_center.flatten()))
+        cell_center_which_polygon = np.full((len(x_cell_center.flatten())),10)
+
 
         # array to assign polygon id [ last column] to cell id [first 2 columns]
         all_cell_center = np.column_stack((x_cell_center.flatten(),y_cell_center.flatten(),cell_center_which_polygon))
 
-        # print(polygon_points)
+        # print(voronoi_points)
         # print(grid)
         # get voronoi regions
-        poly_shapes, pts, poly_to_pt_assignments = voronoi_regions_from_coords(polygon_points, grid)
+        poly_shapes, pts, poly_to_pt_assignments = voronoi_regions_from_coords(voronoi_points, grid)
 
         # in what voronoi polygon do cell centers plot
+        test_ticker = 0
         for j in range(len(all_cell_center)):
             for voronoi_polygon_id in range(n_voronoi):
                 
-                polygon = poly_shapes[voronoi_polygon_id]
+                voronoi_polygon = poly_shapes[voronoi_polygon_id]
                 cell_id = Point(all_cell_center[j,0],all_cell_center[j,1])
                 
-                if polygon.intersects(cell_id):
+                if voronoi_polygon.intersects(cell_id):
                     all_cell_center[j,2] = voronoi_polygon_id
+                    test_ticker += 1
 
+
+        # print("test_ticker: {}".format(test_ticker))
+        # plt.scatter(x_cell_center,y_cell_center, c = all_cell_center[:,2])
+        # plt.xlim([0,nx])
+        # plt.ylim([0,ny])
+        # plt.show()
         
         # load and assign correct grdecl files to each polygon zone and patch togetehr to new model
         #output from reservoir modelling
@@ -515,9 +525,8 @@ def patch_voronoi_models(x_swarm_converted):
         all_model_values_permy = np.zeros((n_voronoi,len(cell_vornoi_combination_flatten)))
         all_model_values_permz = np.zeros((n_voronoi,len(cell_vornoi_combination_flatten)))
         all_model_values_poro = np.zeros((n_voronoi,len(cell_vornoi_combination_flatten)))
-        
-        # geomodel_path = str(base_path / "../FD_Models/Data/M_FD_0.DATA")
-        geomodel_path = "C:/PyGRDECL/pygrdecl_2.grdecl"
+
+        geomodel_path = str(base_path / "../FD_Models/INCLUDE/GRID.grdecl")
         Model = GeologyModel(filename = geomodel_path)
         data_file_path = base_path / "../FD_Models/DATA/M_FD_{}.DATA".format(i)
 
@@ -526,67 +535,113 @@ def patch_voronoi_models(x_swarm_converted):
             temp_model_path_permy = base_path / '../FD_Models/INCLUDE/Voronoi/Patch_{}/PERMY/M{}.GRDECL'.format(j,i)
             temp_model_path_permz = base_path / '../FD_Models/INCLUDE/Voronoi/Patch_{}/PERMZ/M{}.GRDECL'.format(j,i)
             temp_model_path_poro = base_path / '../FD_Models/INCLUDE/Voronoi/Patch_{}/PORO/M{}.GRDECL'.format(j,i)
-        
             temp_model_permx = Model.LoadCellData(varname="PERMX",filename=temp_model_path_permx)
             temp_model_permy = Model.LoadCellData(varname="PERMY",filename=temp_model_path_permy)
             temp_model_permz = Model.LoadCellData(varname="PERMZ",filename=temp_model_path_permz)
             temp_model_poro = Model.LoadCellData(varname="PORO",filename=temp_model_path_poro)
+
+
+
         
-            all_model_values_permx[i] = temp_model_permx
-            all_model_values_permy[i] = temp_model_permy
-            all_model_values_permz[i] = temp_model_permz
-            all_model_values_poro[i] = temp_model_poro
-        
+            all_model_values_permx[j] = temp_model_permx
+            all_model_values_permy[j] = temp_model_permy
+            all_model_values_permz[j] = temp_model_permz
+            all_model_values_poro[j] = temp_model_poro
         # patch things together
         patch_permx  = []
         patch_permy  = []
         patch_permz  = []
         patch_poro  = []
-
         for j in range(len(cell_vornoi_combination_flatten)):
             for k in range(n_voronoi):
+            
                 if cell_vornoi_combination_flatten[j] == k:
                     permx = all_model_values_permx[k,j]
                     permy = all_model_values_permy[k,j]
                     permz = all_model_values_permz[k,j]
                     poro = all_model_values_poro[k,j]
-
                     patch_permx.append(permx)
                     patch_permy.append(permy)
                     patch_permz.append(permz)
                     patch_poro.append(poro)
 
-        patch_permx = np.array(patch_permx)#.reshape((nx,ny,nz))
-        patch_permy = np.array(patch_permy)#.reshape((nx,ny,nz))
-        patch_permz = np.array(patch_permz)#.reshape((nx,ny,nz))
-        patch_poro = np.array(patch_poro)#.reshape((nx,ny,nz))
-        
-        # export that model into FD_model include folder
-        file_permx = "FILEUNIT\n\METRIC /\nPERMX\n{} /".format(patch_permx)
-        permx_file_path = base_path / "../FD_Models/INCLUDE/PERMX/M_FD_{}.DATA".format(i)
-        file = open(permx_file_path, "w+")
-        file.write(file_permx)
-        file.close()
+        plt.hist(patch_poro)
+        plt.show()
+        # values = np.array(patch_poro).reshape((nx,ny,nz))
+        #     # # grid.plot()
+        # grid = pv.UniformGrid()
+        # grid.dimensions = np.array(values.shape) + 1
+        # grid.origin = (0, 0, 0)  # The bottom left corner of the data set
 
-        file_permy = "FILEUNIT\n\METRIC /\nPERMY\n{} /".format(patch_permy)
-        permy_file_path = base_path / "../FD_Models/INCLUDE/PERMY/M_FD_{}.DATA".format(i)
-        file = open(permy_file_path, "w+")
-        file.write(file_permy)
-        file.close()
+        # grid.spacing = (1, 1, 1)  # These are the cell sizes along each axis
+        # grid.cell_arrays["values"] =values.flatten("K")
+        # grid.plot(show_edges=False,notebook = False)
+ 
 
-        file_permz = "FILEUNIT\n\METRIC /\nPERMZ\n{} /".format(patch_permz)
-        permz_file_path = base_path / "../FD_Models/INCLUDE/PERMZ/M_FD_{}.DATA".format(i)
-        file = open(permz_file_path, "w+")
-        file.write(file_permz)
-        file.close()
 
-        file_poro = "FILEUNIT\n\METRIC /\nPORO\n{} /".format(patch_poro)
-        poro_file_path = base_path / "../FD_Models/INCLUDE/PORO/M_FD_{}.DATA".format(i)
-        file = open(poro_file_path, "w+")
-        file.write(file_poro)
-        file.close()
+        file_permx_beginning = "FILEUNIT\nMETRIC /\n\nPERMX\n"
+        permx_file_path = base_path / "../FD_Models/INCLUDE/PERMX/M{}.GRDECL".format(i)
+        patch_permx[-1] = "{} /".format(patch_permx[-1])
+        with open(permx_file_path,"w+") as f:
+            f.write(file_permx_beginning)
+            newline_ticker = 0
+            for item in patch_permx:
+                newline_ticker += 1
+                if newline_ticker == 50:
+                    f.write("\n")
+                    newline_ticker = 0
+                f.write("{} ".format(item))
+            f.close()
 
-        
+        file_permy_beginning = "FILEUNIT\nMETRIC /\n\nPERMY\n"
+        permy_file_path = base_path / "../FD_Models/INCLUDE/PERMY/M{}.GRDECL".format(i)
+        patch_permy[-1] = "{} /".format(patch_permy[-1])
+        with open(permy_file_path,"w+") as f:
+            f.write(file_permy_beginning)
+            newline_ticker = 0
+            for item in patch_permy:
+                newline_ticker += 1
+                if newline_ticker == 50:
+                    f.write("\n")
+                    newline_ticker = 0
+                f.write("{} ".format(item))
+            f.close()
+
+        file_permz_beginning = "FILEUNIT\nMETRIC /\n\nPERMZ\n"
+        permz_file_path = base_path / "../FD_Models/INCLUDE/PERMZ/M{}.GRDECL".format(i)
+        patch_permz[-1] = "{} /".format(patch_permz[-1])
+        with open(permz_file_path,"w+") as f:
+            f.write(file_permz_beginning)
+            newline_ticker = 0
+            for item in patch_permz:
+                newline_ticker += 1
+                if newline_ticker == 50:
+                    f.write("\n")
+                    newline_ticker = 0
+                f.write("{} ".format(item))
+            f.close()
+
+        file_poro_beginning = "FILEUNIT\nMETRIC /\n\nPORO\n"
+        poro_file_path = base_path / "../FD_Models/INCLUDE/PORO/M{}.GRDECL".format(i)
+        patch_poro[-1] = "{} /".format(patch_poro[-1])
+        with open(poro_file_path,"w+") as f:
+            f.write(file_poro_beginning)
+            newline_ticker = 0
+            for item in patch_poro:
+                newline_ticker += 1
+                if newline_ticker == 50:
+                    f.write("\n")
+                    newline_ticker = 0
+                f.write("{} ".format(item))
+            f.close()
+
+        # file_poro = "FILEUNIT\n\METRIC /\nPORO\n{} /".format(patch_poro)
+        # poro_file_path = base_path / "../FD_Models/INCLUDE/PORO/M{}.GRDECL".format(i)
+        # file = open(poro_file_path, "w+")
+        # file.write(file_poro)
+        # file.close()
+
+        print ("Voronoi-Patching done")
 def built_FD_Data_files():
 
     # loading in settings that I set up on init_ABRM.py for this run
@@ -793,7 +848,7 @@ def obj_fkt_FD(x):
 
     # run FD and output dictionary
     FD_data = eng.FD_BS(x)
-    print('sucessfully ran FD.')
+    # print('sucessfully ran FD.')
     # split into Ev tD F Phi and LC and tof column
     FD_data = np.array(FD_data._data).reshape((6,len(FD_data)//6))
     FD_performance = pd.DataFrame()
@@ -1189,7 +1244,7 @@ def compute_diversity_best():
         tof_best_models_check = tof_all_iter[(tof_all_iter.misfit <= best_models)].tof
 
         if tof_best_models_check.shape[0] > 140000:
-            print("best modesl exists")
+            # print("best modesl exists")
             tof_best_models = tof_all_iter[(tof_all_iter.misfit <= best_models)]
             df_best_tof_upscaled = pd.DataFrame(columns = np.arange(20*10*1))
 
@@ -1228,7 +1283,7 @@ def compute_diversity_best():
                 # single cell in all models    
                 cell = np.array(df_best_tof_upscaled[i])
                 cell = cell.reshape(-1,1)
-                print(cell)
+                # print(cell)
                 # scale tof
                 # scaler = preprocessing.MinMaxScaler(feature_range=(-1,1))
                 # cell = scaler.fit_transform(cell)#.reshape(-1,1))l

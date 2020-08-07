@@ -1,10 +1,12 @@
 ############################################################################
 
+
+
 ####### Import required Packages #######
 import pyswarms as ps       # PSO package in Python
 import numpy as np
 import pandas as pd
-# import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 from pyswarms.utils.plotters import (plot_cost_history, plot_contour, plot_surface)
 import random 
 import pickle
@@ -34,7 +36,7 @@ def init():
 
     ###### Set hyperparameters for PSO ######
     n_parameters = 15
-    n_iters = 2
+    n_iters = 1
     n_particles = 3 # always pick multiple of 3. need to fix this 
     min_bound = 0 * np.ones(n_parameters)
     max_bound = 1 * np.ones(n_parameters)
