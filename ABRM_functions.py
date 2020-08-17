@@ -14,6 +14,7 @@ import bz2
 import _pickle as cPickle
 from scipy import interpolate
 from sklearn.metrics import mean_squared_error
+from sklearn.neighbors import NearestNeighbors
 # from sklearn import preprocessing
 import matplotlib.pyplot as plt
 import shutil
@@ -440,12 +441,17 @@ def patch_voronoi_models(x_swarm_converted):
 
     n_particles = setup["n_particles"]
     n_voronoi = setup["n_voronoi"]
+    n_voronoi_zones = setup["n_voronoi_zones"]
     parameter_type = setup["parameter_type"]
     n_parameters = setup["n_parameters"]
     parameter_name = setup["columns"]
     nx = setup["nx"]
     ny = setup["ny"]
     nz = setup["nz"]
+    iter_ticker = setup["iter_ticker"]
+
+    n_neighbors = np.int(n_voronoi /n_voronoi_zones)
+    
 
     for i in range(n_particles):
         # first figure out which points I am interested and append them to new list
@@ -469,12 +475,12 @@ def patch_voronoi_models(x_swarm_converted):
         # use these points to built a voronoi tesselation
         voronoi_x = np.array(voronoi_x)
         voronoi_y = np.array(voronoi_y)
+        voronoi_points = np.vstack((voronoi_x,voronoi_y)).T
         # voronoi_z = np.array(voronoi_z)
 
+
+
         # #define grid and  position initianinon points of n polygons
-        print(voronoi_x)
-        print(voronoi_y)
-        voronoi_points = np.vstack((voronoi_x,voronoi_y)).T
         grid = Polygon([(0, 0), (0, ny), (nx, ny), (nx, 0)])
 
         # generate 2D mesh
@@ -485,29 +491,76 @@ def patch_voronoi_models(x_swarm_converted):
         #get cell centers of mesh
         x_cell_center = x_grid[:-1,:-1]+0.5
         y_cell_center = y_grid[:-1,:-1]+0.5
-        # cell_center_which_polygon = np.zeros(len(x_cell_center.flatten()))
-        cell_center_which_polygon = np.full((len(x_cell_center.flatten())),10)
 
+        cell_center_which_polygon = np.zeros(len(x_cell_center.flatten()))
 
         # array to assign polygon id [ last column] to cell id [first 2 columns]
         all_cell_center = np.column_stack((x_cell_center.flatten(),y_cell_center.flatten(),cell_center_which_polygon))
 
-        # print(voronoi_points)
-        # print(grid)
         # get voronoi regions
-        poly_shapes, pts, poly_to_pt_assignments = voronoi_regions_from_coords(voronoi_points, grid)
+        poly_shapes, pts, poly_to_pt_assignments = voronoi_regions_from_coords(voronoi_points, grid,farpoints_max_extend_factor = 30)
 
-        # in what voronoi polygon do cell centers plot
-        test_ticker = 0
+        # assign cells to a zone in first iteration stick to taht assingment.
+        if iter_ticker == 0:
+
+            # find centroids of vornoi polygons
+            voronoi_centroids = []
+            for j in range(n_voronoi):
+                voronoi_centroids.append(np.array(poly_shapes[j].centroid))
+            voronoi_centroids = np.array(voronoi_centroids)
+
+            # assign each vornoi polygone to one of the n voronoi polygon zones with KNN
+            knn = NearestNeighbors(n_neighbors= n_neighbors, algorithm='auto',p=2)
+
+            assign_voronoi_zone = np.empty(n_voronoi)
+            assign_voronoi_zone[:] = np.nan
+            points_to_pick_from = voronoi_centroids
+            for j in range(n_voronoi_zones):
+
+                #randomly pick starting point of zone
+                init_point = np.random.choice(len(points_to_pick_from))
+                # find nearest points for starting point zone
+                knn.fit(points_to_pick_from)
+                _, indices = knn.kneighbors(points_to_pick_from[init_point].reshape(1,-1))
+
+                for k in range(n_neighbors):    
+                    # assing these points to a zone
+                    assigner = np.where(voronoi_centroids == points_to_pick_from[indices[0,k]],1,0)
+                    assigner = np.sum(assigner,axis = 1)
+                    assigner = np.where(assigner ==2)
+                    assign_voronoi_zone[assigner[0][0]] = j
+                # remove selected points from array to choose from
+                points_to_pick_from = np.delete(points_to_pick_from,indices,axis = 0)
+
+
+            setup["assign_voronoi_zone_" +str(i)] = assign_voronoi_zone
+            with open(pickle_file,'wb') as f:
+                pickle.dump(setup,f)
+
+        else:
+        # load voronoi zone assignemnt
+            with open(pickle_file, "rb") as f:
+                setup = pickle.load(f)
+            assign_voronoi_zone = setup["assign_voronoi_zone_" +str(i)]
+
+        # in what voronoi zone and vornoi polygon do cell centers plot
         for j in range(len(all_cell_center)):
             for voronoi_polygon_id in range(n_voronoi):
                 
-                voronoi_polygon = poly_shapes[voronoi_polygon_id]
+                polygon = poly_shapes[voronoi_polygon_id]
                 cell_id = Point(all_cell_center[j,0],all_cell_center[j,1])
                 
-                if voronoi_polygon.intersects(cell_id):
-                    all_cell_center[j,2] = voronoi_polygon_id
-                    test_ticker += 1
+                if polygon.intersects(cell_id):
+                    all_cell_center[j,2] = assign_voronoi_zone[voronoi_polygon_id]
+        
+        # for j in range(len(all_cell_center)):
+        #     for voronoi_polygon_id in range(n_voronoi):
+                
+        #         voronoi_polygon = poly_shapes[voronoi_polygon_id]
+        #         cell_id = Point(all_cell_center[j,0],all_cell_center[j,1])
+                
+        #         if voronoi_polygon.intersects(cell_id):
+        #             all_cell_center[j,2] = voronoi_polygon_id
 
 
         # print("test_ticker: {}".format(test_ticker))
@@ -521,16 +574,16 @@ def patch_voronoi_models(x_swarm_converted):
         cell_vornoi_combination = np.tile(all_cell_center[:,2],nz).reshape((nx,ny,nz))
         cell_vornoi_combination_flatten = cell_vornoi_combination.flatten()
 
-        all_model_values_permx = np.zeros((n_voronoi,len(cell_vornoi_combination_flatten)))
-        all_model_values_permy = np.zeros((n_voronoi,len(cell_vornoi_combination_flatten)))
-        all_model_values_permz = np.zeros((n_voronoi,len(cell_vornoi_combination_flatten)))
-        all_model_values_poro = np.zeros((n_voronoi,len(cell_vornoi_combination_flatten)))
+        all_model_values_permx = np.zeros((n_voronoi_zones,len(cell_vornoi_combination_flatten)))
+        all_model_values_permy = np.zeros((n_voronoi_zones,len(cell_vornoi_combination_flatten)))
+        all_model_values_permz = np.zeros((n_voronoi_zones,len(cell_vornoi_combination_flatten)))
+        all_model_values_poro = np.zeros((n_voronoi_zones,len(cell_vornoi_combination_flatten)))
 
         geomodel_path = str(base_path / "../FD_Models/INCLUDE/GRID.grdecl")
         Model = GeologyModel(filename = geomodel_path)
         data_file_path = base_path / "../FD_Models/DATA/M_FD_{}.DATA".format(i)
 
-        for j in range(n_voronoi):
+        for j in range(n_voronoi_zones):
             temp_model_path_permx = base_path / '../FD_Models/INCLUDE/Voronoi/Patch_{}/PERMX/M{}.GRDECL'.format(j,i)
             temp_model_path_permy = base_path / '../FD_Models/INCLUDE/Voronoi/Patch_{}/PERMY/M{}.GRDECL'.format(j,i)
             temp_model_path_permz = base_path / '../FD_Models/INCLUDE/Voronoi/Patch_{}/PERMZ/M{}.GRDECL'.format(j,i)
@@ -540,20 +593,18 @@ def patch_voronoi_models(x_swarm_converted):
             temp_model_permz = Model.LoadCellData(varname="PERMZ",filename=temp_model_path_permz)
             temp_model_poro = Model.LoadCellData(varname="PORO",filename=temp_model_path_poro)
 
-
-
-        
             all_model_values_permx[j] = temp_model_permx
             all_model_values_permy[j] = temp_model_permy
             all_model_values_permz[j] = temp_model_permz
             all_model_values_poro[j] = temp_model_poro
+
         # patch things together
         patch_permx  = []
         patch_permy  = []
         patch_permz  = []
         patch_poro  = []
         for j in range(len(cell_vornoi_combination_flatten)):
-            for k in range(n_voronoi):
+            for k in range(n_voronoi_zones):
             
                 if cell_vornoi_combination_flatten[j] == k:
                     permx = all_model_values_permx[k,j]
@@ -565,10 +616,10 @@ def patch_voronoi_models(x_swarm_converted):
                     patch_permz.append(permz)
                     patch_poro.append(poro)
 
-        plt.hist(patch_poro)
-        plt.show()
+        # plt.hist(patch_poro)
+        # plt.show()
         # values = np.array(patch_poro).reshape((nx,ny,nz))
-        #     # # grid.plot()
+        # #     # # grid.plot()
         # grid = pv.UniformGrid()
         # grid.dimensions = np.array(values.shape) + 1
         # grid.origin = (0, 0, 0)  # The bottom left corner of the data set
@@ -638,10 +689,16 @@ def patch_voronoi_models(x_swarm_converted):
         # file_poro = "FILEUNIT\n\METRIC /\nPORO\n{} /".format(patch_poro)
         # poro_file_path = base_path / "../FD_Models/INCLUDE/PORO/M{}.GRDECL".format(i)
         # file = open(poro_file_path, "w+")
-        # file.write(file_poro)
+        # file.write(file_poro)\\\\\\\\\\\\\s
         # file.close()
 
-        print ("Voronoi-Patching done")
+    iter_ticker+=1
+    setup["iter_ticker"] = iter_ticker
+    with open(pickle_file,'wb') as f:
+        pickle.dump(setup,f)
+
+
+    print ("Voronoi-Patching done")
 def built_FD_Data_files():
 
     # loading in settings that I set up on init_ABRM.py for this run
