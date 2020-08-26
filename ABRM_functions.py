@@ -478,6 +478,8 @@ def patch_voronoi_models(x_swarm_converted):
         voronoi_points = np.vstack((voronoi_x,voronoi_y)).T
         # voronoi_z = np.array(voronoi_z)
 
+        # check if some of the points are on top of each other. if so --> move position to neighbour cell
+        
 
 
         # #define grid and  position initianinon points of n polygons
@@ -499,13 +501,14 @@ def patch_voronoi_models(x_swarm_converted):
 
         # get voronoi regions
         poly_shapes, pts, poly_to_pt_assignments = voronoi_regions_from_coords(voronoi_points, grid,farpoints_max_extend_factor = 30)
-
+        print("poly_shapes length")
+        print(len(poly_shapes))
         # assign cells to a zone in first iteration stick to taht assingment.
         if iter_ticker == 0:
 
             # find centroids of vornoi polygons
             voronoi_centroids = []
-            for j in range(n_voronoi):
+            for j in range(len(poly_shapes)):
                 voronoi_centroids.append(np.array(poly_shapes[j].centroid))
             voronoi_centroids = np.array(voronoi_centroids)
 
@@ -545,7 +548,7 @@ def patch_voronoi_models(x_swarm_converted):
 
         # in what voronoi zone and vornoi polygon do cell centers plot
         for j in range(len(all_cell_center)):
-            for voronoi_polygon_id in range(n_voronoi):
+            for voronoi_polygon_id in range(len(poly_shapes)):
                 
                 polygon = poly_shapes[voronoi_polygon_id]
                 cell_id = Point(all_cell_center[j,0],all_cell_center[j,1])
