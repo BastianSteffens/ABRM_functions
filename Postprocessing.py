@@ -2,44 +2,46 @@
 ########################
 import numpy as np
 import pandas as pd
-import subprocess
-import time
-import matlab.engine
 import os
 from os import path
-import datetime
-from datetime import date
 import pickle
 import bz2
 import _pickle as cPickle
 from scipy import interpolate
-from sklearn.metrics import mean_squared_error
-from sklearn.neighbors import NearestNeighbors
-# from sklearn import preprocessing
-import matplotlib.pyplot as plt
 import shutil
 import umap
 import hdbscan
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-import re
 import pathlib
-# from pathlib import Path
-import glob
-from pyentrp import entropy as ent
 from skimage.util.shape import view_as_windows
 from GRDECL2VTK import *
 from geovoronoi import voronoi_regions_from_coords
 from collections import Counter
 import pyvista as pv
+from colour import Color
+
+# import subprocess
+# import time
+# import matlab.engine
+# import datetime
+# from datetime import date
+# import re
+# from pathlib import Path
+# import glob
+# from pyentrp import entropy as ent
+# from sklearn.metrics import mean_squared_error
+# from sklearn.neighbors import NearestNeighbors
+# from sklearn import preprocessing
+# import matplotlib.pyplot as plt
+
 ########################
 
 ### Postprocessing functions ###
 class postprocessing():
-    """ Load single/multiple datasets and visualize them """
+    """ Load single/multiple datasets and visualize/ analyze them """
 
     def __init__(self, data_to_process):
-        """ read and load data """
 
         # set base path where data is stored
         self.base_path = pathlib.Path(__file__).parent
@@ -124,20 +126,18 @@ class postprocessing():
         display(self.df_position.head())
         display(self.df_tof.head())
 
-    def get_df_best(self,misfit_tolerance):
+    def get_df_best(self,misfit_tolerance,window_shape = (1,1,1),step_size = 1):
         """ create dfs that only contains the models that satisfy the misfit tolerance 
-            the tof can also be upscaled by changing the 5 parameters below."""
-        
+            the tof can also be upscaled by changing the window_shape and step size parameters below."""
+         
         nx = 200
         ny = 100
         nz = 7
-        window_shape = (1,1,1)
-        step_size = 1
-        
+
         self.df_best_position =self.df_position[(self.df_position.misfit <= misfit_tolerance)]
         self.df_best_performance =self.df_performance[(self.df_performance.misfit <= misfit_tolerance)]
-        self.df_best_tof = pd.DataFrame(columns = np.arange(nx*ny*nz))
-
+        self.df_best_tof = pd.DataFrame(columns = np.arange(int(nx/window_shape[0])*int(ny/window_shape[1])*int(nz/window_shape[2])))
+        
         df_best_tof_temp =self.df_tof[(self.df_tof.misfit <= misfit_tolerance)].copy()
         iterations = df_best_tof_temp["iteration"].unique().tolist()
         for i in range(0,len(iterations)):
@@ -149,9 +149,9 @@ class postprocessing():
                 tof_single_particle_3d = tof_single_particle.reshape((nx,ny,nz))
                 tof_single_particle_moving_window = view_as_windows(tof_single_particle_3d, window_shape, step= step_size)
                 tof_single_particle_upscaled = []
-                for k in range(0,nx):
-                    for l in range(0,ny):
-                        for m in range(0,nz):
+                for k in range(int(nx/window_shape[0])):
+                    for l in range(int(ny/window_shape[1])):
+                        for m in range(int(nz/window_shape[2])):
                             single_cell_temp = np.round(np.mean(tof_single_particle_moving_window[k,l,m]),2)
                             tof_single_particle_upscaled.append(single_cell_temp)
                 df_tof_single_particle_upscaled = pd.DataFrame(np.log10(np.array(tof_single_particle_upscaled)))
@@ -160,6 +160,8 @@ class postprocessing():
                 df_tof_single_particle_upscaled_transposed["iteration"] = iteration
 
                 self.df_best_tof = self.df_best_tof.append(df_tof_single_particle_upscaled_transposed)
+        
+        self.df_best_tof.set_index(self.df_best_position.index.values,inplace = True)
 
     def compute_LC(self,F,Phi):
         """ Compute the Lorenz Coefficient """
@@ -353,17 +355,21 @@ class postprocessing():
 
         fig.show()
 
-    def best_model_clustering(self,cluster_parameter = "tof",n_neighbors = 5,min_cluster_size = 4,use_UMAP = True):
+    def clustering_tof_or_PSO(self,n_neighbors = 30,min_dist = 0,n_components = 30, min_cluster_size = 10,
+                              min_samples = 1,allow_single_cluster = True,cluster_parameter = "tof"):
         """ Clustering with the help of UMAP (dimension reduction) and HDBSCAN (density based hirachical clustering algo)
             Args: 
+             control of UMAP:
+                            - n_neighbors = This parameter controls how UMAP balances local versus global structure in the data.
+                                            It does this by constraining the size of the local neighborhood UMAP will look at when attempting to learn the manifold structure of the data.
+                            - min_dist = closeness of similar data points. 0 good for clustering
+                            - n_components = reduce to how many dimensions
+            control of HDBSCAN:
+                            - min_cluster size = min size of cluster.
+                            - min_samples = the smaller, the less points get left out of clustering. --> less conservative.
             cluster_parameter = can either cluster on the PSO_parameters or on  time of flight (tof)
-            n_neighbors = This parameter controls how UMAP balances local versus global structure in the data.
-                          It does this by constraining the size of the local neighborhood UMAP will look at when attempting to learn the manifold structure of the data. 
-            min_cluster_size = set it to the smallest size grouping that you wish to consider a cluster
             misfit_tolerance = which models are considered good matches and will be used for clustering
-            use_UMAP = if clustering is performed with or without dimension reduction bz UMAP              
         """
-        # at some point make n_eighbours and min cluster size nad misfit tolernaze sliding scales
 
         # turn off the settingwithcopy warning of pandas
         pd.set_option('mode.chained_assignment', None)
@@ -372,30 +378,64 @@ class postprocessing():
         # particle_parameters used for clustering
         if cluster_parameter == "PSO_parameters":
             columns = self.setup_all[self.data_to_process[0]]["columns"]
-            # df_best_for_clustering = self.df_best_position[columns].copy()
             df_best_for_clustering = self.df_best_position[columns]
-
-            # df_best_for_clustering["LC"] = self.df_best_position.LC.copy()
             df_best_for_clustering["LC"] = self.df_best_position.LC
+
+            # Create UMAP reducer
+            reducer    = umap.UMAP(n_neighbors=n_neighbors,min_dist = min_dist, n_components =n_components)
+            embeddings = reducer.fit_transform(df_best_for_clustering)
+
+
+            # Create HDBSCAN clusters
+            hdb = hdbscan.HDBSCAN(min_cluster_size=min_cluster_size,
+            #                      cluster_selection_epsilon= 0.5,
+                                min_samples = min_samples,
+                                allow_single_cluster= allow_single_cluster
+                                )
+            scoreTitles = hdb.fit(embeddings)
+
+            self.df_best_position["cluster_psoparam_prob"] = scoreTitles.probabilities_
+            self.df_best_position["cluster_psoparam"] = scoreTitles.labels_
+            self.df_best_position["cluster_psoparam_x"] =  embeddings[:,0]
+            self.df_best_position["cluster_psoparam_y"] = embeddings[:,1]
+
+            fig = go.Figure(data=go.Scatter(x = embeddings[:,0],
+                                            y = embeddings[:,1],
+
+                                            mode='markers',
+                                            text = self.df_best_position.index,
+                                            marker=dict(
+                                                size=16,
+                                                color=self.df_best_position.cluster_psoparam, #set color equal to a variable
+                                                colorscale= "deep",#'Viridis', # one of plotly colorscales
+                                                showscale=True,
+                                                colorbar=dict(title="Clusters")
+                                                )
+                                            ))
+            fig.update_layout(title='Clustering of {} best models - Number of clusters found: {} - Unclustered models: {}'.format(self.df_best_position.shape[0],self.df_best_position.cluster_psoparam.max()+1,abs(self.df_best_position.cluster_psoparam[self.df_best_position.cluster_psoparam == -1].sum())))
+            fig.show()
 
         elif cluster_parameter == "tof":
             
             df_best_for_clustering = self.df_best_tof.drop(columns = ["particle_no","iteration"])
-            
-        if use_UMAP == True:
 
             # Create UMAP reducer
-            reducer    = umap.UMAP(n_neighbors=n_neighbors)
+            reducer    = umap.UMAP(n_neighbors=n_neighbors,min_dist = min_dist, n_components =n_components)
             embeddings = reducer.fit_transform(df_best_for_clustering)
 
+
             # Create HDBSCAN clusters
-            hdb = hdbscan.HDBSCAN(min_cluster_size=min_cluster_size)
+            hdb = hdbscan.HDBSCAN(min_cluster_size=min_cluster_size,
+            #                      cluster_selection_epsilon= 0.5,
+                                min_samples = min_samples,
+                                allow_single_cluster= allow_single_cluster
+                                )
             scoreTitles = hdb.fit(embeddings)
 
-            self.df_best_position["cluster_prob"] = scoreTitles.probabilities_
-            self.df_best_position["cluster"] = scoreTitles.labels_
-            self.df_best_position["cluster_x"] =  embeddings[:,0]
-            self.df_best_position["cluster_y"] = embeddings[:,1]
+            self.df_best_position["cluster_tof_prob"] = scoreTitles.probabilities_
+            self.df_best_position["cluster_tof"] = scoreTitles.labels_
+            self.df_best_position["cluster_tof_x"] =  embeddings[:,0]
+            self.df_best_position["cluster_tof_y"] = embeddings[:,1]
 
             fig = go.Figure(data=go.Scatter(x = embeddings[:,0],
                                             y = embeddings[:,1],
@@ -404,62 +444,121 @@ class postprocessing():
                                             text = self.df_best_position.index,
                                             marker=dict(
                                                 size=16,
-                                                color=self.df_best_position.cluster, #set color equal to a variable
+                                                color=self.df_best_position.cluster_tof, #set color equal to a variable
                                                 colorscale= "deep",#'Viridis', # one of plotly colorscales
                                                 showscale=True,
                                                 colorbar=dict(title="Clusters")
                                                 )
                                             ))
-            fig.update_layout(title='Clustering of {} best models - Number of clusters found: {} - Unclustered models: {}'.format(self.df_best_position.shape[0],self.df_best_position.cluster.max()+1,abs(self.df_best_position.cluster[self.df_best_position.cluster == -1].sum())))
-            fig.show()
-
-        else:
-
-            # Create UMAP reducer
-            reducer    = umap.UMAP(n_neighbors=n_neighbors,min_dist = 0)
-            embeddings = reducer.fit_transform(df_best_for_clustering)
-
-            # Create HDBSCAN clusters
-            hdb = hdbscan.HDBSCAN(min_cluster_size=min_cluster_size)
-            scoreTitles = hdb.fit(df_best_for_clustering)
-
-            self.df_best_position["cluster_prob"] = scoreTitles.probabilities_
-            self.df_best_position["cluster"] = scoreTitles.labels_
-            self.df_best_position["cluster_x"] = embeddings[:,0]
-            self.df_best_position["cluster_y"] = embeddings[:,1]
-
-            fig = go.Figure(data=go.Scatter(x = embeddings[:,0],
-                                            y = embeddings[:,1],
-
-                                            mode='markers',
-                                            text = self.df_best_position.index,
-                                            marker=dict(
-                                                size=16,
-                                                color=self.df_best_position.cluster, #set color equal to a variable
-                                                colorscale= "deep",#'Viridis', # one of plotly colorscales
-                                                showscale=True,
-                                                colorbar=dict(title="Clusters")
-                                                )
-                                            ))
-            fig.update_layout(title='Clustering of {} best models - Number of clusters found: {} - Unclustered models: {}'.format(self.df_best_position.shape[0],self.df_best_position.cluster.max()+1,abs(self.df_best_position.cluster[self.df_best_position.cluster == -1].sum())))
+            fig.update_layout(title='Clustering of {} best models - Number of clusters found: {} - Unclustered models: {}'.format(self.df_best_position.shape[0],self.df_best_position.cluster_tof.max()+1,abs(self.df_best_position.cluster_tof[self.df_best_position.cluster_tof == -1].sum())))
             fig.show()
     
-    def cluster_model_selection(self,manual_pick = False,include_unclustered = False,n_reservoir_models = 10,manual_model_id_list = []):
-        """ how many models do we want to select from clusters
+    def clustering_sweep_efficiency(self, n_neighbors = 30, min_dist = 0, n_components = 30,
+                                    min_cluster_size = 5, min_samples = 1, allow_single_cluster = True):
+        """ use a combination of UMAP (dimension reduction) and HDBSCAN (hirachical density based clustering) to find different sweep patterns of models
+            control of UMAP:
+                            - n_neighbors = This parameter controls how UMAP balances local versus global structure in the data.
+                                            It does this by constraining the size of the local neighborhood UMAP will look at when attempting to learn the manifold structure of the data.
+                            - min_dist = closeness of similar data points. 0 good for clustering
+                            - n_components = reduce to how many dimensions
+            control of HDBSCAN:
+                            - min_cluster size = min size of cluster.
+                            - min_samples = the smaller, the less points get left out of clustering. --> less conservative.
+        """
+        # turn off the settingwithcopy warning of pandas
+        pd.set_option('mode.chained_assignment', None)
+
+        # filter out tD and EV
+        iteration = self.df_best_position.iteration.tolist()
+        particle_no =  self.df_best_position.particle_no.tolist()
+        EV_all = pd.DataFrame()
+        tD_all = pd.DataFrame()
+        for i in range(self.df_best_position.shape[0]):
+
+            EV = self.df_performance[(self.df_performance.iteration == iteration[i]) & (self.df_performance.particle_no == particle_no[i])].EV
+            tD = self.df_performance[(self.df_performance.iteration == iteration[i]) & (self.df_performance.particle_no == particle_no[i])].tD
+            EV.reset_index(drop=True, inplace=True)
+            tD.reset_index(drop=True, inplace=True)
+            EV_all = pd.concat([EV_all,EV],ignore_index=True,axis = 1)
+            tD_all = pd.concat([tD_all,tD],ignore_index=True,axis = 1)
+        
+        EV_tD = tD_all.append(EV_all,ignore_index = True)
+        # reduce points used to every 10th point
+        EV_tD = EV_tD.iloc[::10]
+        EV_tD = EV_tD.T
+        self.df_best_sweep_efficiency = EV_tD
+
+        # # Create UMAP reducer
+        reducer    = umap.UMAP(n_neighbors=n_neighbors,min_dist = min_dist, n_components = n_components)
+        embeddings = reducer.fit_transform(self.df_best_sweep_efficiency)
+
+        # Create HDBSCAN clusters
+        hdb = hdbscan.HDBSCAN(min_cluster_size=min_cluster_size,
+        #                       cluster_selection_epsilon= 0.5,
+                              min_samples = min_samples,
+                              allow_single_cluster= allow_single_cluster
+                             )
+        scoreTitles = hdb.fit(embeddings)
+
+        self.df_best_sweep_efficiency["cluster_sweep_prob"] = scoreTitles.probabilities_
+        self.df_best_sweep_efficiency["cluster_sweep"] = scoreTitles.labels_
+        self.df_best_sweep_efficiency["cluster_sweep_x"] = embeddings[:,0]
+        self.df_best_sweep_efficiency["cluster_sweep_y"] = embeddings[:,1]
+        self.df_best_performance["cluster_sweep"] = np.nan
+        self.df_best_position["cluster_sweep"] = np.nan
+
+        # generate colors for sweep eff. cluster plot
+        #deep start & end hex color
+        c0 = "#FDFDCC" # beige
+        c1 = "#271A2C" # dark blue
+
+        # list of "N" (n_clusters) colors between "start_color" and "end_color"
+        colorscale = [x.hex for x in list(Color(c0).range_to(Color(c1), self.df_best_sweep_efficiency["cluster_sweep"].max()+2))]
+
+        # iteration = self.df_best_position.iteration.tolist()
+        # particle_no =  self.df_best_position.particle_no.tolist()
+        cluster_sweep = self.df_best_sweep_efficiency.cluster_sweep.tolist()
+        for i in range(self.df_best_position.shape[0]):
+            self.df_best_performance.cluster_sweep[(self.df_best_performance.iteration == iteration[i]) & (self.df_best_performance.particle_no == particle_no[i])] = cluster_sweep[i]
+            self.df_best_position.cluster_sweep[(self.df_best_position.iteration == iteration[i]) & (self.df_best_position.particle_no == particle_no[i])] = cluster_sweep[i]
+
+        fig = make_subplots(rows = 1, cols = 1)
+
+        for i in range(self.df_best_position.shape[0]):
+            EV = self.df_best_performance[(self.df_best_performance.iteration == iteration[i]) & (self.df_best_performance.particle_no == particle_no[i])].EV
+            tD = self.df_best_performance[(self.df_best_performance.iteration == iteration[i]) & (self.df_best_performance.particle_no == particle_no[i])].tD
+            cluster_sweep = int(self.df_best_performance[(self.df_best_performance.iteration == iteration[i]) & (self.df_best_performance.particle_no == particle_no[i])].cluster_sweep.unique())
+            fig.add_trace(go.Scatter(x=tD, y=EV,
+                                mode='lines',
+                                line = dict(color = colorscale[cluster_sweep]),
+                                text =  cluster_sweep))
+            
+        fig.update_xaxes(title_text = "tD", range = [0,2],row =1, col =1)
+        fig.update_yaxes(title_text = "Ev",range = [0,1], row =1, col = 1)
+        fig.update_layout(title="Sweep Efficiency Clustered - Number of clusters found: {} - Unclustered models: {}".format(self.df_best_sweep_efficiency.cluster_sweep.max()+1,abs(self.df_best_sweep_efficiency.cluster_sweep[self.df_best_sweep_efficiency.cluster_sweep == -1].sum())),
+                        autosize = False,
+                        width = 1000,
+                        height = 1000,
+                        showlegend = False)
+        fig.show()
+
+    def cluster_model_selection(self,cluster_parameter = "tof",manual_pick = False,include_unclustered = False,n_reservoir_models = 10,manual_model_id_list = []):
+        """ how many models do we want to select from clusters. eitehr from "tof", "PSO_parameter", or "sweep"
             randomly sample from each cluster, bigger clusters will get bigger representation
             also option to manually put in the id of models that we want to select
             manual_model_id_list = [] thats how you can select potential unclusterd models, too
         """
+        cluster = "cluster_{}".format(cluster_parameter)
         if manual_pick == False:
-            # how many modesl to select from (only clutered ones)
-            n_best_models_total= self.df_best_position[self.df_best_position.cluster != -1].shape[0]
+            # how many modesl to select from (only clutered ones)            
+            n_best_models_total= self.df_best_position[self.df_best_position[cluster] != -1].shape[0]
             
             # how many models to select
             if n_reservoir_models > n_best_models_total:
                 n_reservoir_models = n_best_models_total
 
             #how many models in each cluster
-            model_cluster_dist = Counter(self.df_best_position[self.df_best_position.cluster != -1].cluster)
+            model_cluster_dist = Counter(self.df_best_position[self.df_best_position[cluster] != -1][cluster])
             models_per_cluster = []
             #depending on cluster size, determine how many models to pick per cluster
             for i in range(len(model_cluster_dist)):
@@ -476,22 +575,22 @@ class postprocessing():
                     models_per_cluster[models_per_cluster.index(min(models_per_cluster))] =  models_per_cluster[models_per_cluster.index(min(models_per_cluster))] +1
 
             # randomly sample n models according to models_per_cluster from each clusters
-            best_model_sampler = self.df_best_position[self.df_best_position.cluster != -1].copy()
+            best_model_sampler = self.df_best_position[self.df_best_position[cluster] != -1].copy()
             best_model_sampler["index_1"] = best_model_sampler.index
             column_names = best_model_sampler.columns.values.tolist()
             self.df_best_models_to_save = pd.DataFrame(columns = column_names )
 
             for i in range(len(models_per_cluster)):
                 for j in range(int(models_per_cluster[i])):
-                    sample_from_cluster = best_model_sampler[(best_model_sampler.cluster == i)].sample()
+                    sample_from_cluster = best_model_sampler[(best_model_sampler[cluster] == i)].sample()
                     #drop the model that has just been sampled
                     best_model_sampler.drop(sample_from_cluster.index_1,inplace = True)
                     self.df_best_models_to_save = pd.concat([self.df_best_models_to_save,sample_from_cluster])
             
             if include_unclustered == True:
              # get models that arent clustered and append them
-                if -1 is not self.df_best_position.cluster:
-                    self.df_best_models_to_save = self.df_best_models_to_save.append(self.df_best_position[self.df_best_position.cluster == -1])
+                if -1 is not self.df_best_position[cluster]:
+                    self.df_best_models_to_save = self.df_best_models_to_save.append(self.df_best_position[self.df_best_position[cluster] == -1])
         
         elif manual_pick == True:
         # feed the manual_pick list and select models acorndignly
@@ -507,20 +606,24 @@ class postprocessing():
         # show selected models with all models
         fig = make_subplots(rows = 1, cols = 1)
 
-        fig.add_trace(go.Scatter(x = self.df_best_position["cluster_x"],
-                                 y = self.df_best_position["cluster_y"],
+        cluster_x = "cluster_{}_x".format(cluster_parameter)
+        cluster_y = "cluster_{}_y".format(cluster_parameter)
+
+
+        fig.add_trace(go.Scatter(x = self.df_best_position[cluster_x],
+                                 y = self.df_best_position[cluster_y],
                                 mode='markers',
                                 text = self.df_best_position.index,
                                 marker=dict(
                                             size=16,
-                                            color=self.df_best_position.cluster, #set color equal to a variable
+                                            color=self.df_best_position[cluster], #set color equal to a variable
                                             colorscale= "deep",#'Viridis', # one of plotly colorscales
                                             showscale=True,
                                             colorbar=dict(title="Clusters")
                                             )
                                 ))
-        fig.add_trace(go.Scatter(x = self.df_best_models_to_save["cluster_x"],
-                                 y = self.df_best_models_to_save["cluster_y"],
+        fig.add_trace(go.Scatter(x = self.df_best_models_to_save[cluster_x],
+                                 y = self.df_best_models_to_save[cluster_y],
                                  mode='markers',
                                  text = self.df_best_position.index,
                                  marker = dict(
@@ -530,7 +633,7 @@ class postprocessing():
                                 ))
                         
         fig.update_layout(showlegend=False)
-        fig.update_layout(title='Clustering of {} best models - Number of clusters found: {} - Unclustered models: {}'.format(self.df_best_position.shape[0],self.df_best_position.cluster.max()+1,abs(self.df_best_position.cluster[self.df_best_position.cluster == -1].sum())))
+        fig.update_layout(title='Clustering of {} best models - Number of clusters found: {} - Unclustered models: {}'.format(self.df_best_position.shape[0],self.df_best_position[cluster].max()+1,abs(self.df_best_position[cluster][self.df_best_position[cluster] == -1].sum())))
         fig.show()
 
     def save_best_clustered_models(self):
