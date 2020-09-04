@@ -394,10 +394,10 @@ class postprocessing():
                                 )
             scoreTitles = hdb.fit(embeddings)
 
-            self.df_best_position["cluster_psoparam_prob"] = scoreTitles.probabilities_
-            self.df_best_position["cluster_psoparam"] = scoreTitles.labels_
-            self.df_best_position["cluster_psoparam_x"] =  embeddings[:,0]
-            self.df_best_position["cluster_psoparam_y"] = embeddings[:,1]
+            self.df_best_position["cluster_PSO_parameters_prob"] = scoreTitles.probabilities_
+            self.df_best_position["cluster_PSO_parameters"] = scoreTitles.labels_
+            self.df_best_position["cluster_PSO_parameters_x"] =  embeddings[:,0]
+            self.df_best_position["cluster_PSO_parameters_y"] = embeddings[:,1]
 
             fig = go.Figure(data=go.Scatter(x = embeddings[:,0],
                                             y = embeddings[:,1],
@@ -406,13 +406,13 @@ class postprocessing():
                                             text = self.df_best_position.index,
                                             marker=dict(
                                                 size=16,
-                                                color=self.df_best_position.cluster_psoparam, #set color equal to a variable
+                                                color=self.df_best_position.cluster_PSO_parameters, #set color equal to a variable
                                                 colorscale= "deep",#'Viridis', # one of plotly colorscales
                                                 showscale=True,
                                                 colorbar=dict(title="Clusters")
                                                 )
                                             ))
-            fig.update_layout(title='Clustering of {} best models - Number of clusters found: {} - Unclustered models: {}'.format(self.df_best_position.shape[0],self.df_best_position.cluster_psoparam.max()+1,abs(self.df_best_position.cluster_psoparam[self.df_best_position.cluster_psoparam == -1].sum())))
+            fig.update_layout(title='Clustering of {} best models - Number of clusters found: {} - Unclustered models: {}'.format(self.df_best_position.shape[0],self.df_best_position.cluster_PSO_parameters.max()+1,abs(self.df_best_position.cluster_PSO_parameters[self.df_best_position.cluster_PSO_parameters == -1].sum())))
             fig.show()
 
         elif cluster_parameter == "tof":
@@ -506,7 +506,9 @@ class postprocessing():
         self.df_best_sweep_efficiency["cluster_sweep_y"] = embeddings[:,1]
         self.df_best_performance["cluster_sweep"] = np.nan
         self.df_best_position["cluster_sweep"] = np.nan
-
+        self.df_best_position["cluster_sweep_x"] = embeddings[:,0]
+        self.df_best_position["cluster_sweep_y"] = embeddings[:,1]
+        
         # generate colors for sweep eff. cluster plot
         #deep start & end hex color
         c0 = "#FDFDCC" # beige
