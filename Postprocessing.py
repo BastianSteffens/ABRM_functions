@@ -21,20 +21,6 @@ from collections import Counter
 import pyvista as pv
 from colour import Color
 
-# import subprocess
-# import time
-# import matlab.engine
-# import datetime
-# from datetime import date
-# import re
-# from pathlib import Path
-# import glob
-# from pyentrp import entropy as ent
-# from sklearn.metrics import mean_squared_error
-# from sklearn.neighbors import NearestNeighbors
-# from sklearn import preprocessing
-# import matplotlib.pyplot as plt
-
 ########################
 
 ### Postprocessing functions ###
@@ -453,9 +439,10 @@ class postprocessing():
             fig.update_layout(title='Clustering of {} best models - Number of clusters found: {} - Unclustered models: {}'.format(self.df_best_position.shape[0],self.df_best_position.cluster_tof.max()+1,abs(self.df_best_position.cluster_tof[self.df_best_position.cluster_tof == -1].sum())))
             fig.show()
     
-    def clustering_sweep_efficiency(self, n_neighbors = 30, min_dist = 0, n_components = 30,
-                                    min_cluster_size = 5, min_samples = 1, allow_single_cluster = True):
-        """ use a combination of UMAP (dimension reduction) and HDBSCAN (hirachical density based clustering) to find different sweep patterns of models
+    def clustering_sweep_efficiency_or_F_Phi(self, n_neighbors = 30, min_dist = 0, n_components = 30,
+                                    min_cluster_size = 5, min_samples = 1, allow_single_cluster = True,
+                                    cluster_parameter = "sweep"):
+        """ use a combination of UMAP (dimension reduction) and HDBSCAN (hirachical density based clustering) to find different "sweep" / "F_Phi" patterns of models
             control of UMAP:
                             - n_neighbors = This parameter controls how UMAP balances local versus global structure in the data.
                                             It does this by constraining the size of the local neighborhood UMAP will look at when attempting to learn the manifold structure of the data.
@@ -468,84 +455,160 @@ class postprocessing():
         # turn off the settingwithcopy warning of pandas
         pd.set_option('mode.chained_assignment', None)
 
-        # filter out tD and EV
-        iteration = self.df_best_position.iteration.tolist()
-        particle_no =  self.df_best_position.particle_no.tolist()
-        EV_all = pd.DataFrame()
-        tD_all = pd.DataFrame()
-        for i in range(self.df_best_position.shape[0]):
+        if cluster_parameter == "sweep":       
+            # filter out tD and EV
+            iteration = self.df_best_position.iteration.tolist()
+            particle_no =  self.df_best_position.particle_no.tolist()
+            EV_all = pd.DataFrame()
+            tD_all = pd.DataFrame()
+            for i in range(self.df_best_position.shape[0]):
 
-            EV = self.df_performance[(self.df_performance.iteration == iteration[i]) & (self.df_performance.particle_no == particle_no[i])].EV
-            tD = self.df_performance[(self.df_performance.iteration == iteration[i]) & (self.df_performance.particle_no == particle_no[i])].tD
-            EV.reset_index(drop=True, inplace=True)
-            tD.reset_index(drop=True, inplace=True)
-            EV_all = pd.concat([EV_all,EV],ignore_index=True,axis = 1)
-            tD_all = pd.concat([tD_all,tD],ignore_index=True,axis = 1)
-        
-        EV_tD = tD_all.append(EV_all,ignore_index = True)
-        # reduce points used to every 10th point
-        EV_tD = EV_tD.iloc[::10]
-        EV_tD = EV_tD.T
-        self.df_best_sweep_efficiency = EV_tD
-
-        # # Create UMAP reducer
-        reducer    = umap.UMAP(n_neighbors=n_neighbors,min_dist = min_dist, n_components = n_components)
-        embeddings = reducer.fit_transform(self.df_best_sweep_efficiency)
-
-        # Create HDBSCAN clusters
-        hdb = hdbscan.HDBSCAN(min_cluster_size=min_cluster_size,
-        #                       cluster_selection_epsilon= 0.5,
-                              min_samples = min_samples,
-                              allow_single_cluster= allow_single_cluster
-                             )
-        scoreTitles = hdb.fit(embeddings)
-
-        self.df_best_sweep_efficiency["cluster_sweep_prob"] = scoreTitles.probabilities_
-        self.df_best_sweep_efficiency["cluster_sweep"] = scoreTitles.labels_
-        self.df_best_sweep_efficiency["cluster_sweep_x"] = embeddings[:,0]
-        self.df_best_sweep_efficiency["cluster_sweep_y"] = embeddings[:,1]
-        self.df_best_performance["cluster_sweep"] = np.nan
-        self.df_best_position["cluster_sweep"] = np.nan
-        self.df_best_position["cluster_sweep_x"] = embeddings[:,0]
-        self.df_best_position["cluster_sweep_y"] = embeddings[:,1]
-        
-        # generate colors for sweep eff. cluster plot
-        #deep start & end hex color
-        c0 = "#FDFDCC" # beige
-        c1 = "#271A2C" # dark blue
-
-        # list of "N" (n_clusters) colors between "start_color" and "end_color"
-        colorscale = [x.hex for x in list(Color(c0).range_to(Color(c1), self.df_best_sweep_efficiency["cluster_sweep"].max()+2))]
-
-        # iteration = self.df_best_position.iteration.tolist()
-        # particle_no =  self.df_best_position.particle_no.tolist()
-        cluster_sweep = self.df_best_sweep_efficiency.cluster_sweep.tolist()
-        for i in range(self.df_best_position.shape[0]):
-            self.df_best_performance.cluster_sweep[(self.df_best_performance.iteration == iteration[i]) & (self.df_best_performance.particle_no == particle_no[i])] = cluster_sweep[i]
-            self.df_best_position.cluster_sweep[(self.df_best_position.iteration == iteration[i]) & (self.df_best_position.particle_no == particle_no[i])] = cluster_sweep[i]
-
-        fig = make_subplots(rows = 1, cols = 1)
-
-        for i in range(self.df_best_position.shape[0]):
-            EV = self.df_best_performance[(self.df_best_performance.iteration == iteration[i]) & (self.df_best_performance.particle_no == particle_no[i])].EV
-            tD = self.df_best_performance[(self.df_best_performance.iteration == iteration[i]) & (self.df_best_performance.particle_no == particle_no[i])].tD
-            cluster_sweep = int(self.df_best_performance[(self.df_best_performance.iteration == iteration[i]) & (self.df_best_performance.particle_no == particle_no[i])].cluster_sweep.unique())
-            fig.add_trace(go.Scatter(x=tD, y=EV,
-                                mode='lines',
-                                line = dict(color = colorscale[cluster_sweep]),
-                                text =  cluster_sweep))
+                EV = self.df_performance[(self.df_performance.iteration == iteration[i]) & (self.df_performance.particle_no == particle_no[i])].EV
+                tD = self.df_performance[(self.df_performance.iteration == iteration[i]) & (self.df_performance.particle_no == particle_no[i])].tD
+                EV.reset_index(drop=True, inplace=True)
+                tD.reset_index(drop=True, inplace=True)
+                EV_all = pd.concat([EV_all,EV],ignore_index=True,axis = 1)
+                tD_all = pd.concat([tD_all,tD],ignore_index=True,axis = 1)
             
-        fig.update_xaxes(title_text = "tD", range = [0,2],row =1, col =1)
-        fig.update_yaxes(title_text = "Ev",range = [0,1], row =1, col = 1)
-        fig.update_layout(title="Sweep Efficiency Clustered - Number of clusters found: {} - Unclustered models: {}".format(self.df_best_sweep_efficiency.cluster_sweep.max()+1,abs(self.df_best_sweep_efficiency.cluster_sweep[self.df_best_sweep_efficiency.cluster_sweep == -1].sum())),
-                        autosize = False,
-                        width = 1000,
-                        height = 1000,
-                        showlegend = False)
-        fig.show()
+            EV_tD = tD_all.append(EV_all,ignore_index = True)
+            # reduce points used to every 10th point
+            EV_tD = EV_tD.iloc[::10]
+            EV_tD = EV_tD.T
+            self.df_best_sweep_efficiency = EV_tD
+
+            # # Create UMAP reducer
+            reducer    = umap.UMAP(n_neighbors=n_neighbors,min_dist = min_dist, n_components = n_components)
+            embeddings = reducer.fit_transform(self.df_best_sweep_efficiency)
+
+            # Create HDBSCAN clusters
+            hdb = hdbscan.HDBSCAN(min_cluster_size=min_cluster_size,
+            #                       cluster_selection_epsilon= 0.5,
+                                min_samples = min_samples,
+                                allow_single_cluster= allow_single_cluster
+                                )
+            scoreTitles = hdb.fit(embeddings)
+
+            self.df_best_sweep_efficiency["cluster_sweep_prob"] = scoreTitles.probabilities_
+            self.df_best_sweep_efficiency["cluster_sweep"] = scoreTitles.labels_
+            self.df_best_sweep_efficiency["cluster_sweep_x"] = embeddings[:,0]
+            self.df_best_sweep_efficiency["cluster_sweep_y"] = embeddings[:,1]
+            self.df_best_performance["cluster_sweep"] = np.nan
+            self.df_best_position["cluster_sweep"] = np.nan
+            self.df_best_position["cluster_sweep_x"] = embeddings[:,0]
+            self.df_best_position["cluster_sweep_y"] = embeddings[:,1]
+
+            # generate colors for sweep eff. cluster plot
+            #deep start & end hex color
+            c0 = "#FDFDCC" # beige
+            c1 = "#271A2C" # dark blue
+
+            # list of "N" (n_clusters) colors between "start_color" and "end_color"
+            colorscale = [x.hex for x in list(Color(c0).range_to(Color(c1), self.df_best_sweep_efficiency["cluster_sweep"].max()+2))]
+
+            # iteration = self.df_best_position.iteration.tolist()
+            # particle_no =  self.df_best_position.particle_no.tolist()
+            cluster_sweep = self.df_best_sweep_efficiency.cluster_sweep.tolist()
+            for i in range(self.df_best_position.shape[0]):
+                self.df_best_performance.cluster_sweep[(self.df_best_performance.iteration == iteration[i]) & (self.df_best_performance.particle_no == particle_no[i])] = cluster_sweep[i]
+                self.df_best_position.cluster_sweep[(self.df_best_position.iteration == iteration[i]) & (self.df_best_position.particle_no == particle_no[i])] = cluster_sweep[i]
+
+            fig = make_subplots(rows = 1, cols = 1)
+
+            for i in range(self.df_best_position.shape[0]):
+                EV = self.df_best_performance[(self.df_best_performance.iteration == iteration[i]) & (self.df_best_performance.particle_no == particle_no[i])].EV
+                tD = self.df_best_performance[(self.df_best_performance.iteration == iteration[i]) & (self.df_best_performance.particle_no == particle_no[i])].tD
+                cluster_sweep = int(self.df_best_performance[(self.df_best_performance.iteration == iteration[i]) & (self.df_best_performance.particle_no == particle_no[i])].cluster_sweep.unique())
+                fig.add_trace(go.Scatter(x=tD, y=EV,
+                                    mode='lines',
+                                    line = dict(color = colorscale[cluster_sweep]),
+                                    text =  cluster_sweep))
+                
+            fig.update_xaxes(title_text = "tD", range = [0,2],row =1, col =1)
+            fig.update_yaxes(title_text = "Ev",range = [0,1], row =1, col = 1)
+            fig.update_layout(title="Sweep Efficiency Clustered - Number of clusters found: {} - Unclustered models: {}".format(self.df_best_sweep_efficiency.cluster_sweep.max()+1,abs(self.df_best_sweep_efficiency.cluster_sweep[self.df_best_sweep_efficiency.cluster_sweep == -1].sum())),
+                            autosize = False,
+                            width = 1000,
+                            height = 1000,
+                            showlegend = False)
+            fig.show()
+
+        elif cluster_parameter == "F_Phi":
+
+            # filter out tD and EV
+            iteration = self.df_best_position.iteration.tolist()
+            particle_no =  self.df_best_position.particle_no.tolist()
+            F_all = pd.DataFrame()
+            Phi_all = pd.DataFrame()
+            for i in range(self.df_best_position.shape[0]):
+
+                F = self.df_performance[(self.df_performance.iteration == iteration[i]) & (self.df_performance.particle_no == particle_no[i])].F
+                Phi = self.df_performance[(self.df_performance.iteration == iteration[i]) & (self.df_performance.particle_no == particle_no[i])].Phi
+                F.reset_index(drop=True, inplace=True)
+                Phi.reset_index(drop=True, inplace=True)
+                F_all = pd.concat([F_all,F],ignore_index=True,axis = 1)
+                Phi_all = pd.concat([Phi_all,Phi],ignore_index=True,axis = 1)
+            
+            F_Phi = F_all.append(Phi_all,ignore_index = True)
+            # reduce points used to every 10th point
+            F_Phi = F_Phi.iloc[::10]
+            F_Phi = F_Phi.T
+            self.df_best_F_Phi = F_Phi
+
+            # # Create UMAP reducer
+            reducer    = umap.UMAP(n_neighbors=n_neighbors,min_dist = min_dist, n_components = n_components)
+            embeddings = reducer.fit_transform(self.df_best_F_Phi)
+
+            # Create HDBSCAN clusters
+            hdb = hdbscan.HDBSCAN(min_cluster_size=min_cluster_size,
+            #                       cluster_selection_epsilon= 0.5,
+                                min_samples = min_samples,
+                                allow_single_cluster= allow_single_cluster
+                                )
+            scoreTitles = hdb.fit(embeddings)
+
+            self.df_best_F_Phi["cluster_F_Phi"] = scoreTitles.labels_
+            self.df_best_F_Phi["cluster_F_Phi_x"] = embeddings[:,0]
+            self.df_best_F_Phi["cluster_F_Phi_y"] = embeddings[:,1]
+            self.df_best_performance["cluster_F_Phi"] = np.nan
+            self.df_best_position["cluster_F_Phi"] = np.nan
+            self.df_best_position["cluster_F_Phi_x"] = embeddings[:,0]
+            self.df_best_position["cluster_F_Phi_y"] = embeddings[:,1]
+
+            # generate colors for sweep eff. cluster plot
+            #deep start & end hex color
+            c0 = "#FDFDCC" # beige
+            c1 = "#271A2C" # dark blue
+
+            # list of "N" (n_clusters) colors between "start_color" and "end_color"
+            colorscale = [x.hex for x in list(Color(c0).range_to(Color(c1), self.df_best_F_Phi["cluster_F_Phi"].max()+2))]
+
+            cluster_F_Phi = self.df_best_F_Phi.cluster_F_Phi.tolist()
+            for i in range(self.df_best_position.shape[0]):
+                self.df_best_performance.cluster_F_Phi[(self.df_best_performance.iteration == iteration[i]) & (self.df_best_performance.particle_no == particle_no[i])] = cluster_F_Phi[i]
+                self.df_best_position.cluster_F_Phi[(self.df_best_position.iteration == iteration[i]) & (self.df_best_position.particle_no == particle_no[i])] = cluster_F_Phi[i]
+
+            fig = make_subplots(rows = 1, cols = 1)
+
+            for i in range(self.df_best_position.shape[0]):
+                F = self.df_best_performance[(self.df_best_performance.iteration == iteration[i]) & (self.df_best_performance.particle_no == particle_no[i])].F
+                Phi = self.df_best_performance[(self.df_best_performance.iteration == iteration[i]) & (self.df_best_performance.particle_no == particle_no[i])].Phi
+                cluster_F_Phi = int(self.df_best_performance[(self.df_best_performance.iteration == iteration[i]) & (self.df_best_performance.particle_no == particle_no[i])].cluster_F_Phi.unique())
+                fig.add_trace(go.Scatter(x=Phi, y=F,
+                                    mode='lines',
+                                    line = dict(color = colorscale[cluster_F_Phi]),
+                                    text =  cluster_F_Phi))
+                
+            fig.update_xaxes(title_text = "Phi", range = [0,1],row =1, col =1)
+            fig.update_yaxes(title_text = "F",range = [0,1], row =1, col = 1)
+            fig.update_layout(title="F - Phi Clustered - Number of clusters found: {} - Unclustered models: {}".format(self.df_best_F_Phi.cluster_F_Phi.max()+1,abs(self.df_best_F_Phi.cluster_F_Phi[self.df_best_F_Phi.cluster_F_Phi == -1].sum())),
+                            autosize = False,
+                            width = 1000,
+                            height = 1000,
+                            showlegend = False)
+            fig.show()
 
     def cluster_model_selection(self,cluster_parameter = "tof",manual_pick = False,include_unclustered = False,n_reservoir_models = 10,manual_model_id_list = []):
-        """ how many models do we want to select from clusters. eitehr from "tof", "PSO_parameter", or "sweep"
+        """ how many models do we want to select from clusters. eitehr from "tof", "PSO_parameter", or "sweep" or "F_Phi"
             randomly sample from each cluster, bigger clusters will get bigger representation
             also option to manually put in the id of models that we want to select
             manual_model_id_list = [] thats how you can select potential unclusterd models, too
@@ -739,6 +802,9 @@ class postprocessing():
                     self.df_best_models_to_save.to_csv(best_position_path,index=False)
                     self.df_best_position.to_csv(best_position_path_2,index = False)
                     # self.df_best_tof.to_csv(best_tof_path,index = False)
+
+    # def plot_tof_entropy(self,models = "best"):
+    #     """ plot distribution of tof for 
 
             
 # def plot_tof_hist(df, misfit_tolerance = None):
