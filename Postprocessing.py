@@ -122,32 +122,57 @@ class postprocessing():
 
         self.df_best_position =self.df_position[(self.df_position.misfit <= misfit_tolerance)]
         self.df_best_performance =self.df_performance[(self.df_performance.misfit <= misfit_tolerance)]
-        self.df_best_tof = pd.DataFrame(columns = np.arange(int(nx/window_shape[0])*int(ny/window_shape[1])*int(nz/window_shape[2])))
-        
-        df_best_tof_temp =self.df_tof[(self.df_tof.misfit <= misfit_tolerance)].copy()
-        iterations = df_best_tof_temp["iteration"].unique().tolist()
-        for i in range(0,len(iterations)):
-            iteration = iterations[i]
-            particle_no = df_best_tof_temp[ df_best_tof_temp.iteration == iteration].particle_no.unique().tolist()
-            for j in range(0,len(particle_no)):
-                particle = particle_no[j]
-                tof_single_particle = np.array(df_best_tof_temp[(df_best_tof_temp.iteration == iteration) & (df_best_tof_temp.particle_no == particle)].tof)
-                tof_single_particle_3d = tof_single_particle.reshape((nx,ny,nz))
-                tof_single_particle_moving_window = view_as_windows(tof_single_particle_3d, window_shape, step= step_size)
-                tof_single_particle_upscaled = []
-                for k in range(int(nx/window_shape[0])):
-                    for l in range(int(ny/window_shape[1])):
-                        for m in range(int(nz/window_shape[2])):
-                            single_cell_temp = np.round(np.mean(tof_single_particle_moving_window[k,l,m]),2)
-                            tof_single_particle_upscaled.append(single_cell_temp)
-                df_tof_single_particle_upscaled = pd.DataFrame(np.log10(np.array(tof_single_particle_upscaled)))
-                df_tof_single_particle_upscaled_transposed = df_tof_single_particle_upscaled.T
-                df_tof_single_particle_upscaled_transposed["particle_no"] = particle
-                df_tof_single_particle_upscaled_transposed["iteration"] = iteration
 
-                self.df_best_tof = self.df_best_tof.append(df_tof_single_particle_upscaled_transposed)
-        
-        self.df_best_tof.set_index(self.df_best_position.index.values,inplace = True)
+        if window_shape == (1,1,1) and step_size == 1:
+            
+            self.df_best_tof = pd.DataFrame(columns = np.arange(int(nx/window_shape[0])*int(ny/window_shape[1])*int(nz/window_shape[2])))
+
+            # filter out tof for all best models and make it readable for clustering
+            iteration = self.df_best_position.iteration.tolist()
+            particle_no =  self.df_best_position.particle_no.tolist()
+            tof_all = pd.DataFrame()
+            for i in range(self.df_best_position.shape[0]):
+
+                tof = self.df_tof[(self.df_tof.iteration == iteration[i]) & (self.df_tof.particle_no == particle_no[i])].tof
+                tof.reset_index(drop=True, inplace=True)
+
+                tof_all = tof_all.append(tof,ignore_index = True)
+
+            self.df_best_tof = tof_all
+            self.df_best_tof["iteration"] = iteration
+            self.df_best_tof["particle_no"] = particle_no
+            self.df_best_tof.set_index(self.df_best_position.index.values,inplace = True)
+
+
+        elif window_shape != (1,1,1):
+            
+            self.df_best_tof = pd.DataFrame(columns = np.arange(int(nx/window_shape[0])*int(ny/window_shape[1])*int(nz/window_shape[2])))
+            
+            df_best_tof_temp =self.df_tof[(self.df_tof.misfit <= misfit_tolerance)].copy()
+            iterations = df_best_tof_temp["iteration"].unique().tolist()
+            for i in range(0,len(iterations)):
+                iteration = iterations[i]
+                particle_no = df_best_tof_temp[ df_best_tof_temp.iteration == iteration].particle_no.unique().tolist()
+                for j in range(0,len(particle_no)):
+                    particle = particle_no[j]
+                    tof_single_particle = np.array(df_best_tof_temp[(df_best_tof_temp.iteration == iteration) & (df_best_tof_temp.particle_no == particle)].tof)
+                    tof_single_particle_3d = tof_single_particle.reshape((nx,ny,nz))
+                    tof_single_particle_moving_window = view_as_windows(tof_single_particle_3d, window_shape, step= step_size)
+                    tof_single_particle_upscaled = []
+                    for k in range(int(nx/window_shape[0])):
+                        for l in range(int(ny/window_shape[1])):
+                            for m in range(int(nz/window_shape[2])):
+                                single_cell_temp = np.round(np.mean(tof_single_particle_moving_window[k,l,m]),2)
+                                tof_single_particle_upscaled.append(single_cell_temp)
+                    # df_tof_single_particle_upscaled = pd.DataFrame(np.log10(np.array(tof_single_particle_upscaled)))
+                    df_tof_single_particle_upscaled = pd.DataFrame(np.array(tof_single_particle_upscaled))
+                    df_tof_single_particle_upscaled_transposed = df_tof_single_particle_upscaled.T
+                    df_tof_single_particle_upscaled_transposed["particle_no"] = particle
+                    df_tof_single_particle_upscaled_transposed["iteration"] = iteration
+
+                    self.df_best_tof = self.df_best_tof.append(df_tof_single_particle_upscaled_transposed)
+            
+            self.df_best_tof.set_index(self.df_best_position.index.values,inplace = True)
 
     def compute_LC(self,F,Phi):
         """ Compute the Lorenz Coefficient """
@@ -803,92 +828,50 @@ class postprocessing():
                     self.df_best_position.to_csv(best_position_path_2,index = False)
                     # self.df_best_tof.to_csv(best_tof_path,index = False)
 
-    # def plot_tof_entropy(self,models = "best"):
-    #     """ plot distribution of tof for 
+    def plot_tof_entropy(self):
+        """ plot distribution of entropy based on grid for the best models """
+        nx = 200
+        ny = 100
+        nz = 7
+        all_cells_entropy = []
+        all_cell_cluster_id = []
+        for i in range(self.df_best_tof.shape[1]-2):
+            # single cell in all models, from seconds to years    
+            cell = np.array(self.df_best_tof[i]).reshape(-1,1)/60/60/24/365.25
 
+            # discretize with the help of HDBSCAN
+            # Create HDBSCAN clusters
+            hdb = hdbscan.HDBSCAN(min_cluster_size=2,
+                                min_samples=1, 
+                                cluster_selection_epsilon=0.1,
+        #                         cluster_selection_method = "leaf"#, cluster_selection_epsilon = 0.1)#,min_samples  =1)
+                                )
+            scoreTitles = hdb.fit(cell)
+            cell_cluster_id = scoreTitles.labels_
+            all_cell_cluster_id.append(cell_cluster_id)
+
+            # calculate entropy based upon clusters
+            cell_entropy = np.array(ent.shannon_entropy(cell_cluster_id))
+            all_cells_entropy.append(cell_entropy)
             
-# def plot_tof_hist(df, misfit_tolerance = None):
-   
-#     window_shape = (10,10,7)
-#     step_size = 10
-#     iterations = df["iteration"].unique().tolist()
-#     particle_no = df["particle_no"].unique().tolist()
-#     df_best_for_clustering = pd.DataFrame(columns = np.arange(20*10*1))
 
+        # plot the whole thing
+        values = np.array(all_cells_entropy).reshape(nx,ny,nz)
 
-#     for i in range(0,len(df.iteration)):
-#         iteration = iterations[i]
-#         for j in range(0,len(particle_no)):
-#             particle = particle_no[j]
-#             tof_single_particle = np.array(df[(df.iteration == iteration) & (df.particle_no == particle)].tof)
-#             tof_single_particle_3d = tof_single_particle.reshape((200,100,7))
-#             tof_single_particle_moving_window = view_as_windows(tof_single_particle_3d, window_shape, step= step_size)
-#             tof_single_particle_upscaled = []
-#             for k in range(0,20):
-#                 for l in range(0,10):
-#                     for m in range(0,1):
-#                         single_cell_temp = np.round(np.mean(tof_single_particle_moving_window[k,l,m]),2)
-#                         tof_single_particle_upscaled.append(single_cell_temp)
+        # Create the spatial reference
+        grid = pv.UniformGrid()
 
-#             df_tof_single_particle_upscaled = pd.DataFrame(np.log10(np.array(tof_single_particle_upscaled)))
-#             df_tof_single_particle_upscaled_transposed = df_tof_single_particle_upscaled.T
-#             df_tof_single_particle_upscaled_transposed["particle_no"] = particle
-#             df_tof_single_particle_upscaled_transposed["iteration"] = iteration
-#             df_best_for_clustering = df_best_for_clustering.append(df_tof_single_particle_upscaled_transposed)
+        # Set the grid dimensions: shape + 1 because we want to inject our values on the CELL data
+        grid.dimensions = np.array(values.shape) + 1
 
-#     columns = list(np.arange(0,df_best_for_clustering.shape[1]))
+        # Edit the spatial reference
+        grid.origin = (1, 1, 1)  # The bottom left corner of the data set
+        grid.spacing = (1, 1, 1)  # These are the cell sizes along each axis
 
-#     cols_range = [1,2,3]
+        # Add the data values to the cell data
+        grid.cell_arrays["Entropy"] =values.flatten()# np.log10(tof)# np.log10(tof)# values.flatten(order="C")  # Flatten the array! C F A K
 
-#     n_cols = int(len(cols_range))
-#     n_rows = int(np.ceil(len(columns)/n_cols))
+        boring_cmap = plt.cm.get_cmap("viridis", 50)
+        grid.plot(show_edges=False,cmap = boring_cmap)
 
-#     cols = cols_range* n_rows 
-#     len_row  = list(np.arange(1,n_rows+1,1))
-#     rows = sorted(n_cols*len_row)
-
-#     for i in range(0,len(rows)):
-#         rows[i]=rows[i].item()
-        
-#     n_subplots = len(columns)/n_rows/n_cols
-
-#     fig = make_subplots(rows=n_rows, cols=n_cols, subplot_titles=(columns))
-
-#     if misfit_tolerance is not None:
-
-#         df_best =df[(df.misfit <= misfit_tolerance)]
-#         df_best = df_best[columns]
-
-#         for i in range(0,len(columns)):
-#             # fig.append_trace(go.Histogram(x=df[columns[i]]),row = rows[i],col = cols[i])
-
-#             fig.append_trace(go.Histogram(x=df_best[columns[i]]),row = rows[i],col = cols[i])
-
-#             fig.update_layout(
-#                     showlegend=False,
-#                     barmode='overlay'        # Overlay both histograms
-#                     )
-#             fig.update_traces(opacity = 0.75) # Reduce opacity to see both histograms
-
-
-#         fig.update_layout(autosize=False,
-#             title= "Histogram Parameters",
-#             width=1000,
-#             height=750*(n_subplots)
-#         )
-#         fig.show()
-
-#     else:
-
-#         for i in range(0,len(columns)):
-
-#             fig.append_trace(go.Histogram(x=df[columns[i]]),row = rows[i],col = cols[i])
-#             fig.update_layout(
-#                     showlegend=False
-#                     )
-#         fig.update_layout(autosize=False,
-#             title= "Histogram Parameters",
-#             width=1000,
-#             height=750*(n_subplots)
-#         )
-#         fig.show()
+    

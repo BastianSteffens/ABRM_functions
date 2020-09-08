@@ -18,6 +18,7 @@ from sklearn.neighbors import NearestNeighbors
 # from sklearn import preprocessing
 import matplotlib.pyplot as plt
 import shutil
+import hdbscan
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import re
@@ -1308,8 +1309,8 @@ def compute_diversity_best():
             iterations = tof_best_models["iteration"].unique().tolist()
 
             #upscale and calculate mean for upscaled cell, then transpose and append to new df where one column equals one cell.
-            window_shape = (10,10,7)
-            step_size = 10
+            window_shape = (1,1,1)
+            step_size = 1
 
             for i in range(0,len(iterations)):
                 iteration = iterations[i]
@@ -1320,9 +1321,9 @@ def compute_diversity_best():
                     tof_single_particle_3d = tof_single_particle.reshape((200,100,7))
                     tof_single_particle_moving_window = view_as_windows(tof_single_particle_3d, window_shape, step= step_size)
                     tof_single_particle_upscaled = []
-                    for k in range(0,20):
-                        for l in range(0,10):
-                            for m in range(0,1):
+                    for k in range(0,200):
+                        for l in range(0,100):
+                            for m in range(0,7):
                                 single_cell_temp = np.round(np.mean(tof_single_particle_moving_window[k,l,m]),2)
                                 tof_single_particle_upscaled.append(single_cell_temp)
 
@@ -1338,7 +1339,7 @@ def compute_diversity_best():
             for i in range(0,df_best_tof_upscaled.shape[1]):
             # for i in range(0,10):
                 # single cell in all models    
-                cell = np.array(df_best_tof_upscaled[i])
+                cell = np.array(df_best_tof_upscaled[i]).reshape(-1,1)/60/60/24/365.25
                 cell = cell.reshape(-1,1)
                 # print(cell)
                 # scale tof
@@ -1348,16 +1349,16 @@ def compute_diversity_best():
                 # discretize with the help of HDBSCAN
                 # Create HDBSCAN clusters
                 hdb = hdbscan.HDBSCAN(min_cluster_size=2,
-                                    min_samples=2, 
-                                    cluster_selection_epsilon=10000000,
-                                    cluster_selection_method = "leaf")#, cluster_selection_epsilon = 0.1)#,min_samples  =1)
+                                    min_samples=1, 
+                                    cluster_selection_epsilon=0.1,
+                                    )#, cluster_selection_epsilon = 0.1)#,min_samples  =1)
                 scoreTitles = hdb.fit(cell)
                 cell_cluster_id = scoreTitles.labels_
                 
-                # unclustered cells get unique value
-                for i in range(0,len(cell_cluster_id)):
-                    if cell_cluster_id[i] == -1:
-                        cell_cluster_id[i] = np.max(cell_cluster_id) + 1
+                # # unclustered cells get unique value
+                # for i in range(0,len(cell_cluster_id)):
+                #     if cell_cluster_id[i] == -1:
+                #         cell_cluster_id[i] = np.max(cell_cluster_id) + 1
                                 
             #     print(cell_cluster_id)
 
@@ -1370,7 +1371,8 @@ def compute_diversity_best():
             print(swarm_upscaled_entropy)
             # diversity
             n_cells = df_best_tof_upscaled.shape[1]
-            diversity_best = (1/(n_particles*n_cells)) * swarm_upscaled_entropy
+            # diversity_best = (1/(n_particles*n_cells)) * swarm_upscaled_entropy
+            diversity_best = swarm_upscaled_entropy
             print(diversity_best)
 
         #     all_cells_entropy = []
