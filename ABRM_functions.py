@@ -67,7 +67,16 @@ def swarm(x_swarm):
 
     ### 6 ###
     # if working with voronoi tesselation for zonation. now its time to patch the previously built models together
-    patch_voronoi_models(x_swarm_converted)
+    base_path = pathlib.Path(__file__).parent
+    pickle_file = base_path / "../Output/variable_settings.pickle"
+    with open(pickle_file, "rb") as f:
+        setup = pickle.load(f)
+
+    n_voronoi = setup["n_voronoi"]
+
+    if n_voronoi > 0:
+
+        patch_voronoi_models(x_swarm_converted)
 
     ### 7 ###
     # built FD_Data files required for model evaluation
@@ -1215,6 +1224,7 @@ def compute_diversity_swarm(swarm_performance):
     n_parameters = setup["n_parameters"]
 
 
+
     # upscale and calculate mean for upscaled cell, then transpose and append to new df where one column equals one cell.
     window_shape = (10,10,7)
     step_size = 10
@@ -1244,7 +1254,9 @@ def compute_diversity_swarm(swarm_performance):
     for i in range(0,df_upscaled_tof.shape[1]):
 
         # single cell in all models    
-        cell = np.array(np.round(df_upscaled_tof[i])).reshape(-1,1)
+        # cell = np.array(np.round(df_upscaled_tof[i])).reshape(-1,1)
+        cell = np.array(df_upscaled_tof[i]).reshape(-1,1)/60/60/24/365.25
+
         # print(cell)
         # scale tof
         # scaler = preprocessing.MinMaxScaler(feature_range=(-1,1))
@@ -1252,13 +1264,13 @@ def compute_diversity_swarm(swarm_performance):
         # print(cell_scaled)
         # discretize with the help of HDBSCAN
         # Create HDBSCAN clusters
-        hdb = hdbscan.HDBSCAN(min_cluster_size=2, cluster_selection_epsilon = 10000000, min_samples = 2, cluster_selection_method = "leaf")#,min_samples  =1)
+        hdb = hdbscan.HDBSCAN(min_cluster_size=2, cluster_selection_epsilon = 0.1, min_samples = 1)#, cluster_selection_method = "leaf")#,min_samples  =1)
         scoreTitles = hdb.fit(cell)
         cell_cluster_id = scoreTitles.labels_
-        # unclustered cells get unique value
-        for i in range(0,len(cell_cluster_id)):
-            if cell_cluster_id[i] == -1:
-                cell_cluster_id[i] = np.max(cell_cluster_id) + 1
+        # # unclustered cells get unique value
+        # for i in range(0,len(cell_cluster_id)):
+        #     if cell_cluster_id[i] == -1:
+        #         cell_cluster_id[i] = np.max(cell_cluster_id) + 1
 
         parameter_entropy = np.array(ent.shannon_entropy(cell_cluster_id))
         all_cells_entropy.append(parameter_entropy)
@@ -1267,12 +1279,13 @@ def compute_diversity_swarm(swarm_performance):
     swarm_upscaled_entropy = np.sum(all_cells_entropy)
     print("swarm_diverstiy")
     print(swarm_upscaled_entropy)
-    # diversity
-    n_cells = df_upscaled_tof.shape[1]
-    diversity_swarm = (1/(n_particles*n_cells)) * swarm_upscaled_entropy
-    print(diversity_swarm)
+    # # diversity
+    # n_cells = df_upscaled_tof.shape[1]
+    # diversity_swarm = (1/(n_particles*n_cells)) * swarm_upscaled_entropy
+    # print(diversity_swarm)
 
-    return diversity_swarm
+    # return diversity_swarm
+    return swarm_upscaled_entropy
 
 def compute_diversity_best():
     # calculate entropy of large blocks of best models

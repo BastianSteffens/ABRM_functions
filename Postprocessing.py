@@ -19,6 +19,7 @@ from GRDECL2VTK import *
 from geovoronoi import voronoi_regions_from_coords
 from collections import Counter
 import pyvista as pv
+from pyentrp import entropy as ent
 from colour import Color
 
 ########################
@@ -263,6 +264,7 @@ class postprocessing():
             #dropdown with the parameter taht I would like to change.
 
     def plot_performance(self):
+
         """ Create plots showing the Flow Diagnostic Performance of the PSO over n iterations
             Args: filter dataset to data that are fulfill misfit tolerance """
 
@@ -365,6 +367,52 @@ class postprocessing():
                         showlegend = False)
 
         fig.show()
+
+    def plot_tof_entropy(self):
+        """ plot distribution of entropy based on grid for the best models """
+        nx = 200
+        ny = 100
+        nz = 7
+        all_cells_entropy = []
+        all_cell_cluster_id = []
+        for i in range(self.df_best_tof.shape[1]-2):
+            # single cell in all models, from seconds to years    
+            cell = np.array(self.df_best_tof[i]).reshape(-1,1)/60/60/24/365.25
+
+            # discretize with the help of HDBSCAN
+            # Create HDBSCAN clusters
+            hdb = hdbscan.HDBSCAN(min_cluster_size=2,
+                                min_samples=1, 
+                                cluster_selection_epsilon=0.1,
+        #                         cluster_selection_method = "leaf"#, cluster_selection_epsilon = 0.1)#,min_samples  =1)
+                                )
+            scoreTitles = hdb.fit(cell)
+            cell_cluster_id = scoreTitles.labels_
+            all_cell_cluster_id.append(cell_cluster_id)
+
+            # calculate entropy based upon clusters
+            cell_entropy = np.array(ent.shannon_entropy(cell_cluster_id))
+            all_cells_entropy.append(cell_entropy)
+            
+
+        # plot the whole thing
+        values = np.array(all_cells_entropy).reshape(nx,ny,nz)
+
+        # Create the spatial reference
+        grid = pv.UniformGrid()
+
+        # Set the grid dimensions: shape + 1 because we want to inject our values on the CELL data
+        grid.dimensions = np.array(values.shape) + 1
+
+        # Edit the spatial reference
+        grid.origin = (1, 1, 1)  # The bottom left corner of the data set
+        grid.spacing = (1, 1, 1)  # These are the cell sizes along each axis
+
+        # Add the data values to the cell data
+        grid.cell_arrays["Entropy"] =values.flatten()# np.log10(tof)# np.log10(tof)# values.flatten(order="C")  # Flatten the array! C F A K
+
+        boring_cmap = plt.cm.get_cmap("deep", 50)
+        grid.plot(show_edges=False,cmap = boring_cmap)
 
     def clustering_tof_or_PSO(self,n_neighbors = 30,min_dist = 0,n_components = 30, min_cluster_size = 10,
                               min_samples = 1,allow_single_cluster = True,cluster_parameter = "tof"):
@@ -827,51 +875,5 @@ class postprocessing():
                     self.df_best_models_to_save.to_csv(best_position_path,index=False)
                     self.df_best_position.to_csv(best_position_path_2,index = False)
                     # self.df_best_tof.to_csv(best_tof_path,index = False)
-
-    def plot_tof_entropy(self):
-        """ plot distribution of entropy based on grid for the best models """
-        nx = 200
-        ny = 100
-        nz = 7
-        all_cells_entropy = []
-        all_cell_cluster_id = []
-        for i in range(self.df_best_tof.shape[1]-2):
-            # single cell in all models, from seconds to years    
-            cell = np.array(self.df_best_tof[i]).reshape(-1,1)/60/60/24/365.25
-
-            # discretize with the help of HDBSCAN
-            # Create HDBSCAN clusters
-            hdb = hdbscan.HDBSCAN(min_cluster_size=2,
-                                min_samples=1, 
-                                cluster_selection_epsilon=0.1,
-        #                         cluster_selection_method = "leaf"#, cluster_selection_epsilon = 0.1)#,min_samples  =1)
-                                )
-            scoreTitles = hdb.fit(cell)
-            cell_cluster_id = scoreTitles.labels_
-            all_cell_cluster_id.append(cell_cluster_id)
-
-            # calculate entropy based upon clusters
-            cell_entropy = np.array(ent.shannon_entropy(cell_cluster_id))
-            all_cells_entropy.append(cell_entropy)
-            
-
-        # plot the whole thing
-        values = np.array(all_cells_entropy).reshape(nx,ny,nz)
-
-        # Create the spatial reference
-        grid = pv.UniformGrid()
-
-        # Set the grid dimensions: shape + 1 because we want to inject our values on the CELL data
-        grid.dimensions = np.array(values.shape) + 1
-
-        # Edit the spatial reference
-        grid.origin = (1, 1, 1)  # The bottom left corner of the data set
-        grid.spacing = (1, 1, 1)  # These are the cell sizes along each axis
-
-        # Add the data values to the cell data
-        grid.cell_arrays["Entropy"] =values.flatten()# np.log10(tof)# np.log10(tof)# values.flatten(order="C")  # Flatten the array! C F A K
-
-        boring_cmap = plt.cm.get_cmap("viridis", 50)
-        grid.plot(show_edges=False,cmap = boring_cmap)
 
     

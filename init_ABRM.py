@@ -19,6 +19,7 @@ from numpy.random import rand
 import lhsmdu
 ###### Import required functions #######
 import ABRM_functions
+from swarm import swarm
 
 ############################################################################
 
@@ -36,9 +37,9 @@ def init():
 
 
     ###### Set hyperparmeters for PSO ######
-    n_parameters = 33
-    n_iters = 35
-    n_particles = 9 # always pick multiple of 3. need to fix this 
+    n_parameters = 30
+    n_iters = 3
+    n_particles = 3 # always pick multiple of 3. need to fix this 
     min_bound = 0 * np.ones(n_parameters)
     max_bound = 1 * np.ones(n_parameters)
     bounds = (min_bound, max_bound)
@@ -78,31 +79,32 @@ def init():
     nx = 200
     ny = 100
     nz = 7
-    n_voronoi = 12
+    n_voronoi = 0 #12
     n_voronoi_zones = 3
     # if continuoes = 0, if discrete = 1
-    # continuous_discrete = [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0]
-    continuous_discrete = [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0]
+    continuous_discrete = [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0]
+    # continuous_discrete = [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0]
 
     # continuous_discrete = [0,1,0,0,0,0,0,0,0,0]
     # var names
-    columns = ["TI1","TI2","TI3","Voronoi_x_0","Voronoi_y_0","Voronoi_x_1","Voronoi_y_1",
-               "Voronoi_x_2","Voronoi_y_2","Voronoi_x_3","Voronoi_y_3","Voronoi_x_4",
-               "Voronoi_y_4","Voronoi_x_5","Voronoi_y_5","Voronoi_x_6","Voronoi_y_6",
-               "Voronoi_x_7","Voronoi_y_7","Voronoi_x_8","Voronoi_y_8","Voronoi_x_9",
-               "Voronoi_y_9","Voronoi_x_10","Voronoi_y_10","Voronoi_x_11","Voronoi_y_11","FracpermX",
-               "MatrixpermX","FracpermY","MatrixpermY","FracpermZ","MatrixpermZ"]
-    # columns = ["TI1","F1_I_MIN","F1_I_MAX","F1_J_MIN","F1_J_MAX","F1_K_MIN","F1_K_MAX",
-    #            "TI2","F2_I_MIN","F2_I_MAX","F2_J_MIN","F2_J_MAX","F2_K_MIN","F2_K_MAX",
-    #            "TI3","F3_I_MIN","F3_I_MAX","F3_J_MIN","F3_J_MAX","F3_K_MIN","F3_K_MAX",
-    #            "F1_Curve_Prob","F2_Curve_Prob","F3_Curve_Prob","FracpermX","MatrixpermX",
-    #            "FracpermY","MatrixpermY","FracpermZ","MatrixpermZ"]     
+    # columns = ["TI1","TI2","TI3","Voronoi_x_0","Voronoi_y_0","Voronoi_x_1","Voronoi_y_1",
+    #            "Voronoi_x_2","Voronoi_y_2","Voronoi_x_3","Voronoi_y_3","Voronoi_x_4",
+    #            "Voronoi_y_4","Voronoi_x_5","Voronoi_y_5","Voronoi_x_6","Voronoi_y_6",
+    #            "Voronoi_x_7","Voronoi_y_7","Voronoi_x_8","Voronoi_y_8","Voronoi_x_9",
+    #            "Voronoi_y_9","Voronoi_x_10","Voronoi_y_10","Voronoi_x_11","Voronoi_y_11","FracpermX",
+    #            "MatrixpermX","FracpermY","MatrixpermY","FracpermZ","MatrixpermZ"]
+    columns = ["TI1","F1_I_MIN","F1_I_MAX","F1_J_MIN","F1_J_MAX","F1_K_MIN","F1_K_MAX",
+               "TI2","F2_I_MIN","F2_I_MAX","F2_J_MIN","F2_J_MAX","F2_K_MIN","F2_K_MAX",
+               "TI3","F3_I_MIN","F3_I_MAX","F3_J_MIN","F3_J_MAX","F3_K_MIN","F3_K_MAX",
+               "F1_Curve_Prob","F2_Curve_Prob","F3_Curve_Prob","FracpermX","MatrixpermX",
+               "FracpermY","MatrixpermY","FracpermZ","MatrixpermZ"]     
     # columns = ["P32","n_sides","elongation_ratio","shape","scale","mean_dip",
     #            "mean_dip_azimuth","concentration","aperture_mean","aperture_std"]
     #  
     
     # var types str = 0, numeric =1, TI = 2, voronoi_coordinate = 3
-    parameter_type = [2,2,2,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,1,1,1,1,1,1]
+    # parameter_type = [2,2,2,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,1,1,1,1,1,1]
+    parameter_type = [2,1,1,1,1,1,1,2,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
     # parameter_type = [1,1,1,1,1,1,1,1,1,1]
 
     n_trainingimages = 4
@@ -127,9 +129,9 @@ def init():
     # how many potrel licenses to run at once
     n_parallel_petrel_licenses = 3
     # which workflow to run in petrel (atm onlz 1 wf)
-    runworkflow = "WF_2020_07_03" #"WF_2020_04_16"#"WF_2019_09_16", "WF_test" "WF_2020_05_08"
+    runworkflow = "WF_2020_04_16"   #"WF_2020_07_03" #"WF_2020_04_16"#"WF_2019_09_16", "WF_test" "WF_2020_05_08"
     # run with petrel or without for test
-    petrel_on = False
+    petrel_on = True
     petrel_path = "C:/Program Files/Schlumberger/Petrel 2017/Petrel.exe"
 
     # if all models should be explicitly saved and not overwritten. 
@@ -150,13 +152,14 @@ def init():
     ###### Initialize swarm ######
 
     # Call instance of PSO
-    optimizer = ps.single.LocalBestPSO(n_particles=n_particles, dimensions=dimensions, options=options, 
+    optimizer = ps.single.LocalBestPSO(n_particles=n_particles, dimensions=dimensions, options=options, setup = setup,
                                        bounds= bounds, velocity_clamp= velocity_clamp, vh_strategy=vh_strategy,
                                        bh_strategy = bh_strategy,init_pos= init_pos)
 
-
+    # abrm_swarm = swarm(x_swarm,)
     # Perform optimization
-    cost, pos = optimizer.optimize(ABRM_functions.swarm, iters=n_iters, n_processes= 1)
+        # cost, pos = optimizer.optimize(ABRM_functions.swarm, iters=n_iters, n_processes= 1)
+    cost, pos = optimizer.optimize(swarm, iters=n_iters)
     print(cost)
     print(pos)
     # Plot the cost
