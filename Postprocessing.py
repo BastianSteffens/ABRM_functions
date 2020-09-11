@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import os
 from os import path
-import pickle
+# import pickle
 import bz2
 import _pickle as cPickle
 from scipy import interpolate
@@ -15,7 +15,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import pathlib
 from skimage.util.shape import view_as_windows
-from GRDECL2VTK import *
+from GRDECL_file_reader.GRDECL2VTK import *
 from geovoronoi import voronoi_regions_from_coords
 from collections import Counter
 import pyvista as pv
@@ -31,7 +31,8 @@ class postprocessing():
     def __init__(self, data_to_process):
 
         # set base path where data is stored
-        self.base_path = pathlib.Path(__file__).parent
+        self.setup = dict()
+        self.setup["base_path"] = pathlib.Path(__file__).parent
 
         # date & time at what dataset is created needs to be fed in here as string
         self.data_to_process = data_to_process
@@ -53,7 +54,7 @@ class postprocessing():
         """ read individual datasets and conconate them to one big df """
 
         for i in range(0,self.n_datasets):
-            path = str(self.base_path / "../Output/")+ "/"+ self.data_to_process[i] + "/"
+            path = str(self.setup["base_path"] / "../Output/")+ "/"+ self.data_to_process[i] + "/"
             performance = "swarm_performance_all_iter.csv"
             position = "swarm_particle_values_converted_all_iter.csv"
             setup = "variable_settings_saved.pickle"
@@ -67,12 +68,15 @@ class postprocessing():
             # load data
             df_performance_single = pd.read_csv(performance_path)
             df_position_single = pd.read_csv(position_path)
-            with open(setup_path,'rb') as f:
-                setup_single = pickle.load(f) 
+            # with open(setup_path,'rb') as f:
+            #     setup_single = pickle.load(f) 
             
             #load compressed pickle file
             data = bz2.BZ2File(tof_path,"rb")
             df_tof_single = cPickle.load(data)
+            data = bz2.BZ2File(setup_path)
+            setup_single = cPickle.load(data)
+
     
             df_position_single["dataset"] = self.data_to_process[i]
             df_performance_single["dataset"] = self.data_to_process[i]
@@ -784,7 +788,7 @@ class postprocessing():
         for i in range(self.n_datasets):
 
             # open df_position to figure out which models performed best
-            path = str(self.base_path / "../Output/") + "/" + self.data_to_process[i] + "/"
+            path = str(self.setup["base_path"] / "../Output/") + "/" + self.data_to_process[i] + "/"
 
             n_best_models_selected = len(self.df_best_models_to_save)
             best_models_selected_index = self.df_best_models_to_save.index.tolist()

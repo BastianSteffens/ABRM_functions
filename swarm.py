@@ -15,23 +15,20 @@ import _pickle as cPickle
 from scipy import interpolate
 from sklearn.metrics import mean_squared_error
 from sklearn.neighbors import NearestNeighbors
-# from sklearn import preprocessing
 import matplotlib.pyplot as plt
 import shutil
 import umap
 import hdbscan
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 import re
 import pathlib
-# from pathlib import Path
 import glob
 from pyentrp import entropy as ent
 from skimage.util.shape import view_as_windows
-from GRDECL2VTK import *
+from GRDECL_file_reader.GRDECL2VTK import *
+
 from geovoronoi import voronoi_regions_from_coords
 
-import pyvista as pv
+# import pyvista as pv
 ########################
 
 class swarm():
@@ -39,11 +36,10 @@ class swarm():
     def __init__(self,x_swarm,setup,iteration):
 
         # set base path where data is stored
-        self.base_path = pathlib.Path(__file__).parent
+        self.setup = setup
 
         # data storage
-        self.x_swarm = x_swarm
-        self.setup = setup
+        self.x_swarm = x_swarm.astype("float32")
         self.iteration = iteration
         self.n_particles = x_swarm.shape[0]
         self.misfit_swarm = np.zeros(self.n_particles)
@@ -52,45 +48,29 @@ class swarm():
         self.swarm_performance = pd.DataFrame()
         self.LC_swarm = np.zeros(self.n_particles)
 
+        print("########################################## starting model evaluation  iteration {}/{} ##########################################".format(self.iteration,self.setup["n_iters"]-1))
 
-        ### 1 ###
         # convert particle values to values suitable for model building
-        # self.x_swarm_converted = convert_particle_values()
         self.convert_particle_values()
         
-        ### 2 ###
         # Built new geomodels (with batch files) in Petrel based upon converted particles.
-        # built_batch_file_for_petrel_models_uniform(x_swarm_converted)
         self.built_batch_file_for_petrel_models_uniform()
 
-        ### 3 ###
         # built multibat files to run petrel licences in parallel
         self.built_multibat_files()
         
-        ### 4 ###
         # run these batch files to built new geomodels 
-        # run_batch_file_for_petrel_models(x_swarm_converted)
         self.run_batch_file_for_petrel_models()
 
-        ### 5 ###
         # if working with voronoi tesselation for zonation. now its time to patch the previously built models together
-        if self.setup[n_voronoi] > 0:
-            # patch_voronoi_models(x_swarm_converted)
+        if self.setup["n_voronoi"] > 0:
+            print ("Start Voronoi-Patching",end = "\r")
             self.patch_voronoi_models()
+            print ("Voronoi-Patching done",end = "\r")
 
-        ### 6 ###
+
         # built FD_Data files required for model evaluation
         self.built_FD_Data_files()
-
-        ### 8 ###
-        # evaluate model performance
-        # n_particles = x_swarm.shape[0]
-        # self.misfit_swarm = np.zeros(n_particles)
-        # entropy_swarm = np.zeros(n_particles)
-        # tof_upscaled_entropy_swarm = np.zeros(n_particles)
-        # combined_misfit_entropy_swarm = np.zeros(n_particles)
-        # swarm_performance = pd.DataFrame()
-        # LC_swarm = np.zeros(n_particles)
 
     def swarm_iterator(self):
 
@@ -104,8 +84,8 @@ class swarm():
             # tof_upscaled_entropy_swarm[i] = particle_tof_upscaled_entropy
             # combined_misfit_entropy_swarm[i] = particle_combined_misfit_entropy
             self.swarm_performance = self.swarm_performance.append(particle_performance) # store for data saving
-        
-        print('swarm misfit {}'.format(self.misfit_swarm))
+            
+        print('swarm misfit {}'.format(np.round(self.misfit_swarm,2)))
 
         # # calculate swarm diversity
         # self.diversity_swarm = self.compute_diversity_swarm(swarm_performance)
@@ -121,19 +101,39 @@ class swarm():
 
         # # save swarm_particle values
         # save_particle_values(x_swarm, x_swarm_converted,misfit_swarm,LC_swarm,entropy_swarm,diversity_swarm,diversity_best)
+
+        #built df with all the information desired for postprocessing
+        self.get_output_dfs()
         
-        # # save all models
-        # save_all_models()
+        return np.array(self.misfit_swarm),self.swarm_performance_short,self.tof,self.particle_values,self.particle_values_converted,self.setup
+
+    def get_output_dfs(self):
+        ##prepare dfs of whole swarm with output that is ready for postprocessing
         
-        return np.array(self.misfit_swarm,self.swarm_performance)
+        # raw data from FD
+        self.tof = self.swarm_performance[["tof","misfit","iteration","particle_no"]].copy()
+        self.swarm_performance_short = self.swarm_performance.iloc[::100,:].copy()
+        
+        # converted particles and raw particles tother with simulation outputs
+        columns = self.setup["columns"]
+        folder_path = self.setup["folder_path"]
+        self.particle_values_converted = pd.DataFrame(data = self.x_swarm_converted,columns = columns)
+        self.particle_values = pd.DataFrame(data = self.x_swarm,columns = columns)
+        # add misfit to df
+        self.particle_values_converted["misfit"]= self.misfit_swarm
+        self.particle_values["misfit"]= self.misfit_swarm
+        # add LC to df
+        self.particle_values_converted["LC"] = self.LC_swarm.astype("float32")
+        self.particle_values["LC"] = self.LC_swarm.astype("float32")
+        # add iteration to df
+        self.particle_values_converted["iteration"] = self.iteration
+        self.particle_values["iteration"] = self.iteration
+        # add particle no to df
+        particle_no = np.arange(self.x_swarm_converted.shape[0], dtype = int)
+        self.particle_values_converted["particle_no"] = particle_no
+        self.particle_values["particle_no"] = particle_no
 
     def convert_particle_values(self):
-
-        # loading in settings that I set up on init_ABRM.py for this run
-        # base_path = pathlib.Path(__file__).parent
-        # pickle_file = self.base_path / "../Output/variable_settings.pickle"
-        # with open(pickle_file, "rb") as f:
-        #     setup = pickle.load(f)
 
         varminmax = self.setup["varminmax"]
         n_particles = self.setup["n_particles"]
@@ -160,7 +160,7 @@ class swarm():
                 converted_vals[index] = np.around((value * (converted_vals_range[index,1] - converted_vals_range[index,0]) + converted_vals_range[index,0]))
 
         # transpose back to initial setup
-        self.x_swarm_converted = np.array(converted_vals.T)
+        self.x_swarm_converted = np.array(converted_vals.T).astype("float32")
 
         # # swap around parameters that work together and where min requires to be bigger than max. ohterwise wont do anzthing in petrel workflow.
         # for i in range(0,n_particles):
@@ -175,15 +175,8 @@ class swarm():
         #                 if converted_particle_values[i,j] > converted_particle_values[i,j+1]:
         #                     converted_particle_values[i,j],converted_particle_values[i,j+1] = converted_particle_values[i,j+1],converted_particle_values[i,j] 
     
-        # return converted_particle_values
-
-    # def built_batch_file_for_petrel_models_uniform(x):
     def built_batch_file_for_petrel_models_uniform(self):
         # loading in settings that I set up on init_ABRM.py for this run
-        # base_path = pathlib.Path(__file__).parent
-        # pickle_file = base_path / "../Output/variable_settings.pickle"
-        # with open(pickle_file, "rb") as f:
-        #     setup = pickle.load(f)
 
         seed = self.setup["set_seed"]
         n_modelsperbatch = self.setup["n_modelsperbatch"]
@@ -195,7 +188,7 @@ class swarm():
         petrel_path = self.setup["petrel_path"]
         n_parameters = len(parameter_name)
         n_trainingimages = self.setup["n_trainingimages"]
-
+        # base_path = self.setup["base_path"]
         #  Petrel has problems with batch files that get too long --> if I run
         #  20+ models at once. Therefore split it up in to sets of 3 particles / models
         #  per Petrel license and then run them in parallel. hard on CPU but
@@ -203,7 +196,8 @@ class swarm():
         #  models.
         particle = self.x_swarm_converted    # all particles together    
         particle_1d_array =  particle.reshape((particle.shape[0]*particle.shape[1]))    # all particles together                
-        particlesperwf = np.linspace(0,n_modelsperbatch,n_parallel_petrel_licenses, endpoint = False,dtype = int) # this is how it should be. This is the name that each variable has per model in the petrel wf
+        # particlesperwf = np.linspace(0,n_modelsperbatch,n_parallel_petrel_licenses, endpoint = False,dtype = int) # this is how it should be. This is the name that each variable has per model in the petrel wf
+        particlesperwf = np.linspace(25,27,n_modelsperbatch, endpoint = True,dtype = int) # use 25,26,27 because of petrel wf. there the variables are named like that and cant bothered to change that.
         single_wf = [str(i) for i in np.tile(particlesperwf,n_particles)]
         single_particle_in_wf = [str(i) for i in np.arange(0,n_particles+1)]
         particle_str = np.asarray([str(i) for i in particle_1d_array]).reshape(particle.shape[0],particle.shape[1])
@@ -220,7 +214,7 @@ class swarm():
         projectpath = []
         parallel_petrel_licenses = np.arange(0,n_parallel_petrel_licenses,1)
         for i in range(0,len(parallel_petrel_licenses)):
-            path_petrel_projects = self.base_path / "../Petrel_Projects/ABRM_"
+            path_petrel_projects = self.setup["base_path"] / "../Petrel_Projects/ABRM_"
             path = '\n"{}{}.pet"'.format(path_petrel_projects,parallel_petrel_licenses[i])
             projectpath.append(path)
         projectpath_repeat = projectpath * (len(slicer))    
@@ -236,7 +230,7 @@ class swarm():
             path = projectpath_repeat[i]
 
             # path to batch file
-            run_petrel_batch = self.base_path / "../ABRM_functions/batch_files/run_petrel_{}.bat".format(i)
+            run_petrel_batch = self.setup["base_path"] / "../ABRM_functions/batch_files/run_petrel_{}.bat".format(i)
 
             # open batch file to start writing into it / updating it
             file = open(run_petrel_batch, "w+")
@@ -296,12 +290,6 @@ class swarm():
     def built_multibat_files(self):
         #### built multi_batch file bat files that can launch several petrel licenses (run_petrel) at once
 
-        # loading in settings that I set up on init_ABRM.py for this run
-        # base_path = pathlib.Path(__file__).parent
-        # pickle_file = base_path / "../Output/variable_settings.pickle"
-        # with open(pickle_file, "rb") as f:
-        #     setup = pickle.load(f)
-
         n_particles = self.setup["n_particles"]
         n_modelsperbatch = self.setup["n_modelsperbatch"]
         n_parallel_petrel_licenses = self.setup["n_parallel_petrel_licenses"] 
@@ -312,42 +300,35 @@ class swarm():
         run_petrel_ticker = 0 # naming of petrelfiles to run. problem: will alwazs atm write 3 files into multibatfile.
 
         for i in range(0,n_multibats):
-            built_multibat = r'{}\batch_files\multi_bat_{}.bat'.format(self.base_path,i)
+            built_multibat = r'{}\batch_files\multi_bat_{}.bat'.format(self.setup["base_path"],i)
             file = open(built_multibat, "w+")
 
             for _j in range(0,n_parallel_petrel_licenses):
 
-                run_petrel_bat = '\nStart {}/batch_files/run_petrel_{}.bat'.format(self.base_path,run_petrel_ticker)
+                run_petrel_bat = '\nStart {}/batch_files/run_petrel_{}.bat'.format(self.setup["base_path"],run_petrel_ticker)
                 file.write(run_petrel_bat)
                 run_petrel_ticker+=1
 
             file.write(exit_bat)
             file.close()
 
-    # def run_batch_file_for_petrel_models(x):
     def run_batch_file_for_petrel_models(self):
-
-        # loading in settings that I set up on init_ABRM.py for this run
-        # base_path = pathlib.Path(__file__).parent
-        # pickle_file = base_path / "../Output/variable_settings.pickle"    
-        # with open(pickle_file, "rb") as f:
-        #     setup = pickle.load(f)
 
         petrel_on = self.setup["petrel_on"]
         n_particles = self.setup["n_particles"]
         n_modelsperbatch = self.setup["n_modelsperbatch"]
         n_parallel_petrel_licenses = self.setup["n_parallel_petrel_licenses"]    
-        lock_files = str(self.base_path /  "../Petrel_Projects/*.lock")
-        kill_petrel =r'{}\batch_files\kill_petrel.bat'.format(self.base_path)
+        lock_files = str(self.setup["base_path"] /  "../Petrel_Projects/*.lock")
+        kill_petrel =r'{}\batch_files\kill_petrel.bat'.format(self.setup["base_path"])
 
         if petrel_on == True:
             # initiate model by running batch file make sure that petrel has sufficient time to built the models and shut down again. 
-            print(' Start building models')
+            print('Start building models',end = "\r")
 
             #how many multibat files to run
             n_multibats = int(np.ceil(n_particles / n_modelsperbatch/n_parallel_petrel_licenses))
             for i in range(0,n_multibats):
-                run_multibat = r'{}\batch_files\multi_bat_{}.bat'.format(self.base_path,i)
+                run_multibat = r'{}\batch_files\multi_bat_{}.bat'.format(self.setup["base_path"],i)
                 subprocess.call([run_multibat])
                 # not continue until lock files are gone and petrel is finished.
                 time.sleep(120)
@@ -359,19 +340,12 @@ class swarm():
                 subprocess.call([kill_petrel]) # might need to add something that removes lock file here.
 
 
-            print('Building models complete')
+            print('Building models complete',end = "\r")
 
         else:
-            print(" dry run - no model building")
+            print("dry run - no model building",end = "\r")
 
-    # def patch_voronoi_models(x_swarm_converted):
     def patch_voronoi_models(self):
-
-        # loading in settings that I set up on init_ABRM.py for this run
-        # base_path = pathlib.Path(__file__).parent
-        # pickle_file = base_path / "../Output/variable_settings.pickle"    
-        # with open(pickle_file, "rb") as f:
-        #     setup = pickle.load(f)
 
         n_particles = self.setup["n_particles"]
         n_voronoi = self.setup["n_voronoi"]
@@ -382,7 +356,7 @@ class swarm():
         nx = self.setup["nx"]
         ny = self.setup["ny"]
         nz = self.setup["nz"]
-        iter_ticker = self.setup["iter_ticker"] # might need to do something about this here if I dont want to save setup every step. might need ot add it to the localpso class. same with saving all the df.
+        iter_ticker = self.iteration 
 
         n_neighbors = np.int(n_voronoi /n_voronoi_zones)
         
@@ -411,8 +385,6 @@ class swarm():
             voronoi_y = np.array(voronoi_y)
             voronoi_points = np.vstack((voronoi_x,voronoi_y)).T
             # voronoi_z = np.array(voronoi_z)
-
-            # check if some of the points are on top of each other. if so --> move position to neighbour cell
 
             # #define grid and  position initianinon points of n polygons
             grid = Polygon([(0, 0), (0, ny), (nx, ny), (nx, 0)])
@@ -468,7 +440,7 @@ class swarm():
 
 
                 self.setup["assign_voronoi_zone_" +str(i)] = assign_voronoi_zone
-                # also need a fix for this.
+                # also need a fix for this. might not need this anymore.
                 # with open(pickle_file,'wb') as f:
                 #     pickle.dump(setup,f)
 
@@ -499,15 +471,15 @@ class swarm():
             all_model_values_permz = np.zeros((n_voronoi_zones,len(cell_vornoi_combination_flatten)))
             all_model_values_poro = np.zeros((n_voronoi_zones,len(cell_vornoi_combination_flatten)))
 
-            geomodel_path = str(self.base_path / "../FD_Models/INCLUDE/GRID.grdecl")
+            geomodel_path = str(self.setup["base_path"] / "../FD_Models/INCLUDE/GRID.grdecl")
             Model = GeologyModel(filename = geomodel_path)
-            data_file_path = self.base_path / "../FD_Models/DATA/M_FD_{}.DATA".format(i)
+            data_file_path = self.setup["base_path"] / "../FD_Models/DATA/M_FD_{}.DATA".format(i)
 
             for j in range(n_voronoi_zones):
-                temp_model_path_permx = self.base_path / '../FD_Models/INCLUDE/Voronoi/Patch_{}/PERMX/M{}.GRDECL'.format(j,i)
-                temp_model_path_permy = self.base_path / '../FD_Models/INCLUDE/Voronoi/Patch_{}/PERMY/M{}.GRDECL'.format(j,i)
-                temp_model_path_permz = self.base_path / '../FD_Models/INCLUDE/Voronoi/Patch_{}/PERMZ/M{}.GRDECL'.format(j,i)
-                temp_model_path_poro = self.base_path / '../FD_Models/INCLUDE/Voronoi/Patch_{}/PORO/M{}.GRDECL'.format(j,i)
+                temp_model_path_permx = self.setup["base_path"] / '../FD_Models/INCLUDE/Voronoi/Patch_{}/PERMX/M{}.GRDECL'.format(j,i)
+                temp_model_path_permy = self.setup["base_path"] / '../FD_Models/INCLUDE/Voronoi/Patch_{}/PERMY/M{}.GRDECL'.format(j,i)
+                temp_model_path_permz = self.setup["base_path"] / '../FD_Models/INCLUDE/Voronoi/Patch_{}/PERMZ/M{}.GRDECL'.format(j,i)
+                temp_model_path_poro = self.setup["base_path"] / '../FD_Models/INCLUDE/Voronoi/Patch_{}/PORO/M{}.GRDECL'.format(j,i)
                 temp_model_permx = Model.LoadCellData(varname="PERMX",filename=temp_model_path_permx)
                 temp_model_permy = Model.LoadCellData(varname="PERMY",filename=temp_model_path_permy)
                 temp_model_permz = Model.LoadCellData(varname="PERMZ",filename=temp_model_path_permz)
@@ -538,7 +510,7 @@ class swarm():
 
 
             file_permx_beginning = "FILEUNIT\nMETRIC /\n\nPERMX\n"
-            permx_file_path = self.base_path / "../FD_Models/INCLUDE/PERMX/M{}.GRDECL".format(i)
+            permx_file_path = self.setup["base_path"] / "../FD_Models/INCLUDE/PERMX/M{}.GRDECL".format(i)
             patch_permx[-1] = "{} /".format(patch_permx[-1])
             with open(permx_file_path,"w+") as f:
                 f.write(file_permx_beginning)
@@ -552,7 +524,7 @@ class swarm():
                 f.close()
 
             file_permy_beginning = "FILEUNIT\nMETRIC /\n\nPERMY\n"
-            permy_file_path = self.base_path / "../FD_Models/INCLUDE/PERMY/M{}.GRDECL".format(i)
+            permy_file_path = self.setup["base_path"] / "../FD_Models/INCLUDE/PERMY/M{}.GRDECL".format(i)
             patch_permy[-1] = "{} /".format(patch_permy[-1])
             with open(permy_file_path,"w+") as f:
                 f.write(file_permy_beginning)
@@ -566,7 +538,7 @@ class swarm():
                 f.close()
 
             file_permz_beginning = "FILEUNIT\nMETRIC /\n\nPERMZ\n"
-            permz_file_path = self.base_path / "../FD_Models/INCLUDE/PERMZ/M{}.GRDECL".format(i)
+            permz_file_path = self.setup["base_path"] / "../FD_Models/INCLUDE/PERMZ/M{}.GRDECL".format(i)
             patch_permz[-1] = "{} /".format(patch_permz[-1])
             with open(permz_file_path,"w+") as f:
                 f.write(file_permz_beginning)
@@ -580,7 +552,7 @@ class swarm():
                 f.close()
 
             file_poro_beginning = "FILEUNIT\nMETRIC /\n\nPORO\n"
-            poro_file_path = self.base_path / "../FD_Models/INCLUDE/PORO/M{}.GRDECL".format(i)
+            poro_file_path = self.setup["base_path"] / "../FD_Models/INCLUDE/PORO/M{}.GRDECL".format(i)
             patch_poro[-1] = "{} /".format(patch_poro[-1])
             with open(poro_file_path,"w+") as f:
                 f.write(file_poro_beginning)
@@ -593,29 +565,24 @@ class swarm():
                     f.write("{} ".format(item))
                 f.close()
 
-        # also here.
-        iter_ticker+=1
-        setup["iter_ticker"] = iter_ticker
-        with open(pickle_file,'wb') as f:
-            pickle.dump(setup,f)
+        # # also here.
+        # iter_ticker+=1
+        # setup["iter_ticker"] = iter_ticker
+        # with open(pickle_file,'wb') as f:
+        #     pickle.dump(setup,f)
 
-        print ("Voronoi-Patching done")
+        # print ("Voronoi-Patching done")
 
     def built_FD_Data_files(self):
-        # def built_FD_Data_files():
         # loading in settings that I set up on init_ABRM.py for this run
-        # base_path = pathlib.Path(__file__).parent
-        # pickle_file = base_path / "../Output/variable_settings.pickle"    
-        # with open(pickle_file, "rb") as f:
-        #     setup = pickle.load(f)
 
         n_particles = self.setup["n_particles"]
         schedule = self.setup["schedule"]
 
-        for i in range (0,n_particles+1):
-            
+        for i in range (n_particles):
+
             data_file = "RUNSPEC\n\nTITLE\nModel_{}\n\nDIMENS\n--NX NY NZ\n200 100 7 /\n\n--Phases\nOIL\nWATER\n\n--DUALPORO\n--NODPPM\n\n--Units\nMETRIC\n\n--Number of Saturation Tables\nTABDIMS\n1 /\n\n--Maximum number of Wells\nWELLDIMS\n10 100 5 10 /\n\n--First Oil\nSTART\n1 OCT 2017 /\n\n--Memory Allocation\nNSTACK\n100 /\n\n--How many warnings allowed, but terminate after first error\nMESSAGES\n11*5000 1 /\n\n--Unified Output Files\nUNIFOUT\n\n--======================================================================\n\nGRID\n--Include corner point geometry model\nINCLUDE\n'..\INCLUDE\GRID.GRDECL'\n/\n\nACTNUM\n140000*1 /\n\n--Porosity\nINCLUDE\n'..\INCLUDE\PORO\M{}.GRDECL'\n/\n\n--Permeability\nINCLUDE\n'..\INCLUDE\PERMX\M{}.GRDECL'\n/\nINCLUDE\n'..\INCLUDE\PERMY\M{}.GRDECL'\n/\nINCLUDE\n'..\INCLUDE\PERMZ\M{}.GRDECL'\n/\n\n--Net to Gross\nNTG\n140000*1\n/\n\n--Output .INIT file to allow viewing of grid data in post proessor\nINIT\n\n--======================================================================\n\nPROPS\n\nINCLUDE\n'..\INCLUDE\DP_pvt.inc' /\n\nINCLUDE\n'..\INCLUDE\ROCK_RELPERMS.INC' /\n\n--======================================================================\n\nREGIONS\n\nEQLNUM\n140000*1\n/\nSATNUM\n140000*1\n/\nPVTNUM\n140000*1\n/\n\n--======================================================================\n\nSOLUTION\n\nINCLUDE\n'..\INCLUDE\SOLUTION.INC' /\n\n--======================================================================\n\nSUMMARY\n\nINCLUDE\n'..\INCLUDE\SUMMARY.INC' /\n\n--======================================================================\n\nSCHEDULE\n\nINCLUDE\n'..\INCLUDE\{}.INC' /\n\nEND".format(i,i,i,i,i,schedule)  
-            data_file_path = self.base_path / "../FD_Models/DATA/M_FD_{}.DATA".format(i)
+            data_file_path = self.setup["base_path"] / "../FD_Models/DATA/M_FD_{}.DATA".format(i)
 
             file = open(data_file_path, "w+")
             # write petrelfilepath and licence part into file and seed
@@ -625,18 +592,12 @@ class swarm():
             file.close()
 
     def particle(self,i):
-        # def particle(x,i):
-
-        ### 8 ###
         # Objective Function run flow diagnostics
-        particle_performance = obj_fkt_FD(i)
+        particle_performance = self.obj_fkt_FD(i)
 
-        ### 9 ###
         # Compute Performance
-        # particle_misfit = misfit_fkt_F_Phi_curve(particle_performance["F"],particle_performance["Phi"])
-        particle_misfit = self.misfit_fkt_F_Phi_curve()
-
-        print('particle {} misfit {}'.format(i,particle_misfit))
+        particle_misfit = self.misfit_fkt_F_Phi_curve(particle_performance)
+        print('particle {}/{} - misfit {}'.format(i,self.setup["n_particles"],np.round(particle_misfit,3)),end = "\r")
 
         ### 10 ###
         # Compute particle parameter entropy
@@ -651,7 +612,8 @@ class swarm():
         # Compute entropy and misfit combined
         # particle_combined_misfit_entropy = compute_combined_misfit_entropy(particle_misfit,particle_entropy,particle_tof_upscaled_entropy )
 
-        # store misfit and particle no in dataframe
+        # store misfit and particle no and iteration in dataframe
+        particle_performance["iteration"] =self.iteration
         particle_performance["particle_no"] = i
         particle_performance["misfit"] = particle_misfit
 
@@ -678,36 +640,38 @@ class swarm():
         particle_performance["Phi"] = FD_data[3]
         particle_performance["LC"] = FD_data[4]
         particle_performance["tof"] = FD_data[5]
+        particle_performance = particle_performance.astype("float32")
 
         return(particle_performance)
 
-    def misfit_fkt_F_Phi_curve(self):
+    def misfit_fkt_F_Phi_curve(self,particle_performance):
 
         F_points_target = self.setup["F_points_target"]
         Phi_points_target = self.setup["Phi_points_target"]
         # interpolate F-Phi curve from imput points with spline
         tck = interpolate.splrep(Phi_points_target,F_points_target, s = 0)
-        Phi_interpolated = np.linspace(0,1,num = len(Phi),endpoint = True)
+        Phi_interpolated = np.linspace(0,1,num = len(particle_performance["Phi"]),endpoint = True)
         F_interpolated = interpolate.splev(Phi_interpolated,tck,der = 0) # here can easily get first and second order derr.
 
         # calculate first order derivate of interpolated F-Phi curve and modelled F-Phi curve
         F_interpolated_first_derr = np.gradient(F_interpolated)
-        F_first_derr = np.gradient(F)
+        F_first_derr = np.gradient(particle_performance["F"])
         F_interpolated_second_derr = np.gradient(F_interpolated_first_derr)
         F_second_derr = np.gradient(F_first_derr)
 
         # calculate LC for interpolatd F-Phi curve and modelled F-Phi curve
         LC_interpolated = self.compute_LC(F_interpolated,Phi_interpolated)
 
-        LC = self.compute_LC(self.particle_performance["F"],self.particle_performance["Phi"])
+        LC = self.compute_LC(particle_performance["F"],particle_performance["Phi"])
         # calculate rmse for each curve and LC
-        rmse_0 = mean_squared_error(F_interpolated,F,squared=False)
+        rmse_0 = mean_squared_error(F_interpolated,particle_performance["F"],squared=False)
         rmse_1 = mean_squared_error(F_interpolated_first_derr,F_first_derr,squared=False)
         rmse_2 = mean_squared_error(F_interpolated_second_derr,F_second_derr,squared=False)
         LC_error = abs(LC-LC_interpolated)
 
         # calculate misfit - RMSE if i turn squared to True it will calculate MSE
         misfit = rmse_0 + rmse_1 + rmse_2 + LC_error
+        misfit = misfit.astype("float32")
 
         return misfit
 
@@ -715,6 +679,7 @@ class swarm():
         v = np.diff(Phi,1)
         
         LC = 2*(np.sum(((np.array(F[0:-1]) + np.array(F[1:]))/2*v))-0.5)
+        LC = LC.astype("float32")
         return LC
 
         
@@ -724,13 +689,7 @@ class swarm():
         # add the entropy for each column up to total entropy
         # the aim is to maximize this value. 
         # have to check if there is a way to combine this maximisation with the minimisation of the rmse. mzaybe take some sort of inverse 
-        # Another thing to keep in mind: should I include all values from the proceeding n iterations into that entropy calculations or limit it to n iterations prior?
-
-        # loading in settings that I set up on init_ABRM.py for this run
-        # base_path = pathlib.Path(__file__).parent
-        # pickle_file = base_path / "../Output/variable_settings.pickle"
-        # with open(pickle_file, "rb") as f:
-        #     setup = pickle.load(f)
+        # Another thing to keep in mind: should I include all values from the proceeding n iterations into that entropy calculations or limit it to n iterations prior
 
         columns = self.setup["columns"]
         folder_path = self.setup["folder_path"]
@@ -897,8 +856,6 @@ def save_all_models():
                     model_id += 1
                     data_file_path = data_path + "M{}.DATA".format(model_id)
 
-                # print(model_id)
-                # print(particle_id)
 
                 # open datafile file to start writing into it / updating it
                 built_data_file(data_file_path,model_id)

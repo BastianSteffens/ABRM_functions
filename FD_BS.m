@@ -3,7 +3,7 @@ function [FD_performance] = FD_BS(x)
     mrstModule add incomp;
     mrstModule add deckformat;
 
-    disp('Loading Data files into Matlab and running Flow Diagnostics')
+    %disp('Loading Data files into Matlab and running Flow Diagnostics')
    
     %% Load File into MRST 
 

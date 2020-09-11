@@ -3,7 +3,9 @@
 
 
 ####### Import required Packages #######
-import pyswarms as ps       # PSO package in Python
+import pyswarms_modified as ps       # PSO package in Python
+# import pyswarms as ps       # PSO package in Python
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -18,8 +20,9 @@ from numpy.random import seed
 from numpy.random import rand
 import lhsmdu
 ###### Import required functions #######
-import ABRM_functions
+# import ABRM_functions
 from swarm import swarm
+import pathlib
 
 ############################################################################
 
@@ -39,7 +42,7 @@ def init():
     ###### Set hyperparmeters for PSO ######
     n_parameters = 30
     n_iters = 3
-    n_particles = 3 # always pick multiple of 3. need to fix this 
+    n_particles = 9 # always pick multiple of 3. need to fix this 
     min_bound = 0 * np.ones(n_parameters)
     max_bound = 1 * np.ones(n_parameters)
     bounds = (min_bound, max_bound)
@@ -66,16 +69,16 @@ def init():
     ###### Set modelling parameters for Petrelworkflows ######
    
     # if I want to set a varaible constant, just make the range = 0 e.g. varmin=varmax
-    # varminmax = np.array([[1,4],[1,200],[1,200],[1,100],[1,100],[1,7],[1,7],
-    #                       [1,4],[1,200],[1,200],[1,100],[1,100],[1,7],[1,7],
-    #                       [1,4],[1,200],[1,200],[1,100],[1,100],[1,7],[1,7],
-    #                       [0,1],[0,1],[0,1],[1,450],[1,100],[1,4500],
-    #                       [1,100],[1,4500],[1,100]])
-    varminmax = np.array([[1,4],[1,4],[1,4],[1,200],[1,100],[1,200],[1,100],[1,200],
-                          [1,100],[1,200],[1,100],[1,200],[1,100],[1,200],
-                          [1,100],[1,200],[1,100],[1,200],[1,100],[1,200],[1,100],[1,200],[1,100],
-                          [1,200],[1,100],[1,200],[1,100],[1,1000],[1,100],[1,1000],[1,100],[1,1000],[1,100]])
-    # varminmax = np.array([[0.001,1.5],[4,10],[0.1,3],[2.01,5],[1,100],[0,90],[0,90],[1,100],[0.00075,0.0000075],[0.000015,0.00000015]])    
+    varminmax = np.array([[1,4],[1,200],[1,200],[1,100],[1,100],[1,7],[1,7],
+                          [1,4],[1,200],[1,200],[1,100],[1,100],[1,7],[1,7],
+                          [1,4],[1,200],[1,200],[1,100],[1,100],[1,7],[1,7],
+                          [0,1],[0,1],[0,1],[1,450],[1,100],[1,4500],
+                          [1,100],[1,4500],[1,100]])
+    # varminmax = np.array([[1,4],[1,4],[1,4],[1,200],[1,100],[1,200],[1,100],[1,200],
+    #                       [1,100],[1,200],[1,100],[1,200],[1,100],[1,200],
+    #                       [1,100],[1,200],[1,100],[1,200],[1,100],[1,200],[1,100],[1,200],[1,100],
+    #                       [1,200],[1,100],[1,200],[1,100],[1,1000],[1,100],[1,1000],[1,100],[1,1000],[1,100]])
+    # # varminmax = np.array([[0.001,1.5],[4,10],[0.1,3],[2.01,5],[1,100],[0,90],[0,90],[1,100],[0.00075,0.0000075],[0.000015,0.00000015]])    
     nx = 200
     ny = 100
     nz = 7
@@ -131,11 +134,12 @@ def init():
     # which workflow to run in petrel (atm onlz 1 wf)
     runworkflow = "WF_2020_04_16"   #"WF_2020_07_03" #"WF_2020_04_16"#"WF_2019_09_16", "WF_test" "WF_2020_05_08"
     # run with petrel or without for test
-    petrel_on = True
+    petrel_on = False
     petrel_path = "C:/Program Files/Schlumberger/Petrel 2017/Petrel.exe"
 
     # if all models should be explicitly saved and not overwritten. 
     save_all_models = True
+
 
     setup = dict(varminmax = varminmax, columns = columns, set_seed = set_seed, parameter_type = parameter_type,
                  n_modelsperbatch = n_modelsperbatch, runworkflow = runworkflow, n_iters = n_iters,
@@ -145,10 +149,22 @@ def init():
                  bh_strategy = bh_strategy, n_parallel_petrel_licenses = n_parallel_petrel_licenses,
                  n_neighbors = n_neighbors,petrel_path = petrel_path, n_trainingimages = n_trainingimages,
                  continuous_discrete = continuous_discrete,schedule = schedule,penalty = penalty, best_models = best_models,
-                 nx = nx, ny = ny, nz = nz, n_voronoi = n_voronoi,n_voronoi_zones = n_voronoi_zones,iter_ticker = 0)
+                 nx = nx, ny = ny, nz = nz, n_voronoi = n_voronoi,n_voronoi_zones = n_voronoi_zones,iter_ticker = 0, PSO_parameters = options)
 
+    
+    base_path = pathlib.Path(__file__).parent
+    output_path = base_path / "../Output/"
+    output_folder = str(datetime.datetime.today().replace(microsecond= 0, second = 0).strftime("%Y_%m_%d_%H_%M"))
+    output_file_variables = "variable_settings_saved.pickle"
+    folder_path = output_path / output_folder
+    file_path = folder_path / output_file_variables
+    setup["date"] = output_folder
+    setup["path"] = file_path
+    setup["folder_path"] = folder_path
+    setup["base_path"] = base_path
+    # print(setup["base_path"])
     #save variables to pickle file and load them into pso later. this also sets up folder structure to save rest of pso resutls in
-    ABRM_functions.save_variables_to_file(setup)
+    # ABRM_functions.save_variables_to_file(setup)
     ###### Initialize swarm ######
 
     # Call instance of PSO
@@ -160,8 +176,6 @@ def init():
     # Perform optimization
         # cost, pos = optimizer.optimize(ABRM_functions.swarm, iters=n_iters, n_processes= 1)
     cost, pos = optimizer.optimize(swarm, iters=n_iters)
-    print(cost)
-    print(pos)
     # Plot the cost
     plot_cost_history(optimizer.cost_history)
     plt.show()
