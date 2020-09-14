@@ -356,7 +356,9 @@ class GeologyModel:
     def Write2VTP(self):
         self.Write2VTU()
         basename=os.path.splitext(os.path.basename(self.fname))[0]
+        # inputFile=os.path.join('Results',basename + '.vtu')
         inputFile=os.path.join('Results',basename + '.vtu')
+        # outFile=os.path.join('Results',basename + '.vtp')
         outFile=os.path.join('Results',basename + '.vtp')
         print('[Output] Writing "%s" VTP file..'%(outFile),end='')
         reader = vtk.vtkXMLUnstructuredGridReader()

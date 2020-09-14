@@ -78,6 +78,8 @@ import shutil
 import pickle
 import bz2
 import _pickle as cPickle
+import hdbscan
+from pyentrp import entropy as ent
 
 from ..backend.operators import compute_pbest, compute_objective_function
 from ..backend.topology import Ring
@@ -229,7 +231,7 @@ class LocalBestPSO(SwarmOptimizer):
             # self.swarm.current_cost = compute_objective_function(
             #     self.swarm, objective_func, pool=pool, **kwargs
             # )
-            self.swarm.current_cost,performance,tof,particle_values,particle_values_converted,self.setup = compute_objective_function(
+            self.swarm.current_cost,self.performance,self.tof,self.particle_values,self.particle_values_converted,self.setup = compute_objective_function(
                 self.swarm, objective_func,self.setup,i, pool=pool, **kwargs
             )        
             self.swarm.pbest_pos, self.swarm.pbest_cost = compute_pbest(
@@ -243,28 +245,38 @@ class LocalBestPSO(SwarmOptimizer):
 
             ### BS ###
 
-            # append outputdata from current iteration to all data
-            self.performance_all_iter = self.performance_all_iter.append(performance, ignore_index = True)
-            self.tof_all_iter = self.tof_all_iter.append(tof,ignore_index = True)
-            self.particle_values_all_iter = self.particle_values_all_iter.append(particle_values, ignore_index = True)
-            self.particle_values_converted_all_iter = self.particle_values_converted_all_iter.append(particle_values_converted, ignore_index = True)
+ 
 
+            # calculate tof-based entropy of models in swarm that pass misfit criterion
+            self.compute_tof_based_entropy_best_models()
+
+            # append outputdata from current iteration to all data
+            self.performance_all_iter = self.performance_all_iter.append(self.performance, ignore_index = True)
+            self.tof_all_iter = self.tof_all_iter.append(self.tof,ignore_index = True)
+            self.particle_values_all_iter = self.particle_values_all_iter.append(self.particle_values, ignore_index = True)
+            self.particle_values_converted_all_iter = self.particle_values_converted_all_iter.append(self.particle_values_converted, ignore_index = True)
 
             # save all reservoir models
             self.save_all_models()
+            self.save_data(i,iters)
 
             # save all outputdata from models, at beginning, the end and every n iteration for checkup
-            self.save_data(i,iters)
+            # # self.save_data(i,iters)
             # if i == 0:
-                # self.save_data(i,iters)
+            #     self.save_data(i,iters)
+            #     print("saving data")
             # if i == iters:
-                # self.save_data(i,iters)
-            
-            # if ticker_data_saving == 4:
+            #     self.save_data(i,iters)
+            #     print("saving data")
+
+            # if ticker_data_saving == 2:
             #     self.save_all_models()
-            #     ticker_data_saving() 
-            # else:
-            #     ticker_data_saving +=1
+            #     ticker_data_saving = 0 
+            #     print("saving data")
+
+            
+            # ticker_data_saving += 1
+            # print("ticker_data_saving {}".format(ticker_data_saving))
 
 
             self.rep.hook(best_cost=np.min(self.swarm.best_cost))
@@ -304,9 +316,67 @@ class LocalBestPSO(SwarmOptimizer):
         return (final_best_cost, final_best_pos)
 
     ### BS ###
-    def built_data_file(self,data_file_path,model_id):
-        # loading in settings that I set up on init_ABRM.py for this run
 
+    def compute_tof_based_entropy_best_models(self):
+        """ function to compute the entropy of the models that fulfill misfit criterion based on the time-of-flight"""
+
+        #generate temporary all iter particle df
+        temp_all_iter_particle_values = self.particle_values_all_iter.append(self.particle_values, ignore_index = True)
+        temp_all_iter_tof = self.tof_all_iter.append(self.tof,ignore_index = True)
+
+        # get models taht fulfil misfit criterion
+        particle_values_all_iter_best = temp_all_iter_particle_values[temp_all_iter_particle_values["misfit"] <= self.setup["best_models"]]
+
+        all_cells_entropy = []
+
+        # check if more than 1 models exist that are better than misfit
+        if particle_values_all_iter_best.shape[0] > 3:
+            print("got {} best models ...calculating entropy".format(particle_values_all_iter_best.shape[0]))
+            
+            # filter out tof for all best models and make it readable for clustering
+            iteration = particle_values_all_iter_best.iteration.tolist()
+            particle_no =  particle_values_all_iter_best.particle_no.tolist()  
+            best_tof = pd.DataFrame(columns = np.arange(200*100*7))
+      
+            tof_all = pd.DataFrame()
+            for i in range(particle_values_all_iter_best.shape[0]):
+
+                tof = temp_all_iter_tof[(temp_all_iter_tof.iteration == iteration[i]) & (temp_all_iter_tof.particle_no == particle_no[i])].tof
+                tof.reset_index(drop=True, inplace=True)
+                tof_all = tof_all.append(tof,ignore_index = True)
+
+            best_tof = tof_all
+            best_tof["iteration"] = iteration
+            best_tof["particle_no"] = particle_no
+            best_tof.set_index(particle_values_all_iter_best.index.values,inplace = True)
+
+
+            for i in range(best_tof.shape[1]-2):
+
+                cell = np.round(np.array(best_tof[i]).reshape(-1)/60/60/24/365.25)
+
+                #over 20 years tof is binend together.considered unswept.
+                cell_binned = np.digitize(cell,bins=[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20])
+
+    #           # calculate entropy based upon clusters
+                cell_entropy = np.array(ent.shannon_entropy(cell_binned))
+                all_cells_entropy.append(cell_entropy)
+
+            # sum up entropy for all cells
+            tof_based_entropy_best_models = np.sum(np.array(all_cells_entropy))
+            print("entropy: {}".format(tof_based_entropy_best_models))
+
+
+        else:
+            print("no best models")
+            tof_based_entropy_best_models = 0
+        
+        self.particle_values["tof_based_entropy_best_models"] = tof_based_entropy_best_models
+        self.particle_values_converted["tof_based_entropy_best_models"] = tof_based_entropy_best_models
+
+
+    def built_data_file(self,data_file_path,model_id):
+        """ built data files that can be used for flow simulations or flow diagnostics """
         schedule = self.setup["schedule"]
         data_file = "RUNSPEC\n\nTITLE\nModel_{}\n\nDIMENS\n--NX NY NZ\n200 100 7 /\n\n--Phases\nOIL\nWATER\n\n--DUALPORO\n--NODPPM\n\n--Units\nMETRIC\n\n--Number of Saturation Tables\nTABDIMS\n1 /\n\n--Maximum number of Wells\nWELLDIMS\n10 100 5 10 /\n\n--First Oil\nSTART\n1 OCT 2017 /\n\n--Memory Allocation\nNSTACK\n100 /\n\n--How many warnings allowed, but terminate after first error\nMESSAGES\n11*5000 1 /\n\n--Unified Output Files\nUNIFOUT\n\n--======================================================================\n\nGRID\n--Include corner point geometry model\nINCLUDE\n'..\INCLUDE\GRID.GRDECL'\n/\n\nACTNUM\n140000*1 /\n\n--Porosity\nINCLUDE\n'..\INCLUDE\PORO\M{}.GRDECL'\n/\n\n--Permeability\nINCLUDE\n'..\INCLUDE\PERMX\M{}.GRDECL'\n/\nINCLUDE\n'..\INCLUDE\PERMY\M{}.GRDECL'\n/\nINCLUDE\n'..\INCLUDE\PERMZ\M{}.GRDECL'\n/\n\n--Net to Gross\nNTG\n140000*1\n/\n\n--Output .INIT file to allow viewing of grid data in post proessor\nINIT\n\n--======================================================================\n\nPROPS\n\nINCLUDE\n'..\INCLUDE\DP_pvt.inc' /\n\nINCLUDE\n'..\INCLUDE\ROCK_RELPERMS.INC' /\n\n--======================================================================\n\nREGIONS\n\nEQLNUM\n140000*1\n/\nSATNUM\n140000*1\n/\nPVTNUM\n140000*1\n/\n\n--======================================================================\n\nSOLUTION\n\nINCLUDE\n'..\INCLUDE\SOLUTION.INC' /\n\n--======================================================================\n\nSUMMARY\n\nINCLUDE\n'..\INCLUDE\SUMMARY.INC' /\n\n--======================================================================\n\nSCHEDULE\n\nINCLUDE\n'..\INCLUDE\{}.INC' /\n\nEND".format(model_id,model_id,model_id,model_id,model_id,schedule)  
         
@@ -318,7 +388,7 @@ class LocalBestPSO(SwarmOptimizer):
         file.close()
         
     def save_all_models(self):
-        
+        """ Save reservoir models to output folder """
         # loading in settings that I set up on init_ABRM.py for this run
 
         save_models = self.setup["save_all_models"]
@@ -413,7 +483,8 @@ class LocalBestPSO(SwarmOptimizer):
                     shutil.copy(poro_file_src_path,poro_file_dest_path)
 
     def save_data(self,i,iters):
-        print("Saving Data at Iteration {}/{}".format(i,iters))
+        """ save df to csv files / pickle that contains all data used for postprocessing """
+        print("Saving Data at Iteration {}/{}".format(i,iters-1))
 
         # filepath setup
         folder_path = self.setup["folder_path"]
@@ -422,7 +493,7 @@ class LocalBestPSO(SwarmOptimizer):
         output_file_partilce_values_converted = "swarm_particle_values_converted_all_iter.csv"
         output_file_partilce_values = "swarm_particle_values_all_iter.csv"
         tof_file = "tof_all_iter.pbz2"
-        setup_file = "variable_settings_saved.pickle"
+        setup_file = "variable_settings.pickle"
 
 
         file_path_tof = folder_path / tof_file
@@ -445,158 +516,3 @@ class LocalBestPSO(SwarmOptimizer):
             cPickle.dump(self.setup,f)
 
 
-
-def save_swarm_performance(swarm_performance):
-    
-    print("start saving swarm iteration")
-
-    # loading in settings that I set up on init_ABRM.py for this run
-    # base_path = pathlib.Path(__file__).parent
-    # pickle_file = base_path / "../Output/variable_settings.pickle"    
-    # with open(pickle_file, "rb") as f:
-    #     setup = pickle.load(f)
-
-    folder_path = setup["folder_path"]
-    output_file_performance = "/swarm_performance_all_iter.csv"
-    tof_file = "/tof_all_iter.pbz2"
-    tof_file_path = folder_path + tof_file
-    file_path = folder_path + output_file_performance
-
-    #take out tof to save as zipped pickle
-    tof = swarm_performance[["tof","misfit","iteration","particle_no"]]
-
-    #cut down files that I save to every 100th value. thats enough for plotting.
-    swarm_performance_short = swarm_performance.iloc[::100,:].copy()
-
-    if not os.path.exists(folder_path):
-        os.makedirs(folder_path)
-
-    if os.path.exists(file_path):
-
-        swarm_performance_all_iter = pd.read_csv(file_path)
-        
-        #update iterations
-        iteration = swarm_performance_all_iter.iteration.max() + 1
-        swarm_performance_short["iteration"] = iteration
-
-        # appends the performance of the swarm at a single iteration to the swarm performance of all previous iterations
-        swarm_performance_all_iter = swarm_performance_all_iter.append(swarm_performance_short)
-        
-        # save again
-        swarm_performance_all_iter.to_csv(file_path,index=False)
-
-    else:
-        # this should only happen in first loop.
-
-        # number of iterations
-        swarm_performance_short["iteration"] = 0
-
-        swarm_performance_short.to_csv(file_path,index=False)
-
-    if os.path.exists(tof_file_path):
-
-        #load compressed pickle file
-        data = bz2.BZ2File(tof_file_path,"rb")
-        tof_all_iter = cPickle.load(data)
-
-        #update iterations
-        iteration = tof_all_iter.iteration.max() + 1
-        tof["iteration"] = iteration
-
-        # appends the tof of the swarm at a single iteration to the swarm tof of all previous iterations
-        tof_all_iter = tof_all_iter.append(tof)
-
-        # save again
-        with bz2.BZ2File(tof_file_path,"w") as f:
-            cPickle.dump(tof_all_iter,f)
-
-    else:
-        # this should only happen in first loop.
-
-        # number of iterations
-        tof["iteration"] = 0
-
-        with bz2.BZ2File(tof_file_path,"w") as f:
-            cPickle.dump(tof,f)
-
-def save_particle_values(x_swarm, x_swarm_converted,misfit_swarm,LC_swarm,entropy_swarm,diversity_swarm,diversity_best):
-
-    # # loading in settings that I set up on init_ABRM.py for this run
-    # base_path = pathlib.Path(__file__).parent
-    # pickle_file = base_path / "../Output/variable_settings.pickle"
-    # with open(pickle_file, "rb") as f:
-    #     setup = pickle.load(f)
-
-    columns = setup["columns"]
-    folder_path = setup["folder_path"]
-
-    particle_values_converted = pd.DataFrame(data = x_swarm_converted, columns= columns)
-    particle_values = pd.DataFrame(data = x_swarm, columns= columns)
-
-    # add misfit to df
-    particle_values_converted["misfit"]= misfit_swarm
-    particle_values["misfit"]= misfit_swarm
-
-    # add particle no to df
-    particle_no = np.arange(x_swarm_converted.shape[0], dtype = int)
-    particle_values_converted["particle_no"] = particle_no
-    particle_values["particle_no"] = particle_no
-
-    # add LC to df
-    particle_values_converted["LC"] = LC_swarm
-    particle_values["LC"] = LC_swarm
-
-    # add entropy to df
-    particle_values_converted["entropy_swarm"] = entropy_swarm
-    particle_values["entropy_swarm"] = entropy_swarm
-
-    # add diversity_swarm to df
-    particle_values_converted["diversity_swarm"] = diversity_swarm
-    particle_values["diversity_swarm"] = diversity_swarm
-
-    # add diversity of best models to df
-    particle_values_converted["diversity_best"] = diversity_best
-    particle_values["diversity_best"] = diversity_best
-
-    # add combined entropy_misfit to df
-    # particle_values_converted["combined_misfit_entropy_swarm"] = combined_misfit_entropy_swarm
-    # particle_values["combined_misfit_entropy_swarm"] = combined_misfit_entropy_swarm
-
-    # filepath setup
-    output_file_partilce_values_converted = "/swarm_particle_values_converted_all_iter.csv"
-    output_file_partilce_values = "/swarm_particle_values_all_iter.csv"
-
-    file_path_particles_values_converted = folder_path + output_file_partilce_values_converted
-    file_path_particles_values = folder_path + output_file_partilce_values
-
-    # check if folder exists
-    if not os.path.exists(folder_path):
-        os.makedirs(folder_path)
-
-    if os.path.exists(file_path_particles_values_converted):
-
-        swarm_particle_values_converted_all_iter = pd.read_csv(file_path_particles_values_converted)
-        swarm_particle_values_all_iter = pd.read_csv(file_path_particles_values)
-
-        #update iterations
-        iteration = swarm_particle_values_converted_all_iter.iteration.max() + 1
-        particle_values_converted["iteration"] = iteration
-        particle_values["iteration"] = iteration
-
-        # appends the performance of the swarm at a single iteration to the swarm performance of all previous iterations
-        swarm_particle_values_converted_all_iter = swarm_particle_values_converted_all_iter.append(particle_values_converted)
-        swarm_particle_values_all_iter = swarm_particle_values_all_iter.append(particle_values)
-
-        # save again
-        swarm_particle_values_converted_all_iter.to_csv(file_path_particles_values_converted,index=False)
-        swarm_particle_values_all_iter.to_csv(file_path_particles_values,index=False)
-
-    else:
-        # this should only happen in first loop.
-
-        # number of iterations
-        particle_values_converted["iteration"] = 0
-        particle_values["iteration"] = 0
-
-        particle_values_converted.to_csv(file_path_particles_values_converted,index=False) 
-        particle_values.to_csv(file_path_particles_values,index=False) 

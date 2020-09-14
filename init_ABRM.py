@@ -41,8 +41,8 @@ def init():
 
     ###### Set hyperparmeters for PSO ######
     n_parameters = 30
-    n_iters = 3
-    n_particles = 9 # always pick multiple of 3. need to fix this 
+    n_iters = 9
+    n_particles = 3 # always pick multiple of 3. need to fix this 
     min_bound = 0 * np.ones(n_parameters)
     max_bound = 1 * np.ones(n_parameters)
     bounds = (min_bound, max_bound)
@@ -72,8 +72,8 @@ def init():
     varminmax = np.array([[1,4],[1,200],[1,200],[1,100],[1,100],[1,7],[1,7],
                           [1,4],[1,200],[1,200],[1,100],[1,100],[1,7],[1,7],
                           [1,4],[1,200],[1,200],[1,100],[1,100],[1,7],[1,7],
-                          [0,1],[0,1],[0,1],[1,450],[1,100],[1,4500],
-                          [1,100],[1,4500],[1,100]])
+                          [0,1],[0,1],[0,1],[1,1500],[1,100],[1,1500],
+                          [1,100],[1,1500],[1,100]])
     # varminmax = np.array([[1,4],[1,4],[1,4],[1,200],[1,100],[1,200],[1,100],[1,200],
     #                       [1,100],[1,200],[1,100],[1,200],[1,100],[1,200],
     #                       [1,100],[1,200],[1,100],[1,200],[1,100],[1,200],[1,100],[1,200],[1,100],
@@ -122,7 +122,7 @@ def init():
     penalty = "linear"
 
     # misfit threshold to qualify as suitable model
-    best_models = 0.1
+    best_models = 0.15
 
     # seed
     set_seed = random.randint(0,10000000)

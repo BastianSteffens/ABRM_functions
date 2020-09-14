@@ -21,7 +21,7 @@ from collections import Counter
 import pyvista as pv
 from pyentrp import entropy as ent
 from colour import Color
-
+# import matplotlib. pyplot as plt 
 ########################
 
 ### Postprocessing functions ###
@@ -57,7 +57,7 @@ class postprocessing():
             path = str(self.setup["base_path"] / "../Output/")+ "/"+ self.data_to_process[i] + "/"
             performance = "swarm_performance_all_iter.csv"
             position = "swarm_particle_values_converted_all_iter.csv"
-            setup = "variable_settings_saved.pickle"
+            setup = "variable_settings.pickle"
             tof = "tof_all_iter.pbz2"
 
             performance_path = path + performance
@@ -121,9 +121,12 @@ class postprocessing():
         """ create dfs that only contains the models that satisfy the misfit tolerance 
             the tof can also be upscaled by changing the window_shape and step size parameters below."""
          
+        # nx = self.setup["nx"]
+        # ny = self.setup["ny"]
+        # nz = self.setup["nz"]
         nx = 200
         ny = 100
-        nz = 7
+        nz= 7
 
         self.df_best_position =self.df_position[(self.df_position.misfit <= misfit_tolerance)]
         self.df_best_performance =self.df_performance[(self.df_performance.misfit <= misfit_tolerance)]
@@ -373,6 +376,7 @@ class postprocessing():
         fig.show()
 
     def plot_tof_entropy(self):
+
         """ plot distribution of entropy based on grid for the best models """
         nx = 200
         ny = 100
@@ -381,25 +385,16 @@ class postprocessing():
         all_cell_cluster_id = []
         for i in range(self.df_best_tof.shape[1]-2):
             # single cell in all models, from seconds to years    
-            cell = np.array(self.df_best_tof[i]).reshape(-1,1)/60/60/24/365.25
+            cell = np.round(np.array(self.df_best_tof[i]).reshape(-1)/60/60/24/365.25)
 
-            # discretize with the help of HDBSCAN
-            # Create HDBSCAN clusters
-            hdb = hdbscan.HDBSCAN(min_cluster_size=2,
-                                min_samples=1, 
-                                cluster_selection_epsilon=0.1,
-        #                         cluster_selection_method = "leaf"#, cluster_selection_epsilon = 0.1)#,min_samples  =1)
-                                )
-            scoreTitles = hdb.fit(cell)
-            cell_cluster_id = scoreTitles.labels_
-            all_cell_cluster_id.append(cell_cluster_id)
+            cell_binned = np.digitize(cell,bins=[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20])
 
             # calculate entropy based upon clusters
-            cell_entropy = np.array(ent.shannon_entropy(cell_cluster_id))
+            cell_entropy = np.array(ent.shannon_entropy(cell_binned))
             all_cells_entropy.append(cell_entropy)
             
-
         # plot the whole thing
+                
         values = np.array(all_cells_entropy).reshape(nx,ny,nz)
 
         # Create the spatial reference
@@ -415,8 +410,27 @@ class postprocessing():
         # Add the data values to the cell data
         grid.cell_arrays["Entropy"] =values.flatten()# np.log10(tof)# np.log10(tof)# values.flatten(order="C")  # Flatten the array! C F A K
 
-        boring_cmap = plt.cm.get_cmap("deep", 50)
+        boring_cmap = plt.cm.get_cmap("viridis")
         grid.plot(show_edges=False,cmap = boring_cmap)
+
+    def plot_best_model(self,random_model = True,model_id = 0,property = "PORO"):
+        "visualize the properties of either a radom best model or a specific best model"
+
+        if random_model == True:
+            model_id = int(np.random.choice(self.df_best_position.index.values,1))   
+        print("Plotting Model {}".format(model_id))
+        #get filepath and laod grid
+        geomodel_path = str(self.setup["base_path"] / "../Output/"/ self.data_to_process[0] / "all_models/INCLUDE/GRID.GRDECL")
+        property_path = str(self.setup["base_path"] /  "../Output/"/ self.data_to_process[0] / "all_models/INCLUDE" / property / "M{}.GRDECL".format(model_id))
+        Model = GeologyModel(filename = geomodel_path)
+        TempData = Model.LoadCellData(varname=property,filename=property_path)
+
+        Model.GRDECL2VTK()
+        Model.Write2VTU()
+
+        # visulalize
+        mesh = pv.read('Results\GRID.vtp')
+        mesh.plot(scalars = property,show_edges=False, notebook=False)
 
     def clustering_tof_or_PSO(self,n_neighbors = 30,min_dist = 0,n_components = 30, min_cluster_size = 10,
                               min_samples = 1,allow_single_cluster = True,cluster_parameter = "tof"):
