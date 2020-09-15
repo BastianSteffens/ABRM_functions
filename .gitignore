@@ -5,6 +5,7 @@ __pycache__/*
 batch_files/*
 data/*
 images/*
+Results/*
 *.pkl
 *.csv
 FD_BS_one_file.m

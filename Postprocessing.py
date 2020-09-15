@@ -427,6 +427,7 @@ class postprocessing():
 
         Model.GRDECL2VTK()
         Model.Write2VTU()
+        Model.Write2VTP()
 
         # visulalize
         mesh = pv.read('Results\GRID.vtp')

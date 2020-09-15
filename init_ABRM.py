@@ -41,8 +41,8 @@ def init():
 
     ###### Set hyperparmeters for PSO ######
     n_parameters = 30
-    n_iters = 9
-    n_particles = 3 # always pick multiple of 3. need to fix this 
+    n_iters = 30
+    n_particles = 30 # always pick multiple of 3. need to fix this 
     min_bound = 0 * np.ones(n_parameters)
     max_bound = 1 * np.ones(n_parameters)
     bounds = (min_bound, max_bound)
@@ -51,7 +51,7 @@ def init():
     inertia = 0.9
     damping_factor = 0.99
     direction  = 1
-    n_neighbors  =  1
+    n_neighbors  =  5
     distance_measure  = 2 # 2 = euclidian 1 = manhatten
     dimensions = n_parameters
     options = {'c1': social_component, 'c2': cognitive_component, 'w':inertia, 'k':n_neighbors, 'p':distance_measure,'d':damping_factor, "direction": direction}
@@ -134,7 +134,7 @@ def init():
     # which workflow to run in petrel (atm onlz 1 wf)
     runworkflow = "WF_2020_04_16"   #"WF_2020_07_03" #"WF_2020_04_16"#"WF_2019_09_16", "WF_test" "WF_2020_05_08"
     # run with petrel or without for test
-    petrel_on = False
+    petrel_on = True
     petrel_path = "C:/Program Files/Schlumberger/Petrel 2017/Petrel.exe"
 
     # if all models should be explicitly saved and not overwritten. 
