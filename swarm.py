@@ -64,9 +64,9 @@ class swarm():
 
         # if working with voronoi tesselation for zonation. now its time to patch the previously built models together
         if self.setup["n_voronoi"] > 0:
-            print ("Start Voronoi-Patching",end = "\r")
+            print ("Start Voronoi-Patching         ",end = "\r")
             self.patch_voronoi_models()
-            print ("Voronoi-Patching done",end = "\r")
+            print ("Voronoi-Patching done         ",end = "\r")
 
 
         # built FD_Data files required for model evaluation
@@ -179,8 +179,8 @@ class swarm():
         #  models.
         particle = self.x_swarm_converted    # all particles together    
         particle_1d_array =  particle.reshape((particle.shape[0]*particle.shape[1]))    # all particles together                
-        # particlesperwf = np.linspace(0,n_modelsperbatch,n_parallel_petrel_licenses, endpoint = False,dtype = int) # this is how it should be. This is the name that each variable has per model in the petrel wf
-        particlesperwf = np.linspace(25,27,n_modelsperbatch, endpoint = True,dtype = int) # use 25,26,27 because of petrel wf. there the variables are named like that and cant bothered to change that.
+        particlesperwf = np.linspace(0,n_modelsperbatch,n_parallel_petrel_licenses, endpoint = False,dtype = int) # this is how it should be. This is the name that each variable has per model in the petrel wf
+        # particlesperwf = np.linspace(25,27,n_modelsperbatch, endpoint = True,dtype = int) # use 25,26,27 because of petrel wf. there the variables are named like that and cant bothered to change that.
         single_wf = [str(i) for i in np.tile(particlesperwf,n_particles)]
         single_particle_in_wf = [str(i) for i in np.arange(0,n_particles+1)]
         particle_str = np.asarray([str(i) for i in particle_1d_array]).reshape(particle.shape[0],particle.shape[1])
@@ -369,6 +369,24 @@ class swarm():
             voronoi_points = np.vstack((voronoi_x,voronoi_y)).T
             # voronoi_z = np.array(voronoi_z)
 
+            #crosscheck if any points lie on top of each other. if so --> move one
+            for j in range(len(voronoi_points)):
+                boolean = voronoi_points == voronoi_points[j]
+                dublicate_tracker = 0
+                for k in range(len(boolean)):
+                    if np.sum(boolean[k]) == 2:
+                        dublicate_tracker +=1
+                    if dublicate_tracker ==2:
+                        print("dublicate voronoi points --> reassignemnt")
+                        voronoi_points[k] = voronoi_points[k]+ np.random.randint(0,10)
+
+                        if voronoi_points[k,0] >= 200:
+                            voronoi_points[k,0] = voronoi_points[k,0] - np.random.randint(0,20)
+                        if voronoi_points[k,1] >= 100:
+                            voronoi_points[k,1] = voronoi_points[k,1] - np.random.randint(0,20)
+
+                        dublicate_tracker = 0
+
             # #define grid and  position initianinon points of n polygons
             grid = Polygon([(0, 0), (0, ny), (nx, ny), (nx, 0)])
 
@@ -427,14 +445,15 @@ class swarm():
                 # with open(pickle_file,'wb') as f:
                 #     pickle.dump(setup,f)
 
-            # else:
+            else:
             # load voronoi zone assignemnt
             # and for this.
                 # with open(pickle_file, "rb") as f:
                 #     setup = pickle.load(f)
                 # assign_voronoi_zone = setup["assign_voronoi_zone_" +str(i)]
-
+                assign_voronoi_zone = self.setup["assign_voronoi_zone_" + str(i)]
             # in what voronoi zone and vornoi polygon do cell centers plot
+
             for j in range(len(all_cell_center)):
                 for voronoi_polygon_id in range(n_voronoi):
                     

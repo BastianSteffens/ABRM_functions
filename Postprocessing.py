@@ -497,6 +497,11 @@ class postprocessing():
             
             df_best_for_clustering = self.df_best_tof.drop(columns = ["particle_no","iteration"])
 
+            #convert to years and put in bins.
+            df_best_for_clustering = df_best_for_clustering/60/60/24/365.25
+            df_best_for_clustering = np.digitize(df_best_for_clustering,bins=[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20])
+
+
             # Create UMAP reducer
             reducer    = umap.UMAP(n_neighbors=n_neighbors,min_dist = min_dist, n_components =n_components)
             embeddings = reducer.fit_transform(df_best_for_clustering)
