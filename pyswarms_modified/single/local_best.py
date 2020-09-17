@@ -80,6 +80,8 @@ import bz2
 import _pickle as cPickle
 import hdbscan
 from pyentrp import entropy as ent
+from sklearn.linear_model import LinearRegression
+
 
 from ..backend.operators import compute_pbest, compute_objective_function
 from ..backend.topology import Ring
@@ -250,6 +252,9 @@ class LocalBestPSO(SwarmOptimizer):
             # calculate tof-based entropy of models in swarm that pass misfit criterion
             self.compute_tof_based_entropy_best_models()
 
+            # calculate the gradient of entropy change of best models
+            entropy_gradient = self.compute_best_model_diversity_gradient(i)
+
             # append outputdata from current iteration to all data
             self.performance_all_iter = self.performance_all_iter.append(self.performance, ignore_index = True)
             self.tof_all_iter = self.tof_all_iter.append(self.tof,ignore_index = True)
@@ -268,13 +273,10 @@ class LocalBestPSO(SwarmOptimizer):
             # if i == iters:
             #     self.save_data(i,iters)
             #     print("saving data")
-
             # if ticker_data_saving == 2:
             #     self.save_all_models()
             #     ticker_data_saving = 0 
             #     print("saving data")
-
-            
             # ticker_data_saving += 1
             # print("ticker_data_saving {}".format(ticker_data_saving))
 
@@ -296,6 +298,9 @@ class LocalBestPSO(SwarmOptimizer):
                 < relative_measure
             ):
                 break
+            
+
+
             # Perform position velocity update
             self.swarm.velocity = self.top.compute_velocity(
                 self.swarm, self.velocity_clamp, self.vh, self.bounds
@@ -303,6 +308,11 @@ class LocalBestPSO(SwarmOptimizer):
             self.swarm.position = self.top.compute_position(
                 self.swarm, self.bounds, self.bh
             )
+            ### BS ###
+            if entropy_gradient<0:
+                break
+            # self.reset()
+
         # Obtain the final best_cost and the final best_position
         final_best_cost = self.swarm.best_cost.copy()
         final_best_pos = self.swarm.pbest_pos[self.swarm.pbest_cost.argmin()].copy()
@@ -357,8 +367,8 @@ class LocalBestPSO(SwarmOptimizer):
 
                 #over 20 years tof is binend together.considered unswept.
                 cell_binned = np.digitize(cell,bins=[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20])
-
-    #           # calculate entropy based upon clusters
+        
+                   # calculate entropy based upon clusters
                 cell_entropy = np.array(ent.shannon_entropy(cell_binned))
                 all_cells_entropy.append(cell_entropy)
 
@@ -373,6 +383,33 @@ class LocalBestPSO(SwarmOptimizer):
         
         self.particle_values["tof_based_entropy_best_models"] = tof_based_entropy_best_models
         self.particle_values_converted["tof_based_entropy_best_models"] = tof_based_entropy_best_models
+
+    def compute_best_model_diversity_gradient(self,i,delta = 5):
+        """ check how if I am still producing new best models or  if they are just hovering around similar models.
+            This is done by checking how the slope of tof_based_entropy changes over iterations. If that slope falls below 0
+            the PSO should spread out again and reset the global/local best memory.
+        """
+       # dont do this analysis in the beginning, if not enough data availabe
+        if i < delta:
+            slope = 0
+        else:
+            iterations_to_check = np.array(np.arange(i-delta,i))
+            linear_regressor = LinearRegression()
+            entropy = []
+            for i in range(delta):
+                entropy.append(np.array(self.particle_values_converted_all_iter[(self.particle_values_converted_all_iter["iteration"] ==iterations_to_check[i]) & (self.particle_values_converted_all_iter["particle_no"] ==0)].tof_based_entropy_best_models))
+        
+            linear_regressor.fit(iterations_to_check,entropy)
+            slope = linear_regressor.coef_
+        
+        self.particle_values["entropy_slope"] = slope
+        self.particle_values_converted["entropy_slope"] = slope
+
+        return slope
+
+            
+
+
 
 
     def built_data_file(self,data_file_path,model_id):

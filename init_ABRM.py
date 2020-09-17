@@ -51,7 +51,7 @@ def init():
     inertia = 0.9
     damping_factor = 0.99
     direction  = 1
-    n_neighbors  =  1
+    n_neighbors  =  5
     distance_measure  = 2 # 2 = euclidian 1 = manhatten
     dimensions = n_parameters
     options = {'c1': social_component, 'c2': cognitive_component, 'w':inertia, 'k':n_neighbors, 'p':distance_measure,'d':damping_factor, "direction": direction}
@@ -114,7 +114,7 @@ def init():
     # misfit values
     # create curve and save resultign desired LC
     Phi_points_target = np.linspace(0, 1, num=11, endpoint=True)
-    F_points_target = np.array([0, 0.25, 0.45, 0.6, 0.7, 0.8, 0.90, 0.95, 0.97, 0.99, 1])
+    F_points_target = np.array([0, 0.2, 0.35, 0.5, 0.6, 0.7, 0.8, 0.9, 0.97, 0.99, 1])
 
     # what schedule 5_spot or line_drive
     schedule = "5_spot"
@@ -129,7 +129,7 @@ def init():
     random.seed(set_seed)
     # models per petrel workflow (limited to 3 atm)
     n_modelsperbatch = 3
-    # how many potrel licenses to run at once
+    # how many potrel licenses to run at onces
     n_parallel_petrel_licenses = 3
     # which workflow to run in petrel (atm onlz 1 wf)
     runworkflow = "WF_2020_07_03"   #"WF_2020_07_03" #"WF_2020_04_16"#"WF_2019_09_16", "WF_test" "WF_2020_05_08"

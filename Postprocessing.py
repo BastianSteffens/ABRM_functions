@@ -375,6 +375,42 @@ class postprocessing():
 
         fig.show()
 
+    def plot_tof_best_models(self):
+        "plot the median tof for best models to see what areas are unswept in most scenarios"
+        nx = 200
+        ny = 100
+        nz = 7
+        all_cells_median = []
+        for i in range(self.df_best_tof.shape[1]-2):
+            # single cell in all models, from seconds to years    
+            cell = np.round(np.array(self.df_best_tof[i]).reshape(-1)/60/60/24/365.25)
+
+            cell_binned = np.digitize(cell,bins=[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20])
+
+            # calculate entropy based upon clusters
+            cell_median = np.median(cell_binned)
+            all_cells_median.append(cell_median)
+            
+        # plot the whole thing
+                
+        values = np.array(all_cells_median).reshape(nx,ny,nz)
+
+        # Create the spatial reference
+        grid = pv.UniformGrid()
+
+        # Set the grid dimensions: shape + 1 because we want to inject our values on the CELL data
+        grid.dimensions = np.array(values.shape) + 1
+
+        # Edit the spatial reference
+        grid.origin = (1, 1, 1)  # The bottom left corner of the data set
+        grid.spacing = (1, 1, 1)  # These are the cell sizes along each axis
+
+        # Add the data values to the cell data
+        grid.cell_arrays["Median tof in years"] =values.flatten()# np.log10(tof)# np.log10(tof)# values.flatten(order="C")  # Flatten the array! C F A K
+
+        boring_cmap = plt.cm.get_cmap("viridis")
+        grid.plot(show_edges=False,cmap = boring_cmap)
+
     def plot_tof_entropy(self):
 
         """ plot distribution of entropy based on grid for the best models """
@@ -420,18 +456,47 @@ class postprocessing():
             model_id = int(np.random.choice(self.df_best_position.index.values,1))   
         print("Plotting Model {}".format(model_id))
         #get filepath and laod grid
-        geomodel_path = str(self.setup["base_path"] / "../Output/"/ self.data_to_process[0] / "all_models/INCLUDE/GRID.GRDECL")
-        property_path = str(self.setup["base_path"] /  "../Output/"/ self.data_to_process[0] / "all_models/INCLUDE" / property / "M{}.GRDECL".format(model_id))
-        Model = GeologyModel(filename = geomodel_path)
-        TempData = Model.LoadCellData(varname=property,filename=property_path)
 
-        Model.GRDECL2VTK()
-        Model.Write2VTU()
-        Model.Write2VTP()
+        if property == "tof":
+            tof = self.df_best_tof.loc[model_id,:].drop(["iteration","particle_no"])
 
-        # visulalize
-        mesh = pv.read('Results\GRID.vtp')
-        mesh.plot(scalars = property,show_edges=False, notebook=False)
+            # plot the whole thing
+            nx = 200
+            ny = 100
+            nz = 7
+            #tof to years and then binned
+            values = np.array(tof).reshape(nx,ny,nz)/60/60/24/365.25
+            values = np.digitize(values,bins=[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20])
+
+            # Create the spatial reference
+            grid = pv.UniformGrid()
+
+            # Set the grid dimensions: shape + 1 because we want to inject our values on the CELL data
+            grid.dimensions = np.array(values.shape) + 1
+
+            # Edit the spatial reference
+            grid.origin = (1, 1, 1)  # The bottom left corner of the data set
+            grid.spacing = (1, 1, 1)  # These are the cell sizes along each axis
+
+            # Add the data values to the cell data
+            grid.cell_arrays["tof"] =values.flatten()# np.log10(tof)# np.log10(tof)# values.flatten(order="C")  # Flatten the array! C F A K
+
+            boring_cmap = plt.cm.get_cmap("viridis")
+            grid.plot(show_edges=False,cmap = boring_cmap)
+
+        else:   
+            geomodel_path = str(self.setup["base_path"] / "../Output/"/ self.data_to_process[0] / "all_models/INCLUDE/GRID.GRDECL")
+            property_path = str(self.setup["base_path"] /  "../Output/"/ self.data_to_process[0] / "all_models/INCLUDE" / property / "M{}.GRDECL".format(model_id))
+            Model = GeologyModel(filename = geomodel_path)
+            TempData = Model.LoadCellData(varname=property,filename=property_path)
+
+            Model.GRDECL2VTK()
+            Model.Write2VTU()
+            Model.Write2VTP()
+
+            # visulalize
+            mesh = pv.read('Results\GRID.vtp')
+            mesh.plot(scalars = property,show_edges=False, notebook=False)
 
     def clustering_tof_or_PSO(self,n_neighbors = 30,min_dist = 0,n_components = 30, min_cluster_size = 10,
                               min_samples = 1,allow_single_cluster = True,cluster_parameter = "tof"):
