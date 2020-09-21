@@ -19,6 +19,8 @@ from .handlers import BoundaryHandler, VelocityHandler
 from functools import partial
 
 ### BS ###
+import multiprocessing as mp
+
 import numpy as np
 import pandas as pd
 import subprocess
@@ -186,8 +188,8 @@ def compute_velocity(swarm, clamp, vh, bounds=None):
         #     temp_velocity = (w * swarm.velocity) + (-cognitive + -social)
         #     print("entropy out of bounds:{}".format(entropy))
         #     print(temp_velocity)
-# if (dir > 0 && diversity < dLow) dir = -1;
-# if (dir < 0 && diversity > dHigh) dir = 1;
+    #  if (dir > 0 && diversity < dLow) dir = -1;
+    #  if (dir < 0 && diversity > dHigh) dir = 1;
 
         # Compute temp velocity (subject to clamping if possible)
         # temp_velocity = compute_ARPSO_velocity(w,swarm,cognitive,social,direction)
@@ -269,7 +271,6 @@ def compute_position(swarm, bounds, bh):
 
 
 def compute_objective_function(swarm, objective_func,setup,iteration, pool=None, **kwargs):
-# def compute_objective_function(swarm, objective_func, pool=None, **kwargs):
 
     """Evaluate particles using the objective function
 
@@ -301,18 +302,30 @@ def compute_objective_function(swarm, objective_func,setup,iteration, pool=None,
         data that need to be saved
     """
     if pool is None:
-        swarm_BS = objective_func(swarm.position,setup,iteration, **kwargs)
-        
-        return swarm_BS.swarm_iterator()
-        # return objective_func(swarm.position,setup,iteration **kwargs) ### BS ###
-        # return objective_func(swarm.position, **kwargs)
+        all_particles = objective_func(swarm,setup,iteration)
+        # swarm_misfit,swarm_performance = all_particles.particle_iterator()
+        all_particles.particle_iterator()
+        print("misfit:{}".format(all_particles.misfit_swarm))
+
+        return all_particles.misfit_swarm,all_particles.swarm_performance
+    # thoights on this: when doing single processing then I should call particle.particle_iterator that returns same stuff as the swarm iterator
+    # if I do it in multiplrocessing then I should do call particle.calcluate_particle(i) and not feed the objective function into the pool thing, but that method of that class.
 
     else:
-        results = pool.map(
-            partial(objective_func, **kwargs),
-            np.array_split(swarm.position, pool._processes),
-        )
-        return np.concatenate(results)
+        # p = mp.pool(pooler)
+        particle_array = np.arange(0,swarm.n_particles)
+        all_particles = objective_func(swarm,setup,iteration)
+        particle_performance = pool.map(all_particles.calculate_particle_parallel,[particle_no for particle_no in particle_array])
+        pool.close()
+        swarm_performance = np.concatenate(particle_performance)
+        print(swarm_performance)
+        swarm_misfit = 1
+        # # print(shape(particle_misfit))
+        # results = pool.map(
+        #     partial(objective_func, **kwargs),
+        #     np.array_split(swarm.position, pool._processes),
+        # )
+        return swarm_misfit, swarm_performance
 
 def compute_ARPSO_velocity(w,swarm,cognitive,social,direction):
     # calculate + entropy of larger blocks (of mean or sum or median) (upscaled) 

@@ -73,7 +73,6 @@ class swarm():
         self.built_FD_Data_files()
 
     def swarm_iterator(self):
-
         for i in range(self.n_particles):
             particle_misfit, particle_performance = self.particle(i)
 

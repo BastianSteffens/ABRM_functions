@@ -393,7 +393,7 @@ class LocalBestPSO(SwarmOptimizer):
         if i < delta:
             slope = 0
         else:
-            iterations_to_check = np.array(np.arange(i-delta,i))
+            iterations_to_check = np.array(np.arange(i-delta,i)).reshape(-1,1)
             linear_regressor = LinearRegression()
             entropy = []
             for i in range(delta):

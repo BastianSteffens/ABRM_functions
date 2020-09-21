@@ -23,7 +23,7 @@ import lhsmdu
 # import ABRM_functions
 from swarm import swarm
 import pathlib
-
+from particle import particle
 ############################################################################
 
 def init():
@@ -41,8 +41,8 @@ def init():
 
     ###### Set hyperparmeters for PSO ######
     n_parameters = 33
-    n_iters = 33
-    n_particles = 36 # always pick multiple of 3. need to fix this 
+    n_iters = 3
+    n_particles = 12 # always pick multiple of 3. need to fix this 
     min_bound = 0 * np.ones(n_parameters)
     max_bound = 1 * np.ones(n_parameters)
     bounds = (min_bound, max_bound)
@@ -51,7 +51,7 @@ def init():
     inertia = 0.9
     damping_factor = 0.99
     direction  = 1
-    n_neighbors  =  5
+    n_neighbors  =  1
     distance_measure  = 2 # 2 = euclidian 1 = manhatten
     dimensions = n_parameters
     options = {'c1': social_component, 'c2': cognitive_component, 'w':inertia, 'k':n_neighbors, 'p':distance_measure,'d':damping_factor, "direction": direction}
@@ -134,7 +134,7 @@ def init():
     # which workflow to run in petrel (atm onlz 1 wf)
     runworkflow = "WF_2020_07_03"   #"WF_2020_07_03" #"WF_2020_04_16"#"WF_2019_09_16", "WF_test" "WF_2020_05_08"
     # run with petrel or without for test
-    petrel_on = True
+    petrel_on = False
     petrel_path = "C:/Program Files/Schlumberger/Petrel 2017/Petrel.exe"
 
     # if all models should be explicitly saved and not overwritten. 
@@ -162,6 +162,7 @@ def init():
     setup["path"] = file_path
     setup["folder_path"] = folder_path
     setup["base_path"] = base_path
+    setup["pool"] = 6
     # print(setup["base_path"])
     #save variables to pickle file and load them into pso later. this also sets up folder structure to save rest of pso resutls in
     # ABRM_functions.save_variables_to_file(setup)
@@ -175,7 +176,9 @@ def init():
     # abrm_swarm = swarm(x_swarm,)
     # Perform optimization
         # cost, pos = optimizer.optimize(ABRM_functions.swarm, iters=n_iters, n_processes= 1)
-    cost, pos = optimizer.optimize(swarm, iters=n_iters)
+    # cost, pos = optimizer.optimize(swarm, iters=n_iters)
+    cost, pos = optimizer.optimize(particle, iters=n_iters,n_processes=setup["pool"])
+
     # Plot the cost
     plot_cost_history(optimizer.cost_history)
     plt.show()
