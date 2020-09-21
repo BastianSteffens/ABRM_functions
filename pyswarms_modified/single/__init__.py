@@ -18,6 +18,7 @@ objective function that can be optimized in a continuous space.
 from .global_best import GlobalBestPSO
 # from .local_best import LocalBestPSO
 from .local_best_BS import LocalBestPSO
+# from local_swarm_BS import local_swarm_BS
 
 from .general_optimizer import GeneralOptimizerPSO
 

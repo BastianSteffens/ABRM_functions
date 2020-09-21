@@ -303,29 +303,31 @@ def compute_objective_function(swarm, objective_func,setup,iteration, pool=None,
     """
     if pool is None:
         all_particles = objective_func(swarm,setup,iteration)
-        # swarm_misfit,swarm_performance = all_particles.particle_iterator()
         all_particles.particle_iterator()
         print("misfit:{}".format(all_particles.misfit_swarm))
 
-        return all_particles.misfit_swarm,all_particles.swarm_performance
-    # thoights on this: when doing single processing then I should call particle.particle_iterator that returns same stuff as the swarm iterator
-    # if I do it in multiplrocessing then I should do call particle.calcluate_particle(i) and not feed the objective function into the pool thing, but that method of that class.
+        return all_particles.misfit_swarm, all_particles.LC_swarm, all_particles.swarm_performance
 
     else:
-        # p = mp.pool(pooler)
         particle_array = np.arange(0,swarm.n_particles)
         all_particles = objective_func(swarm,setup,iteration)
-        particle_performance = pool.map(all_particles.calculate_particle_parallel,[particle_no for particle_no in particle_array])
-        pool.close()
-        swarm_performance = np.concatenate(particle_performance)
-        print(swarm_performance)
-        swarm_misfit = 1
-        # # print(shape(particle_misfit))
-        # results = pool.map(
-        #     partial(objective_func, **kwargs),
-        #     np.array_split(swarm.position, pool._processes),
-        # )
-        return swarm_misfit, swarm_performance
+        particle_list = pool.map(all_particles.calculate_particle_parallel,[particle_no for particle_no in particle_array])
+
+        misfit_swarm = []
+        LC_swarm = []
+        swarm_performance = pd.DataFrame(columns = ["EV","tD","F","Phi","LC","tof","iteration","particle_no","misfit"])
+        n_particles = setup["n_particles"]
+        for i in range(n_particles):
+            setup["assign_voronoi_zone_" +str(i)] = particle_list[i]["assign_voronoi_zone_" +str(i)]
+            particle_performance = particle_list[i]["particle_performance"]
+            swarm_performance = swarm_performance.append(particle_performance,ignore_index = True)
+            misfit_swarm.append(particle_performance[particle_performance.particle_no == i].misfit.unique())
+            LC_swarm.append(particle_performance[particle_performance.particle_no == i].LC.unique())
+
+        misfit_swarm = np.array(misfit_swarm).flatten()
+        LC_swarm = np.array(LC_swarm).flatten()
+        print("misfit:{}".format(misfit_swarm))
+        return misfit_swarm, LC_swarm, swarm_performance, setup
 
 def compute_ARPSO_velocity(w,swarm,cognitive,social,direction):
     # calculate + entropy of larger blocks (of mean or sum or median) (upscaled) 

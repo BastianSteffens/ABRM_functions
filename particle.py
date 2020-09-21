@@ -41,7 +41,8 @@ class particle():
         self.swarm = swarm
         self.iteration = iteration
         self.n_particles = self.setup["n_particles"]
-        self.misfit_swarm = []
+        self.misfit_swarm = np.zeros(self.n_particles)
+        self.LC_swarm = np.zeros(self.n_particles)
         self.swarm_performance = pd.DataFrame()
 
         print("########################################## starting model evaluation  iteration {}/{} ##########################################".format(self.iteration,self.setup["n_iters"]-1))
@@ -132,30 +133,24 @@ class particle():
         
             # if working with voronoi tesselation for zonation. now its time to patch the previously built models together
             if self.setup["n_voronoi"] > 0:
-                # print ("Start Voronoi-Patching         ",end = "\r")
                 self.patch_voronoi_models(particle_no)
-                # print ("Voronoi-Patching done         ",end = "\r")
 
             #built model for FD
             self.built_FD_Data_files(particle_no)
 
             particle_performance = self.calculate_particle_performance(particle_no)
 
-            self.misfit_swarm.append(particle_performance["misfit"][0])
-
+            self.misfit_swarm[particle_no] = particle_performance["misfit"][0]
+            self.LC_swarm[particle_no] = particle_performance["LC"][0]
             self.swarm_performance = self.swarm_performance.append(particle_performance) # store for data saving
             
         print('swarm misfit {}                  '.format(np.round(self.misfit_swarm,2)))
-
-        # return self.misfit_swarm,self.swarm_performance
 
     def calculate_particle_parallel(self,particle_no):
 
         # if working with voronoi tesselation for zonation. now its time to patch the previously built models together
         if self.setup["n_voronoi"] > 0:
-            # print ("Start Voronoi-Patching         ",end = "\r")
             self.patch_voronoi_models(particle_no)
-            # print ("Voronoi-Patching done         ",end = "\r")
 
         #built model for FD
         self.built_FD_Data_files(particle_no)
@@ -167,15 +162,18 @@ class particle():
         particle_misfit = self.misfit_fkt_F_Phi_curve(particle_performance)
         print('particle {}/{} - misfit {}'.format(particle_no,self.setup["n_particles"]-1,np.round(particle_misfit,3)))#,end = "\r")
 
-        # store misfit and particle no and iteration in dataframe
+        # store misfit and particle no and iteration in dataframe also voronoi zone assignment, if voronoi is used.
         particle_no = particle_no if self.pool is None else particle_no.item()
-        # particle_no = particle_no.item()
 
         particle_performance["iteration"] =self.iteration
         particle_performance["particle_no"] = particle_no
         particle_performance["misfit"] = particle_misfit
+        particle_dict = dict()
+        particle_dict["particle_performance"] = particle_performance
+        if self.setup["n_voronoi"] > 0:
+            particle_dict["assign_voronoi_zone_" + str(particle_no)] = self.setup["assign_voronoi_zone_" +str(particle_no)] 
 
-        return particle_performance
+        return particle_dict
     
     def built_FD_Data_files(self,particle_no):
         # loading in settings that I set up on init_ABRM.py for this run
@@ -194,7 +192,6 @@ class particle():
 
     def patch_voronoi_models(self,particle_no):
 
-        # n_particles = self.setup["n_particles"]
         n_voronoi = self.setup["n_voronoi"]
         n_voronoi_zones = self.setup["n_voronoi_zones"]
         parameter_type = self.setup["parameter_type"]
@@ -207,8 +204,6 @@ class particle():
 
         n_neighbors = np.int(n_voronoi /n_voronoi_zones)
         
-
-        # for i in range(n_particles):
         # first figure out which points I am interested and append them to new list
         voronoi_x = []
         voronoi_y = []
@@ -305,16 +300,9 @@ class particle():
 
 
             self.setup["assign_voronoi_zone_" +str(particle_no)] = assign_voronoi_zone
-            # also need a fix for this. might not need this anymore.
-            # with open(pickle_file,'wb') as f:
-            #     pickle.dump(setup,f)
 
         else:
         # load voronoi zone assignemnt
-        # and for this.
-            # with open(pickle_file, "rb") as f:
-            #     setup = pickle.load(f)
-            # assign_voronoi_zone = setup["assign_voronoi_zone_" +str(i)]
             assign_voronoi_zone = self.setup["assign_voronoi_zone_" + str(particle_no)]
         # in what voronoi zone and vornoi polygon do cell centers plot
 
@@ -431,5 +419,4 @@ class particle():
                 f.write("{} ".format(item))
             f.close()
 
-
-        # print ("Voronoi-Patching done")
+  

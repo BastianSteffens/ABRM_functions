@@ -42,7 +42,7 @@ def init():
     ###### Set hyperparmeters for PSO ######
     n_parameters = 33
     n_iters = 3
-    n_particles = 12 # always pick multiple of 3. need to fix this 
+    n_particles = 3 # always pick multiple of 3. need to fix this 
     min_bound = 0 * np.ones(n_parameters)
     max_bound = 1 * np.ones(n_parameters)
     bounds = (min_bound, max_bound)
@@ -162,7 +162,7 @@ def init():
     setup["path"] = file_path
     setup["folder_path"] = folder_path
     setup["base_path"] = base_path
-    setup["pool"] = 6
+    setup["pool"] = 2
     # print(setup["base_path"])
     #save variables to pickle file and load them into pso later. this also sets up folder structure to save rest of pso resutls in
     # ABRM_functions.save_variables_to_file(setup)
