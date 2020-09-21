@@ -1,43 +1,22 @@
 ############################################################################
 
-
-
-####### Import required Packages #######
 import pyswarms_modified as ps       # PSO package in Python
-# import pyswarms as ps       # PSO package in Python
-
 import numpy as np
-import pandas as pd
 import matplotlib.pyplot as plt
 from pyswarms.utils.plotters import (plot_cost_history, plot_contour, plot_surface)
 import random 
 import pickle
-import os
-from os import path
 import datetime
-from datetime import date
-from numpy.random import seed
-from numpy.random import rand
 import lhsmdu
-###### Import required functions #######
-# import ABRM_functions
-from swarm import swarm
 import pathlib
 from particle import particle
+
 ############################################################################
 
 def init():
-    
-    # from pathlib import Path
-    # print(Path(__file__).parent)
 
-
-
-    # seed
-    # set_seed = random.randint(0,10000000)
     set_seed = 4205825
     random.seed(set_seed)
-
 
     ###### Set hyperparmeters for PSO ######
     n_parameters = 33
@@ -103,7 +82,6 @@ def init():
     #            "FracpermY","MatrixpermY","FracpermZ","MatrixpermZ"]     
     # columns = ["P32","n_sides","elongation_ratio","shape","scale","mean_dip",
     #            "mean_dip_azimuth","concentration","aperture_mean","aperture_std"]
-    #  
     
     # var types str = 0, numeric =1, TI = 2, voronoi_coordinate = 3
     parameter_type = [2,2,2,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,1,1,1,1,1,1]
@@ -140,7 +118,6 @@ def init():
     # if all models should be explicitly saved and not overwritten. 
     save_all_models = True
 
-
     setup = dict(varminmax = varminmax, columns = columns, set_seed = set_seed, parameter_type = parameter_type,
                  n_modelsperbatch = n_modelsperbatch, runworkflow = runworkflow, n_iters = n_iters,
                  n_particles = n_particles,n_parameters = n_parameters, Phi_points_target = Phi_points_target,
@@ -151,7 +128,6 @@ def init():
                  continuous_discrete = continuous_discrete,schedule = schedule,penalty = penalty, best_models = best_models,
                  nx = nx, ny = ny, nz = nz, n_voronoi = n_voronoi,n_voronoi_zones = n_voronoi_zones,iter_ticker = 0, PSO_parameters = options)
 
-    
     base_path = pathlib.Path(__file__).parent
     output_path = base_path / "../Output/"
     output_folder = str(datetime.datetime.today().replace(microsecond= 0, second = 0).strftime("%Y_%m_%d_%H_%M"))
@@ -163,9 +139,7 @@ def init():
     setup["folder_path"] = folder_path
     setup["base_path"] = base_path
     setup["pool"] = 2
-    # print(setup["base_path"])
-    #save variables to pickle file and load them into pso later. this also sets up folder structure to save rest of pso resutls in
-    # ABRM_functions.save_variables_to_file(setup)
+
     ###### Initialize swarm ######
 
     # Call instance of PSO
@@ -173,10 +147,6 @@ def init():
                                        bounds= bounds, velocity_clamp= velocity_clamp, vh_strategy=vh_strategy,
                                        bh_strategy = bh_strategy,init_pos= init_pos)
 
-    # abrm_swarm = swarm(x_swarm,)
-    # Perform optimization
-        # cost, pos = optimizer.optimize(ABRM_functions.swarm, iters=n_iters, n_processes= 1)
-    # cost, pos = optimizer.optimize(swarm, iters=n_iters)
     cost, pos = optimizer.optimize(particle, iters=n_iters,n_processes=setup["pool"])
 
     # Plot the cost

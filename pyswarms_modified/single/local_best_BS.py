@@ -64,38 +64,24 @@ J. Kennedy and R.C. Eberhart in Particle Swarm Optimization
     Symposium on Micromachine and Human Science, 1995, pp. 39–43.
 """
 
-# Import standard library
 import logging
-
-# Import modules
 import numpy as np
 import pandas as pd
 import multiprocessing as mp
-import pathlib
 import os
-from os import path
 import shutil
-import pickle
 import bz2
 import _pickle as cPickle
-import hdbscan
 from pyentrp import entropy as ent
 from sklearn.linear_model import LinearRegression
-from geovoronoi import voronoi_regions_from_coords
-from shapely.geometry import Polygon
-from shapely.geometry import Point
-
 from sklearn.neighbors import NearestNeighbors
-from GRDECL_file_reader.GRDECL2VTK import *
-
-
+import re
 
 from ..backend.operators import compute_pbest, compute_objective_function
 from ..backend.topology import Ring
 from ..backend.handlers import BoundaryHandler, VelocityHandler
 from ..base import SwarmOptimizer
 from ..utils.reporter import Reporter
-
 
 class LocalBestPSO(SwarmOptimizer):
     def __init__(
@@ -256,14 +242,12 @@ class LocalBestPSO(SwarmOptimizer):
             best_cost_yet_found = np.min(self.swarm.best_cost)
             # Update gbest from neighborhood
             self.swarm.best_pos, self.swarm.best_cost = self.top.compute_gbest(
-                self.swarm, p=self.p, k=self.k
-            )
+                self.swarm, p=self.p, k=self.k)
 
             ### BS ###
 
             # get output dfs 
             self.get_output_dfs(i)
- 
 
             # calculate tof-based entropy of models in swarm that pass misfit criterion
             self.compute_tof_based_entropy_best_models()
@@ -296,7 +280,6 @@ class LocalBestPSO(SwarmOptimizer):
             # ticker_data_saving += 1
             # print("ticker_data_saving {}".format(ticker_data_saving))
 
-
             self.rep.hook(best_cost=np.min(self.swarm.best_cost))
             # Save to history
             hist = self.ToHistory(
@@ -314,8 +297,6 @@ class LocalBestPSO(SwarmOptimizer):
                 < relative_measure
             ):
                 break
-            
-
 
             # Perform position velocity update
             self.swarm.velocity = self.top.compute_velocity(
@@ -593,17 +574,22 @@ class LocalBestPSO(SwarmOptimizer):
         self.swarm.position_converted = np.array(converted_vals.T).astype("float32")
 
         # # swap around parameters that work together and where min requires to be bigger than max. ohterwise wont do anzthing in petrel workflow.
-        # for i in range(0,n_particles):
+        for i in range(0,n_particles):
 
-        #     for j in range(0,n_parameters):
-        #         match_min = re.search("min",parameter_name[j],re.IGNORECASE)
+            for j in range(0,n_parameters):
+                match_min = re.search("min",parameter_name[j],re.IGNORECASE)
 
-        #         if match_min:
-        #             match_max = re.search("max",parameter_name[j+1],re.IGNORECASE)
+                if match_min:
+                    match_max = re.search("max",parameter_name[j+1],re.IGNORECASE)
 
-        #             if match_max:
-        #                 if converted_particle_values[i,j] > converted_particle_values[i,j+1]:
-        #     
+                    if match_max:
+                        # if converted_particle_values[i,j] > converted_particle_values[i,j+1]:
+                        #                     converted_particle_values[i,j],converted_particle_values[i,j+1] = converted_particle_values[i,j+1],converted_particle_values[i,j] 
+
+                        if self.swarm.position_converted[i,j] > self.swarm.position_converted[i,j+1]:
+                            self.swarm.position_converted[i,j],self.swarm.position_converted[i,j+1] = self.swarm.position_converted[i,j+1],self.swarm.position_converted[i,j] 
+
+                        print("swapaarroo is hapening")
 
     def built_batch_file_for_petrel_models_uniform(self):
         # loading in settings that I set up on init_ABRM.py for this run

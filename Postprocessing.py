@@ -4,7 +4,6 @@ import numpy as np
 import pandas as pd
 import os
 from os import path
-# import pickle
 import bz2
 import _pickle as cPickle
 from scipy import interpolate
@@ -21,10 +20,8 @@ from collections import Counter
 import pyvista as pv
 from pyentrp import entropy as ent
 from colour import Color
-# import matplotlib. pyplot as plt 
 ########################
 
-### Postprocessing functions ###
 class postprocessing():
     """ Load single/multiple datasets and visualize/ analyze them """
 
@@ -68,8 +65,6 @@ class postprocessing():
             # load data
             df_performance_single = pd.read_csv(performance_path)
             df_position_single = pd.read_csv(position_path)
-            # with open(setup_path,'rb') as f:
-            #     setup_single = pickle.load(f) 
             
             #load compressed pickle file
             data = bz2.BZ2File(tof_path,"rb")
@@ -172,7 +167,6 @@ class postprocessing():
                             for m in range(int(nz/window_shape[2])):
                                 single_cell_temp = np.round(np.mean(tof_single_particle_moving_window[k,l,m]),2)
                                 tof_single_particle_upscaled.append(single_cell_temp)
-                    # df_tof_single_particle_upscaled = pd.DataFrame(np.log10(np.array(tof_single_particle_upscaled)))
                     df_tof_single_particle_upscaled = pd.DataFrame(np.array(tof_single_particle_upscaled))
                     df_tof_single_particle_upscaled_transposed = df_tof_single_particle_upscaled.T
                     df_tof_single_particle_upscaled_transposed["particle_no"] = particle
@@ -217,7 +211,6 @@ class postprocessing():
             df_best_position = self.df_best_position[columns]
 
             for i in range(0,len(columns)):
-                # fig.append_trace(go.Histogram(x=df[columns[i]]),row = rows[i],col = cols[i])
                 fig.append_trace(go.Histogram(x=df_best_position[columns[i]]),row = rows[i],col = cols[i])
 
                 fig.update_layout(
@@ -268,7 +261,6 @@ class postprocessing():
                 showlegend=False
             )
             fig.show()
-            #dropdown with the parameter taht I would like to change.
 
     def plot_performance(self):
 
@@ -384,30 +376,22 @@ class postprocessing():
         for i in range(self.df_best_tof.shape[1]-2):
             # single cell in all models, from seconds to years    
             cell = np.round(np.array(self.df_best_tof[i]).reshape(-1)/60/60/24/365.25)
-
             cell_binned = np.digitize(cell,bins=[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20])
-
             # calculate entropy based upon clusters
             cell_median = np.median(cell_binned)
             all_cells_median.append(cell_median)
             
         # plot the whole thing
-                
         values = np.array(all_cells_median).reshape(nx,ny,nz)
-
         # Create the spatial reference
         grid = pv.UniformGrid()
-
         # Set the grid dimensions: shape + 1 because we want to inject our values on the CELL data
         grid.dimensions = np.array(values.shape) + 1
-
         # Edit the spatial reference
         grid.origin = (1, 1, 1)  # The bottom left corner of the data set
         grid.spacing = (1, 1, 1)  # These are the cell sizes along each axis
-
         # Add the data values to the cell data
         grid.cell_arrays["Median tof in years"] =values.flatten()# np.log10(tof)# np.log10(tof)# values.flatten(order="C")  # Flatten the array! C F A K
-
         boring_cmap = plt.cm.get_cmap("viridis")
         grid.plot(show_edges=False,cmap = boring_cmap)
 
@@ -422,30 +406,22 @@ class postprocessing():
         for i in range(self.df_best_tof.shape[1]-2):
             # single cell in all models, from seconds to years    
             cell = np.round(np.array(self.df_best_tof[i]).reshape(-1)/60/60/24/365.25)
-
             cell_binned = np.digitize(cell,bins=[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20])
-
             # calculate entropy based upon clusters
             cell_entropy = np.array(ent.shannon_entropy(cell_binned))
             all_cells_entropy.append(cell_entropy)
             
-        # plot the whole thing
-                
+        # plot the whole thing    
         values = np.array(all_cells_entropy).reshape(nx,ny,nz)
-
         # Create the spatial reference
         grid = pv.UniformGrid()
-
         # Set the grid dimensions: shape + 1 because we want to inject our values on the CELL data
         grid.dimensions = np.array(values.shape) + 1
-
         # Edit the spatial reference
         grid.origin = (1, 1, 1)  # The bottom left corner of the data set
         grid.spacing = (1, 1, 1)  # These are the cell sizes along each axis
-
         # Add the data values to the cell data
         grid.cell_arrays["Entropy"] =values.flatten()# np.log10(tof)# np.log10(tof)# values.flatten(order="C")  # Flatten the array! C F A K
-
         boring_cmap = plt.cm.get_cmap("viridis")
         grid.plot(show_edges=False,cmap = boring_cmap)
 

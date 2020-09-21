@@ -2,28 +2,11 @@
 ########################
 import numpy as np
 import pandas as pd
-import subprocess
-import time
 import matlab.engine
-import os
-from os import path
-import datetime
-from datetime import date
-import pickle
-import bz2
-import _pickle as cPickle
 from scipy import interpolate
 from sklearn.metrics import mean_squared_error
 from sklearn.neighbors import NearestNeighbors
-import matplotlib.pyplot as plt
-import shutil
-import re
-import pathlib
-import glob
-from pyentrp import entropy as ent
-from skimage.util.shape import view_as_windows
 from GRDECL_file_reader.GRDECL2VTK import *
-
 from geovoronoi import voronoi_regions_from_coords
 
 ########################

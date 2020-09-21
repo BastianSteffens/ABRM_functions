@@ -327,6 +327,7 @@ def compute_objective_function(swarm, objective_func,setup,iteration, pool=None,
         misfit_swarm = np.array(misfit_swarm).flatten()
         LC_swarm = np.array(LC_swarm).flatten()
         print("misfit:{}".format(misfit_swarm))
+        
         return misfit_swarm, LC_swarm, swarm_performance, setup
 
 def compute_ARPSO_velocity(w,swarm,cognitive,social,direction):
