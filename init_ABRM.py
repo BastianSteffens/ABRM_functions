@@ -20,7 +20,7 @@ def init():
 
     ###### Set hyperparmeters for PSO ######
     n_parameters = 33
-    n_iters = 3
+    n_iters = 6
     n_particles = 3 # always pick multiple of 3. need to fix this 
     min_bound = 0 * np.ones(n_parameters)
     max_bound = 1 * np.ones(n_parameters)
@@ -138,7 +138,7 @@ def init():
     setup["path"] = file_path
     setup["folder_path"] = folder_path
     setup["base_path"] = base_path
-    setup["pool"] = 2
+    setup["pool"] = 3
 
     ###### Initialize swarm ######
 

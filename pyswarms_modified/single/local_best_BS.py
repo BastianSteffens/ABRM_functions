@@ -180,7 +180,6 @@ class LocalBestPSO(SwarmOptimizer):
         self.particle_values_converted_all_iter = pd.DataFrame()
         
 
-    # def optimize(self, objective_func, iters, n_processes=None, **kwargs):
     def optimize(self, objective_func, iters, n_processes=None, **kwargs): ### BS ###
 
         """Optimize the swarm for a number of iterations
@@ -220,7 +219,6 @@ class LocalBestPSO(SwarmOptimizer):
 
         self.swarm.pbest_cost = np.full(self.swarm_size[0], np.inf)
 
-        ticker_data_saving = 0
         for i in self.rep.pbar(iters, self.name):
 
             # convert particle values to values suitable for model building
@@ -263,22 +261,15 @@ class LocalBestPSO(SwarmOptimizer):
 
             # save all reservoir models
             self.save_all_models()
-            self.save_data(i,iters)
+            # self.save_data(i,iters)
 
-            # save all outputdata from models, at beginning, the end and every n iteration for checkup
-            # # self.save_data(i,iters)
-            # if i == 0:
-            #     self.save_data(i,iters)
-            #     print("saving data")
-            # if i == iters:
-            #     self.save_data(i,iters)
-            #     print("saving data")
-            # if ticker_data_saving == 2:
-            #     self.save_all_models()
-            #     ticker_data_saving = 0 
-            #     print("saving data")
-            # ticker_data_saving += 1
-            # print("ticker_data_saving {}".format(ticker_data_saving))
+            # save all outputdata from models, at beginning, the end and every 2 iteration for checkup
+            if i == 0:
+                self.save_data(i,iters)
+            elif i == iters-1:
+                self.save_data(i,iters)
+            elif i % 2 == 0:
+                self.save_data(i,iters)
 
             self.rep.hook(best_cost=np.min(self.swarm.best_cost))
             # Save to history
@@ -381,7 +372,7 @@ class LocalBestPSO(SwarmOptimizer):
         self.particle_values["tof_based_entropy_best_models"] = tof_based_entropy_best_models
         self.particle_values_converted["tof_based_entropy_best_models"] = tof_based_entropy_best_models
 
-    def compute_best_model_diversity_gradient(self,i,delta = 5):
+    def compute_best_model_diversity_gradient(self,i,delta = 1):
         """ check how if I am still producing new best models or  if they are just hovering around similar models.
             This is done by checking how the slope of tof_based_entropy changes over iterations. If that slope falls below 0
             the PSO should spread out again and reset the global/local best memory.
@@ -389,18 +380,21 @@ class LocalBestPSO(SwarmOptimizer):
        # dont do this analysis in the beginning, if not enough data availabe
         if i < delta:
             slope = 0
+        
         else:
-            iterations_to_check = np.array(np.arange(i-delta,i)).reshape(-1,1)
+            iterations_to_check = np.array(np.arange(i-delta,i))#.reshape(-1,1)
             linear_regressor = LinearRegression()
             entropy = []
-            for i in range(delta):
-                entropy.append(np.array(self.particle_values_converted_all_iter[(self.particle_values_converted_all_iter["iteration"] ==iterations_to_check[i]) & (self.particle_values_converted_all_iter["particle_no"] ==0)].tof_based_entropy_best_models))
-        
+            for j in range(delta):
+                entropy.append(np.array(self.particle_values_converted_all_iter[(self.particle_values_converted_all_iter["iteration"] ==iterations_to_check[j]) & (self.particle_values_converted_all_iter["particle_no"] ==0)].tof_based_entropy_best_models))
+            
+            iterations_to_check = np.array(np.arange(i-delta,i)).reshape(-1,1)
+
             linear_regressor.fit(iterations_to_check,entropy)
-            slope = linear_regressor.coef_
+            slope = linear_regressor.coef_.flatten()
         
-        self.particle_values["entropy_slope"] = slope
-        self.particle_values_converted["entropy_slope"] = slope
+        self.particle_values["entropy_slope"] = float(slope)
+        self.particle_values_converted["entropy_slope"] = float(slope)
 
         return slope
 
