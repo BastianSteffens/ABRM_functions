@@ -52,7 +52,8 @@ class postprocessing():
 
         for i in range(0,self.n_datasets):
             path = str(self.setup["base_path"] / "../Output/")+ "/"+ self.data_to_process[i] + "/"
-            performance = "swarm_performance_all_iter.csv"
+            # performance = "swarm_performance_all_iter.csv"
+            performance = "swarm_performance_all_iter.pbz2"
             position = "swarm_particle_values_converted_all_iter.csv"
             setup = "variable_settings.pickle"
             tof = "tof_all_iter.pbz2"
@@ -63,16 +64,20 @@ class postprocessing():
             tof_path = path + tof
 
             # load data
-            df_performance_single = pd.read_csv(performance_path)
+            # df_performance_single = pd.read_csv(performance_path)
             df_position_single = pd.read_csv(position_path)
             
             #load compressed pickle file
+            data = bz2.BZ2File(performance_path)
+            df_performance_single = cPickle.load(data)
             data = bz2.BZ2File(tof_path,"rb")
             df_tof_single = cPickle.load(data)
             data = bz2.BZ2File(setup_path)
             setup_single = cPickle.load(data)
 
-    
+            print(type(df_performance_single))
+            display(df_performance_single.head())
+
             df_position_single["dataset"] = self.data_to_process[i]
             df_performance_single["dataset"] = self.data_to_process[i]
             df_tof_single["dataset"] = self.data_to_process[i]
@@ -83,10 +88,7 @@ class postprocessing():
             
             # interpolate F-Phi curve from input points with spline
             tck = interpolate.splrep(Phi_points_target,F_points_target, s = 0)
-            Phi_interpolated = np.linspace(0,1,num = 
-                                    len(df_performance_single.loc[(df_performance_single.iteration == 0) 
-                                        & (df_performance_single.particle_no == 0), "Phi"]),
-                                        endpoint = True)
+            Phi_interpolated = np.linspace(0,1,num = len(df_performance_single.loc[(df_performance_single.iteration == 0) & (df_performance_single.particle_no == 0), "Phi"]),endpoint = True)        
             F_interpolated = interpolate.splev(Phi_interpolated,tck,der = 0)
             LC_interpolated = self.compute_LC(F_interpolated,Phi_interpolated)
                     

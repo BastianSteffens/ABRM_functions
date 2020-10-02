@@ -252,7 +252,10 @@ class GRDECL_Parser:
             # print('     [%s] '%(Keyword),end='')
             self.SpatialDatas[Keyword]=np.array(DataArray,dtype=KeyWordsDatatypes[KeywordID])
         else:
-            if(self.SkipedKeywords==0):print()
+            if(self.SkipedKeywords==0):
+                #print()
+                ### BS ###
+                pass
             # print('     [Warnning] Unsupport keywords[%s]' % (Keyword))
             self.SkipedKeywords+=1
 

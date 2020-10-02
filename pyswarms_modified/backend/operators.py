@@ -301,12 +301,14 @@ def compute_objective_function(swarm, objective_func,setup,iteration, pool=None,
     data_to_save :
         data that need to be saved
     """
+
+    ### BS ###
     if pool is None:
         all_particles = objective_func(swarm,setup,iteration)
         all_particles.particle_iterator()
         print("misfit:{}".format(all_particles.misfit_swarm))
 
-        return all_particles.misfit_swarm, all_particles.LC_swarm, all_particles.swarm_performance
+        return all_particles.misfit_swarm, all_particles.LC_swarm, all_particles.swarm_performance, setup
 
     else:
         particle_array = np.arange(0,swarm.n_particles)
@@ -318,7 +320,8 @@ def compute_objective_function(swarm, objective_func,setup,iteration, pool=None,
         swarm_performance = pd.DataFrame(columns = ["EV","tD","F","Phi","LC","tof","iteration","particle_no","misfit"])
         n_particles = setup["n_particles"]
         for i in range(n_particles):
-            setup["assign_voronoi_zone_" +str(i)] = particle_list[i]["assign_voronoi_zone_" +str(i)]
+            if setup["n_voronoi"] > 0:
+                setup["assign_voronoi_zone_" +str(i)] = particle_list[i]["assign_voronoi_zone_" +str(i)]
             particle_performance = particle_list[i]["particle_performance"]
             swarm_performance = swarm_performance.append(particle_performance,ignore_index = True)
             misfit_swarm.append(particle_performance[particle_performance.particle_no == i].misfit.unique())

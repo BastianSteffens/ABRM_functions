@@ -76,6 +76,12 @@ from pyentrp import entropy as ent
 from sklearn.linear_model import LinearRegression
 from sklearn.neighbors import NearestNeighbors
 import re
+import subprocess
+import datetime
+import time
+import glob 
+import lhsmdu
+
 
 from ..backend.operators import compute_pbest, compute_objective_function
 from ..backend.topology import Ring
@@ -251,7 +257,7 @@ class LocalBestPSO(SwarmOptimizer):
             self.compute_tof_based_entropy_best_models()
 
             # calculate the gradient of entropy change of best models
-            entropy_gradient = self.compute_best_model_diversity_gradient(i)
+            self.swarm.entropy_gradient = self.compute_best_model_diversity_gradient(i)
 
             # append outputdata from current iteration to all data
             self.performance_all_iter = self.performance_all_iter.append(self.performance, ignore_index = True)
@@ -260,15 +266,15 @@ class LocalBestPSO(SwarmOptimizer):
             self.particle_values_converted_all_iter = self.particle_values_converted_all_iter.append(self.particle_values_converted, ignore_index = True)
 
             # save all reservoir models
-            self.save_all_models()
             # self.save_data(i,iters)
+            self.save_all_models()
 
-            # save all outputdata from models, at beginning, the end and every 2 iteration for checkup
+            # save all outputdata from models, at beginning, the end and every 5 iteration for checkup
             if i == 0:
                 self.save_data(i,iters)
             elif i == iters-1:
                 self.save_data(i,iters)
-            elif i % 2 == 0:
+            elif i % 4 == 0:
                 self.save_data(i,iters)
 
             self.rep.hook(best_cost=np.min(self.swarm.best_cost))
@@ -297,9 +303,15 @@ class LocalBestPSO(SwarmOptimizer):
                 self.swarm, self.bounds, self.bh
             )
             ### BS ###
-            if entropy_gradient<0:
-                break
-            # self.reset()
+            if self.swarm.entropy_gradient<0:
+                print("entropy gradient is negative --> resetting PSO")
+                # new init position
+                self.init_pos = np.array(lhsmdu.sample(numDimensions = self.setup["n_particles"],numSamples = self.setup["n_parameters"]))
+                # reset swarm
+                self.reset()
+                self.swarm.pbest_cost = np.full(self.swarm_size[0], np.inf)
+                # reset inertia
+                self.swarm.options["w"] = self.setup["initial_inertia"]  
 
         # Obtain the final best_cost and the final best_position
         final_best_cost = self.swarm.best_cost.copy()
@@ -314,6 +326,21 @@ class LocalBestPSO(SwarmOptimizer):
         return (final_best_cost, final_best_pos)
 
     ### BS ###
+
+    def reset_POS(self):
+        """ if the gradient of entropy for best modesl becomes negative, the PSO position, velocity, local and glboal best  and cost is resetted"""
+        n_particles = self.setup["n_particles"]
+        n_parameters = self.setup["n_parameters"]
+        
+        # reset position with latin hypercube sampling
+        self.swarm.position = np.array(lhsmdu.sample(numDimensions = n_particles,numSamples = n_parameters))
+
+        # reset best cost
+        self.swarm.best_cost = np.inf 
+        self.swarm.pbest_cost = np.full(self.swarm_size[0], np.inf)
+
+        # reset velocity
+        self.swarm.velocity = 0
 
     def compute_tof_based_entropy_best_models(self):
         """ function to compute the entropy of the models that fulfill misfit criterion based on the time-of-flight"""
@@ -372,17 +399,18 @@ class LocalBestPSO(SwarmOptimizer):
         self.particle_values["tof_based_entropy_best_models"] = tof_based_entropy_best_models
         self.particle_values_converted["tof_based_entropy_best_models"] = tof_based_entropy_best_models
 
-    def compute_best_model_diversity_gradient(self,i,delta = 1):
+    def compute_best_model_diversity_gradient(self,i,delta = 5):
         """ check how if I am still producing new best models or  if they are just hovering around similar models.
             This is done by checking how the slope of tof_based_entropy changes over iterations. If that slope falls below 0
             the PSO should spread out again and reset the global/local best memory.
         """
+        delta = 5
        # dont do this analysis in the beginning, if not enough data availabe
         if i < delta:
             slope = 0
         
         else:
-            iterations_to_check = np.array(np.arange(i-delta,i))#.reshape(-1,1)
+            iterations_to_check = np.array(np.arange(i-delta,i))
             linear_regressor = LinearRegression()
             entropy = []
             for j in range(delta):
@@ -396,6 +424,7 @@ class LocalBestPSO(SwarmOptimizer):
         self.particle_values["entropy_slope"] = float(slope)
         self.particle_values_converted["entropy_slope"] = float(slope)
 
+        print("entropy slope for last {} iterations : {}".format(delta,float(slope)))
         return slope
 
     def built_data_file(self,data_file_path,model_id):
@@ -512,7 +541,8 @@ class LocalBestPSO(SwarmOptimizer):
         # filepath setup
         folder_path = self.setup["folder_path"]
         
-        output_file_performance = "swarm_performance_all_iter.csv"
+        # output_file_performance = "swarm_performance_all_iter.csv"
+        output_file_performance = "swarm_performance_all_iter.pbz2"
         output_file_partilce_values_converted = "swarm_particle_values_converted_all_iter.csv"
         output_file_partilce_values = "swarm_particle_values_all_iter.csv"
         tof_file = "tof_all_iter.pbz2"
@@ -530,13 +560,15 @@ class LocalBestPSO(SwarmOptimizer):
             os.makedirs(folder_path)
         
         # save all
-        self.performance_all_iter.to_csv(file_path_performance,index=False)
+        # self.performance_all_iter.to_csv(file_path_performance,index=False)
         self.particle_values_converted_all_iter.to_csv(file_path_particles_values_converted,index=False)
         self.particle_values_all_iter.to_csv(file_path_particles_values,index=False)
         with bz2.BZ2File(file_path_tof,"w") as f:
             cPickle.dump(self.tof_all_iter,f)
         with bz2.BZ2File(file_path_setup,"w") as f:
             cPickle.dump(self.setup,f)
+        with bz2.BZ2File(file_path_performance,"w") as f:
+            cPickle.dump(self.swarm_performance_short,f)
 
     def convert_particle_values(self):
 
@@ -583,7 +615,6 @@ class LocalBestPSO(SwarmOptimizer):
                         if self.swarm.position_converted[i,j] > self.swarm.position_converted[i,j+1]:
                             self.swarm.position_converted[i,j],self.swarm.position_converted[i,j+1] = self.swarm.position_converted[i,j+1],self.swarm.position_converted[i,j] 
 
-                        print("swapaarroo is hapening")
 
     def built_batch_file_for_petrel_models_uniform(self):
         # loading in settings that I set up on init_ABRM.py for this run
@@ -619,6 +650,7 @@ class LocalBestPSO(SwarmOptimizer):
         # set up file path to petrel, petrel license and petrel projects and seed etc
         callpetrel = 'call "{}" ^'.format(petrel_path)
         license = '\n/licensePackage Standard ^'
+
         runworkflow = '\n/runWorkflow "{}" ^\n'.format(runworkflow)
         seed_petrel = '/nParm seed={} ^\n'.format(seed) 
         projectpath = []
@@ -733,7 +765,7 @@ class LocalBestPSO(SwarmOptimizer):
 
         if petrel_on == True:
             # initiate model by running batch file make sure that petrel has sufficient time to built the models and shut down again. 
-            print('Start building models',end = "\r")
+            print(' Start building models',end = "\r")
 
             #how many multibat files to run
             n_multibats = int(np.ceil(n_particles / n_modelsperbatch/n_parallel_petrel_licenses))
