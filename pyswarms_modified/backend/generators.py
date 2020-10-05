@@ -17,7 +17,9 @@ import numpy as np
 
 from ..utils.reporter import Reporter
 from .swarms import Swarm
-from .swarms import Swarm_BS
+from .multi_swarms.pareto_front import ParetoFront
+from .multi_swarms.multi_swarms import MultiSwarm
+# from .swarms import Swarm_BS
 
 rep = Reporter(logger=logging.getLogger(__name__))
 
@@ -244,144 +246,52 @@ def create_swarm(
 
     velocity = generate_velocity(n_particles, dimensions, clamp=clamp)
     return Swarm(position, velocity, options=options)
-	
-	########################BS ADD#####################################
-def generate_swarm_BS(
-    n_particles, dimensions, bounds=None, center=1.00, init_pos=None
-#   n_particles, dimensions, x1, x2, varminmax, bounds=None, center=1.00, init_pos=None
-):
-    """Generate a swarm
 
-    Parameters
-    ----------
-    n_particles : int
-        number of particles to be generated in the swarm.
-    dimensions: int
-        number of dimensions to be generated in the swarm
-    bounds : tuple of numpy.ndarray or list, optional
-        a tuple of size 2 where the first entry is the minimum bound while
-        the second entry is the maximum bound. Each array must be of shape
-        :code:`(dimensions,)`. Default is :code:`None`
-    center : numpy.ndarray or float, optional
-        controls the mean or center whenever the swarm is generated randomly.
-        Default is :code:`1`
-    init_pos : numpy.ndarray, optional
-        option to explicitly set the particles' initial positions. Set to
-        :code:`None` if you wish to generate the particles randomly.
-        Default is :code:`None`.
-
-    Returns
-    -------
-    numpy.ndarray
-        swarm matrix of shape (n_particles, n_dimensions)
-
-    Raises
-    ------
-    ValueError
-        When the shapes and values of bounds, dimensions, and init_pos
-        are inconsistent.
-    TypeError
-        When the argument passed to bounds is not an iterable.
-    """
-    try:
-        if (init_pos is not None) and (bounds is None):
-            pos = init_pos
-        elif (init_pos is not None) and (bounds is not None):
-            if not (
-                np.all(bounds[0] <= init_pos) and np.all(init_pos <= bounds[1])
-            ):
-                raise ValueError("User-defined init_pos is out of bounds.")
-            pos = init_pos
-        elif (init_pos is None) and (bounds is None):
-            pos = center * np.random.uniform(
-                low=0.0, high=1.0, size=(n_particles, dimensions)
-            )
-        else:
-            lb, ub = bounds
-            min_bounds = np.repeat(
-                np.array(lb)[np.newaxis, :], n_particles, axis=0
-            )
-            max_bounds = np.repeat(
-                np.array(ub)[np.newaxis, :], n_particles, axis=0
-            )
-            pos = center * np.random.uniform(
-                low=min_bounds, high=max_bounds, size=(n_particles, dimensions)
-            )
-    except ValueError:
-        msg = "Bounds and/or init_pos should be of size ({},)"
-        rep.logger.exception(msg.format(dimensions))
-        raise
-    except TypeError:
-        msg = "generate_swarm() takes an int for n_particles and dimensions and an array for bounds"
-        rep.logger.exception(msg)
-        raise
-    else:
-        return pos
-
-
-
-
-def create_swarm_BS(
+def create_multi_swarm(
     n_particles,
     dimensions,
-    # x1,
-	# x2,
-    # varminmax,
-    discrete=False,
-    binary=False,
     options={},
     bounds=None,
     center=1.0,
     init_pos=None,
     clamp=None,
-    ### BS ###
-
-):
-    """Abstract the generate_swarm() and generate_velocity() methods
-
+    ):
+    """Abstract the generate_swarm() and generate_velocity() methods for MultiSwarm
     Parameters
     ----------
     n_particles : int
         number of particles to be generated in the swarm.
     dimensions: int
         number of dimensions to be generated in the swarm
-    discrete : bool
-        Creates a discrete swarm. Default is `False`
-    options : dict, optional
+    options : dict (default is empty dict :code:`{}`)
         Swarm options, for example, c1, c2, etc.
-    binary : bool
-        generate a binary matrix, Default is `False`
-    bounds : tuple of np.ndarray or list
+    bounds : tuple of :code:`np.ndarray` or list (default is :code:`None`)
         a tuple of size 2 where the first entry is the minimum bound while
         the second entry is the maximum bound. Each array must be of shape
-        :code:`(dimensions,)`. Default is `None`
-    center : numpy.ndarray, optional
-        a list of initial positions for generating the swarm. Default is `1`
-    init_pos : numpy.ndarray, optional
+        :code:`(dimensions,)`.
+    center : :code:`numpy.ndarray` (default is :code:`1`)
+        a list of initial positions for generating the swarm
+    init_pos : :code:`numpy.ndarray` (default is :code:`None`)
         option to explicitly set the particles' initial positions. Set to
         :code:`None` if you wish to generate the particles randomly.
-    clamp : tuple of floats, optional
+    clamp : tuple of floats (default is :code:`None`)
         a tuple of size 2 where the first entry is the minimum velocity
         and the second entry is the maximum velocity. It
         sets the limits for velocity clamping.
-
     Returns
     -------
-    pyswarms.backend.swarms.Swarm
-        a Swarm class
+    pyswarms.backend.mulit_swarms.multi_swarms.MultiSwarm
+        a MultiSwarm class
     """
-    if discrete:
-        position = generate_discrete_swarm(
-            n_particles, dimensions, binary=binary, init_pos=init_pos
-        )
-    else:
-        position = generate_swarm(
-            n_particles,
-            dimensions,
-            bounds=bounds,
-            center=center,
-            init_pos=init_pos,
-        )
+    position = generate_swarm(
+        n_particles,
+        dimensions,
+        bounds=bounds,
+        center=center,
+        init_pos=init_pos,
+    )
 
     velocity = generate_velocity(n_particles, dimensions, clamp=clamp)
-    return Swarm_BS(position, velocity, options=options)#,varminmax = varminmax, x1 = x1, x2 = x2)
+    archive = ParetoFront(options=options)
+    return MultiSwarm(position, velocity, archive=archive, options=options)
+

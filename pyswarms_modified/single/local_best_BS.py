@@ -327,21 +327,6 @@ class LocalBestPSO(SwarmOptimizer):
 
     ### BS ###
 
-    def reset_POS(self):
-        """ if the gradient of entropy for best modesl becomes negative, the PSO position, velocity, local and glboal best  and cost is resetted"""
-        n_particles = self.setup["n_particles"]
-        n_parameters = self.setup["n_parameters"]
-        
-        # reset position with latin hypercube sampling
-        self.swarm.position = np.array(lhsmdu.sample(numDimensions = n_particles,numSamples = n_parameters))
-
-        # reset best cost
-        self.swarm.best_cost = np.inf 
-        self.swarm.pbest_cost = np.full(self.swarm_size[0], np.inf)
-
-        # reset velocity
-        self.swarm.velocity = 0
-
     def compute_tof_based_entropy_best_models(self):
         """ function to compute the entropy of the models that fulfill misfit criterion based on the time-of-flight"""
 
@@ -551,6 +536,8 @@ class LocalBestPSO(SwarmOptimizer):
 
         file_path_tof = folder_path / tof_file
         file_path_performance = folder_path / output_file_performance
+        # file_path_performance_pickle = folder_path / output_file_performance_pickle
+
         file_path_particles_values_converted = folder_path / output_file_partilce_values_converted
         file_path_particles_values = folder_path / output_file_partilce_values
         file_path_setup = folder_path / setup_file
@@ -568,7 +555,7 @@ class LocalBestPSO(SwarmOptimizer):
         with bz2.BZ2File(file_path_setup,"w") as f:
             cPickle.dump(self.setup,f)
         with bz2.BZ2File(file_path_performance,"w") as f:
-            cPickle.dump(self.swarm_performance_short,f)
+            cPickle.dump(self.performance_all_iter,f)
 
     def convert_particle_values(self):
 
@@ -614,7 +601,6 @@ class LocalBestPSO(SwarmOptimizer):
 
                         if self.swarm.position_converted[i,j] > self.swarm.position_converted[i,j+1]:
                             self.swarm.position_converted[i,j],self.swarm.position_converted[i,j+1] = self.swarm.position_converted[i,j+1],self.swarm.position_converted[i,j] 
-
 
     def built_batch_file_for_petrel_models_uniform(self):
         # loading in settings that I set up on init_ABRM.py for this run

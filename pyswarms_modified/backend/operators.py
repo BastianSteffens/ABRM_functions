@@ -19,7 +19,7 @@ from .handlers import BoundaryHandler, VelocityHandler
 from functools import partial
 
 ### BS ###
-import multiprocessing as mp
+# import multiprocessing as mp
 
 import numpy as np
 import pandas as pd
@@ -333,6 +333,68 @@ def compute_objective_function(swarm, objective_func,setup,iteration, pool=None,
         
         return misfit_swarm, LC_swarm, swarm_performance, setup
 
+def compute_objective_function_multi(swarm, objective_func,setup,iteration, pool=None, **kwargs):
+
+    """Evaluate particles using the objective function
+
+    This method evaluates each particle in the swarm according to the objective
+    function passed.
+
+    If a pool is passed, then the evaluation of the particles is done in
+    parallel using multiple processes.
+
+    Parameters
+    ----------
+    swarm : pyswarms.backend.swarms.Swarm
+        a Swarm instance
+    objective_func : function
+        objective function to be evaluated
+    setup: dict
+        dictionary that contains all important information for modelling settings ### BS ###
+    pool: multiprocessing.Pool
+        multiprocessing.Pool to be used for parallel particle evaluation
+    kwargs : dict
+        arguments for the objective function
+
+    Returns
+    -------
+    numpy.ndarray
+        Cost-matrix for the given swarm
+
+    data_to_save :
+        data that need to be saved
+    """
+
+    ### BS ###
+    if pool is None:
+        all_particles_multi = objective_func(swarm,setup,iteration)
+        all_particles_multi.particle_iterator_multi()
+        print("misfit:{}".format(all_particles_multi.misfit_swarm))
+
+        return all_particles_multi.misfit_swarm, all_particles_multi.LC_swarm, all_particles_multi.swarm_performance, setup
+
+    else:
+        particle_array = np.arange(0,swarm.n_particles)
+        all_particles = objective_func(swarm,setup,iteration)
+        particle_list = pool.map(all_particles.calculate_particle_parallel,[particle_no for particle_no in particle_array])
+
+        misfit_swarm = []
+        LC_swarm = []
+        swarm_performance = pd.DataFrame(columns = ["EV","tD","F","Phi","LC","tof","iteration","particle_no","misfit"])
+        n_particles = setup["n_particles"]
+        for i in range(n_particles):
+            if setup["n_voronoi"] > 0:
+                setup["assign_voronoi_zone_" +str(i)] = particle_list[i]["assign_voronoi_zone_" +str(i)]
+            particle_performance = particle_list[i]["particle_performance"]
+            swarm_performance = swarm_performance.append(particle_performance,ignore_index = True)
+            misfit_swarm.append(particle_performance[particle_performance.particle_no == i].misfit.unique())
+            LC_swarm.append(particle_performance[particle_performance.particle_no == i].LC.unique())
+
+        misfit_swarm = np.array(misfit_swarm).flatten()
+        LC_swarm = np.array(LC_swarm).flatten()
+        print("misfit:{}".format(misfit_swarm))
+        
+        return misfit_swarm, LC_swarm, swarm_performance, setup
 def compute_ARPSO_velocity(w,swarm,cognitive,social,direction):
     # calculate + entropy of larger blocks (of mean or sum or median) (upscaled) 
     # inbetween iterations and then of each model take the similar block, and

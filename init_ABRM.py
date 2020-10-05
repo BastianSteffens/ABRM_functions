@@ -9,7 +9,7 @@ import pickle
 import datetime
 import lhsmdu
 import pathlib
-from particle import particle
+from .pyswarms_modified.particles.particle import particle
 
 ############################################################################
 
@@ -20,7 +20,7 @@ def init():
 
     ###### Set hyperparmeters for PSO ######
     n_parameters = 30
-    n_iters = 2
+    n_iters = 3
     n_particles = 6 # always pick multiple of 3. need to fix this 
     min_bound = 0 * np.ones(n_parameters)
     max_bound = 1 * np.ones(n_parameters)

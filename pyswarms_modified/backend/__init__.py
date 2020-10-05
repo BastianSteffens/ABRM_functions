@@ -8,5 +8,8 @@ from .generators import *
 from .handlers import *
 from .operators import *
 from .swarms import *
+#
+from .multi_swarms import *
 
-__all__ = ["generators", "handlers", "operators", "swarms"]
+__all__ = ["generators", "handlers", "operators", "swarms", "multi_swarms"]
+# __all__ = ["generators", "handlers", "operators", "swarms"]

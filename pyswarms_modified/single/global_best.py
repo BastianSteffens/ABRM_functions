@@ -66,7 +66,7 @@ from ..backend.operators import compute_pbest, compute_objective_function
 from ..backend.topology import Star
 from ..backend.handlers import BoundaryHandler, VelocityHandler
 from ..base import SwarmOptimizer
-from ..base import SwarmOptimizer_BS
+# from ..base import SwarmOptimizer_BS
 from ..utils.reporter import Reporter
 
 

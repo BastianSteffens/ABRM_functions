@@ -316,12 +316,21 @@ class GeologyModel:
             Creation:   Feb, 2018
         """
         basename=os.path.splitext(os.path.basename(self.fname))[0]
-        if not os.path.exists("Results"):
-            os.makedirs('Results')
-        fnames=[os.path.join('Results',basename + '_permx.txt'),
-               os.path.join('Results',basename + '_permy.txt'),
-               os.path.join('Results',basename + '_permz.txt'),
-               os.path.join('Results',basename + '_poro.txt')]
+        # GRDECL_file_reader
+        # if not os.path.exists("Results"):
+        if not os.path.exists("GRDECL_file_reader/Results"):
+
+            # os.makedirs('../Results')
+            os.makedirs('GRDECL_file_reader/Results')
+
+        # fnames=[os.path.join('Results',basename + '_permx.txt'),
+        #        os.path.join('Results',basename + '_permy.txt'),
+        #        os.path.join('Results',basename + '_permz.txt'),
+        #        os.path.join('Results',basename + '_poro.txt')]
+        fnames=[os.path.join('GRDECL_file_reader/Results',basename + '_permx.txt'),
+               os.path.join('GRDECL_file_reader/Results',basename + '_permy.txt'),
+               os.path.join('GRDECL_file_reader/Results',basename + '_permz.txt'),
+               os.path.join('GRDECL_file_reader/Results',basename + '_poro.txt')]
 
         np.savetxt(fnames[0], self.GRDECL_Data.SpatialDatas['PERMX'], delimiter="\n",fmt='%1.4f')
         np.savetxt(fnames[1], self.GRDECL_Data.SpatialDatas['PERMY'], delimiter="\n",fmt='%1.4f')
@@ -333,7 +342,9 @@ class GeologyModel:
 
         #Output special NPSL init sw field
         if('SW_NPSL' in self.GRDECL_Data.SpatialDatas):
-            fnames.append(os.path.join('Results',basename + '_sw.txt'))
+            # fnames.append(os.path.join('Results',basename + '_sw.txt'))
+            fnames.append(os.path.join('GRDECL_file_reader/Results',basename + '_sw.txt'))
+
             header='#CheckPoint_Data\nTIMESTEP 1\nCELL_DATA 3600\nNUMBER_OF_SPECIES 1\n\nSCALARS C_PseudoOil float'
             np.savetxt(fnames[-1],  self.GRDECL_Data.SpatialDatas['SW_NPSL'], delimiter="\n",fmt='%1.4f',header=header,comments="")
             print('NPSL file [%s] successfully genetrated, pelase use NPSL to load it!' % (fnames[-1]))
@@ -342,9 +353,13 @@ class GeologyModel:
 
     def Write2VTU(self):
         basename=os.path.splitext(os.path.basename(self.fname))[0]
-        if not os.path.exists("Results"):
-            os.makedirs('Results')
-        path=os.path.join('Results',basename + '.vtu')
+        # if not os.path.exists("Results"):
+        #     os.makedirs('Results')
+        # path=os.path.join('Results',basename + '.vtu')
+
+         if not os.path.exists("GRDECL_file_reader/Results"):
+            os.makedirs('GRDECL_file_reader/Results')
+        path=os.path.join('GRDECL_file_reader/Results',basename + '.vtu')
         print('[Output] Writing "%s" Paraview file....'%(path),end='')
 
         xmlWriter = vtk.vtkXMLUnstructuredGridWriter()
@@ -357,9 +372,9 @@ class GeologyModel:
         self.Write2VTU()
         basename=os.path.splitext(os.path.basename(self.fname))[0]
         # inputFile=os.path.join('Results',basename + '.vtu')
-        inputFile=os.path.join('Results',basename + '.vtu')
+        inputFile=os.path.join('GRDECL_file_reader/Results',basename + '.vtu')
         # outFile=os.path.join('Results',basename + '.vtp')
-        outFile=os.path.join('Results',basename + '.vtp')
+        outFile=os.path.join('GRDECL_file_reader/Results',basename + '.vtp')
         print('[Output] Writing "%s" VTP file..'%(outFile),end='')
         reader = vtk.vtkXMLUnstructuredGridReader()
         reader.SetFileName(inputFile)
