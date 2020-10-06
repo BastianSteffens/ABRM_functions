@@ -256,6 +256,7 @@ def create_multi_swarm(
     init_pos=None,
     clamp=None,
     ):
+    
     """Abstract the generate_swarm() and generate_velocity() methods for MultiSwarm
     Parameters
     ----------

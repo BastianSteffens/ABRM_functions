@@ -357,7 +357,7 @@ class GeologyModel:
         #     os.makedirs('Results')
         # path=os.path.join('Results',basename + '.vtu')
 
-         if not os.path.exists("GRDECL_file_reader/Results"):
+        if not os.path.exists("GRDECL_file_reader/Results"):
             os.makedirs('GRDECL_file_reader/Results')
         path=os.path.join('GRDECL_file_reader/Results',basename + '.vtu')
         print('[Output] Writing "%s" Paraview file....'%(path),end='')

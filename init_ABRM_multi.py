@@ -9,8 +9,8 @@ import pickle
 import datetime
 import lhsmdu
 import pathlib
-from .pyswarms_modified.particles.multi_particle import multi_particle
-
+from pyswarms_modified.particles.multi_particle import multi_particle
+# from pyswarms_modified.multi.multiple_objective_BS import multiple_objective
 ############################################################################
 
 def init():
@@ -21,7 +21,7 @@ def init():
     ###### Set hyperparmeters for PSO ######
     n_parameters = 30
     n_iters = 3
-    n_particles = 6 # always pick multiple of 3. need to fix this 
+    n_particles = 3 # always pick multiple of 3. need to fix this 
     min_bound = 0 * np.ones(n_parameters)
     max_bound = 1 * np.ones(n_parameters)
     bounds = (min_bound, max_bound)
@@ -32,15 +32,17 @@ def init():
     direction  = 1
     distance_measure  = 2 # 2 = euclidian 1 = manhatten
     dimensions = n_parameters
+    n_shedules = 2
 
     ### mopso options ###
-    obj_dimesions = 2
+    obj_dimensions = 2
+    obj_bounds = [[0,1],[0,1]]
     grid_size = 100
     grid_weight_coef = 1.5 
 
     options = {'c1': social_component, 'c2': cognitive_component, 'w':inertia, 
-               'p':distance_measure,'d':damping_factor, "direction": direction,"obj_dimensions":obj_dimesions,
-               "grid_size": grid_size,"grid_weight_coef":grid_weight_coef}
+               'p':distance_measure,'d':damping_factor, "direction": direction,"obj_dimensions":obj_dimensions,
+               "grid_size": grid_size,"grid_weight_coef":grid_weight_coef, "obj_bounds": obj_bounds}
     max_velocity = 0.1
     min_velocity = -max_velocity
     velocity_clamp = (min_velocity,max_velocity)
@@ -134,7 +136,7 @@ def init():
                  petrel_path = petrel_path, n_trainingimages = n_trainingimages,
                  continuous_discrete = continuous_discrete,schedule = schedule,penalty = penalty, best_models = best_models,
                  nx = nx, ny = ny, nz = nz, n_voronoi = n_voronoi,n_voronoi_zones = n_voronoi_zones,iter_ticker = 0,
-                 PSO_parameters = options,initial_inertia = inertia)
+                 PSO_parameters = options,initial_inertia = inertia, n_shedules = n_shedules)
 
     base_path = pathlib.Path(__file__).parent
     output_path = base_path / "../Output/"
@@ -151,12 +153,13 @@ def init():
     ###### Initialize swarm ######
 
     # Call instance of PSO
-    optimizer = ps.multi.multiple_objective_BS(n_particles=n_particles, dimensions=dimensions, options=options, setup = setup,
-                                               bounds= bounds, velocity_clamp= velocity_clamp, vh_strategy=vh_strategy,
-                                               bh_strategy = bh_strategy,init_pos= init_pos)
+    # optimizer = ps.multi.multiple_objective_BS(n_particles=n_particles, dimensions=dimensions, options=options, setup = setup,
+    #                                            bounds= bounds, velocity_clamp= velocity_clamp, vh_strategy=vh_strategy,
+    #                                            bh_strategy = bh_strategy,init_pos= init_pos)
+    optimizer = ps.multi.MOPSO(n_particles=n_particles, dimensions=dimensions, options=options, setup = setup)
 
-    cost, pos = optimizer.optimize(multi_particle, iters=n_iters,n_processes=setup["pool"])
-
+    pareto_front     = optimizer.optimize(multi_particle, iters=n_iters,n_processes=setup["pool"])
+    print(pareto_front)
     # Plot the cost
     plot_cost_history(optimizer.cost_history)
     plt.show()

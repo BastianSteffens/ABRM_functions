@@ -9,7 +9,7 @@ import pickle
 import datetime
 import lhsmdu
 import pathlib
-from .pyswarms_modified.particles.particle import particle
+from pyswarms_modified.particles.particle import particle
 
 ############################################################################
 

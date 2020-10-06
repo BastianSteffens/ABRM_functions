@@ -17,7 +17,9 @@ __version__ = "1.1.0"
 from .single import global_best, local_best, general_optimizer,local_best_BS
 
 from .multi import multiple_objective,multiple_objective_BS
+
+from .particles import particle, multi_particle
 from .discrete import binary
 from .utils.decorators import cost
 
-__all__ = ["global_best", "local_best", "general_optimizer", "multiple_objective", "binary", "cost"]
+__all__ = ["global_best", "local_best", "general_optimizer", "multiple_objective", "binary", "cost", "particle", "multi_particle"]

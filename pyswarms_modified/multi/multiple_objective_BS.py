@@ -44,13 +44,26 @@ import logging
 import numpy as np
 from time import sleep
 import multiprocessing as mp
-
+import pandas as pd
+import os
+import shutil
+import bz2
+import _pickle as cPickle
+from pyentrp import entropy as ent
+from sklearn.linear_model import LinearRegression
+from sklearn.neighbors import NearestNeighbors
+import re
+import subprocess
+import datetime
+import time
+import glob 
+import lhsmdu
 
 from ..base import SwarmOptimizer
 from ..utils import Reporter
 from ..backend.handlers import BoundaryHandler, VelocityHandler
 from ..backend.generators import create_multi_swarm
-from ..backend.operators import compute_velocity, compute_position,compute_objective_function
+from ..backend.operators import compute_velocity, compute_position,compute_objective_function_multi
 
 class MOPSO(SwarmOptimizer):
     def __init__(
@@ -132,6 +145,13 @@ class MOPSO(SwarmOptimizer):
         self.bh = BoundaryHandler(strategy=bh_strategy)
         self.vh = VelocityHandler(strategy=vh_strategy)
         self.name = __name__
+
+        ### BS ###
+        self.setup = setup
+        self.performance_all_iter = pd.DataFrame()
+        self.tof_all_iter = pd.DataFrame()
+        self.particle_values_all_iter = pd.DataFrame()
+        self.particle_values_converted_all_iter = pd.DataFrame()
         
     def optimize(self, objective_func, iters, fast=False,n_processes = None, **kwargs):
         """Optimize the swarm for a number of iterations
@@ -162,14 +182,14 @@ class MOPSO(SwarmOptimizer):
          # Setup Pool of processes for parallel evaluation
         pool = None if n_processes is None else mp.Pool(n_processes)
 
-        self.swarm.pbest_cost = np.full(self.swarm_size[0], np.inf)
+        self.swarm.pbest_cost = np.full((self.swarm_size[0],self.options["obj_dimensions"]), np.inf)
 
         # is this bit here necessary or can i push it into the for loop? otherwise would need to go through all the convert particle values / run batch fiel for petrel model steps beforehand
         # self.swarm.current_cost = objective_func(self.swarm.position, **kwargs)
         # self.swarm.update_archive()
         # self.swarm.pbest_pos = self.swarm.position
         # self.swarm.pbest_cost = self.swarm.current_cost
-        for _ in self.rep.pbar(iters, self.name):
+        for i in self.rep.pbar(iters, self.name):
             if not fast:
                 sleep(0.01)
 
