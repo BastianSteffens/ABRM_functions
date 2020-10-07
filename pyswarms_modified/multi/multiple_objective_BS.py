@@ -226,6 +226,36 @@ class MOPSO(SwarmOptimizer):
                 velocity=self.swarm.velocity,
             )
             self._populate_history(hist)
+
+            # get output dfs 
+            self.get_output_dfs(i)
+
+            # calculate tof-based entropy of models in swarm that pass misfit criterion
+            self.compute_tof_based_entropy_best_models()
+
+             # calculate the gradient of entropy change of best models
+            self.swarm.entropy_gradient = self.compute_best_model_diversity_gradient(i)
+
+            # append outputdata from current iteration to all data
+            self.performance_all_iter = self.performance_all_iter.append(self.performance, ignore_index = True)
+            self.tof_all_iter = self.tof_all_iter.append(self.tof,ignore_index = True)
+            self.particle_values_all_iter = self.particle_values_all_iter.append(self.particle_values, ignore_index = True)
+            self.particle_values_converted_all_iter = self.particle_values_converted_all_iter.append(self.particle_values_converted, ignore_index = True)
+
+
+            # save all reservoir models
+            # self.save_data(i,iters)
+            self.save_all_models()
+
+
+            # save all outputdata from models, at beginning, the end and every 5 iteration for checkup
+            if i == 0:
+                self.save_data(i,iters)
+            elif i == iters-1:
+                self.save_data(i,iters)
+            elif i % 4 == 0:
+                self.save_data(i,iters)
+
             # Perform velocity and position updates
             self.swarm.velocity = compute_velocity(
                 self.swarm, self.velocity_clamp, self.vh, self.bounds
@@ -233,6 +263,18 @@ class MOPSO(SwarmOptimizer):
             self.swarm.position = compute_position(
                 self.swarm, self.bounds, self.bh
             )
+
+            ### BS ###
+            if self.swarm.entropy_gradient<0:
+                print("entropy gradient is negative --> resetting PSO")
+                # new init position
+                self.init_pos = np.array(lhsmdu.sample(numDimensions = self.setup["n_particles"],numSamples = self.setup["n_parameters"]))
+                # reset swarm
+                self.reset()
+                self.swarm.pbest_cost = np.full((self.swarm_size[0],self.options["obj_dimensions"]), np.inf)
+                # reset inertia
+                self.swarm.options["w"] = self.setup["initial_inertia"] 
+
         front = self.swarm.archive.get_front()
         # Write report in log and return final cost and position
         self.rep.log(
@@ -494,3 +536,297 @@ class MOPSO(SwarmOptimizer):
 
         else:
             print("dry run - no model building",end = "\r")
+    
+    def get_output_dfs(self,i):
+        """prepare dfs of whole swarm with output that is ready for postprocessing"""
+        n_shedules = self.setup["n_shedules"]
+
+        # raw data from FD
+        self.tof = pd.DataFrame()
+        for shedule_no in range(n_shedules):
+
+            misfit = "misfit_" + str(shedule_no)
+            tof = "tof_" + str(shedule_no)
+            self.tof[tof] = self.performance[tof]
+            self.tof[misfit] = self.performance[misfit]
+            self.tof["iteration"] = self.performance["iteration"]
+            self.tof["particle_no"] = self.performance["particle_no"]
+
+        # self.swarm_performance_short = self.performance.iloc[::100,:].copy()
+        
+        # converted particles and raw particles tother with simulation outputs
+        columns = self.setup["columns"]
+        folder_path = self.setup["folder_path"]
+        self.particle_values_converted = pd.DataFrame(data = self.swarm.position_converted,columns = columns)
+        self.particle_values = pd.DataFrame(data = self.swarm.position,columns = columns)
+        # add iteration to df
+        self.particle_values_converted["iteration"] = i
+        self.particle_values["iteration"] =i
+        # add particle no to df
+        particle_no = np.arange(self.swarm.position_converted.shape[0], dtype = int)
+        self.particle_values_converted["particle_no"] = particle_no
+        self.particle_values["particle_no"] = particle_no
+
+        #add both misfits and LCs to df
+        for shedule_no in range(n_shedules):
+
+                misfit = "misfit_" + str(shedule_no)
+                LC = "LC_" + str(shedule_no)
+                self.particle_values[misfit] = self.current_cost[:,shedule_no]
+                self.particle_values_converted[misfit] = self.current_cost[:,shedule_no]
+                self.particle_values[LC] = self.LC[:,shedule_no].astype("float32")
+                self.particle_values_converted[LC] = self.LC[:,shedule_no].astype("float32")
+
+    def compute_tof_based_entropy_best_models(self):
+
+        """ function to compute the entropy of the models that fulfill misfit criterion based on the time-of-flight"""
+       
+        n_shedules = self.setup["n_shedules"]
+
+        #generate temporary all iter particle df
+        temp_all_iter_particle_values = self.particle_values_all_iter.append(self.particle_values, ignore_index = True)
+        temp_all_iter_tof = self.tof_all_iter.append(self.tof,ignore_index = True)
+
+        particle_values_all_iter_best = temp_all_iter_particle_values.copy()
+        # get models tht fulfil misfit criterion of all shedules
+        for shedule_no in range(n_shedules):
+            misfit = "misfit_" + str(shedule_no)
+            particle_values_all_iter_best = particle_values_all_iter_best[particle_values_all_iter_best[misfit] <= self.setup["best_models"]]
+
+        all_cells_entropy = []
+
+        # check if more than 1 models exist that are better than misfit
+        if particle_values_all_iter_best.shape[0] > 3:
+            print("got {} best models ...calculating entropy".format(particle_values_all_iter_best.shape[0]))
+            
+            entropy_all_shedules = []
+            for shedule_no in range(n_shedules):
+                
+                tof_column = "tof_" + str(shedule_no)
+                # filter out tof for all best models and make it readable for clustering
+                iteration = particle_values_all_iter_best.iteration.tolist()
+                particle_no =  particle_values_all_iter_best.particle_no.tolist()  
+                best_tof = pd.DataFrame(columns = np.arange(200*100*7))
+        
+                tof_all = pd.DataFrame()
+                for i in range(particle_values_all_iter_best.shape[0]):
+
+                    tof = temp_all_iter_tof[(temp_all_iter_tof.iteration == iteration[i]) & (temp_all_iter_tof.particle_no == particle_no[i])][tof_column]#.tof
+                    tof.reset_index(drop=True, inplace=True)
+                    tof_all = tof_all.append(tof,ignore_index = True)
+
+                best_tof = tof_all
+                best_tof["iteration"] = iteration
+                best_tof["particle_no"] = particle_no
+                best_tof.set_index(particle_values_all_iter_best.index.values,inplace = True)
+
+
+                for i in range(best_tof.shape[1]-2):
+
+                    cell = np.round(np.array(best_tof[i]).reshape(-1)/60/60/24/365.25)
+
+                    #over 20 years tof is binend together.considered unswept.
+                    cell_binned = np.digitize(cell,bins=[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20])
+            
+                    # calculate entropy based upon clusters
+                    cell_entropy = np.array(ent.shannon_entropy(cell_binned))
+                    all_cells_entropy.append(cell_entropy)
+
+                # sum up entropy for all cells
+                tof_based_entropy_best_models = np.sum(np.array(all_cells_entropy))
+                tof_entropy_all_shedules.append(tof_based_entropy_best_models)
+
+            tof_entropy_all_shedules_sum = np.sum(np.array(entropy_all_shedules))
+            print("entropy: {}".format(tof_entropy_all_shedules))
+
+
+        else:
+            print("no best models")
+            entropy_all_shedules = []
+            for shedule_no in range(n_shedules):
+                entropy_all_shedules.append(0)
+
+            tof_entropy_all_shedules_sum = 0
+        
+        self.particle_values["tof_entropy_all_shedules_sum"] = tof_entropy_all_shedules_sum
+        self.particle_values_converted["tof_entropy_all_shedules_sum"] = tof_entropy_all_shedules_sum
+
+        for shedule_no in range(n_shedules):
+            entropy_single_shedule = "tof_entropy_shedule_" + str(shedule_no)
+
+            self.particle_values[entropy_single_shedule] = entropy_all_shedules[shedule_no]
+            self.particle_values_converted[entropy_single_shedule] = entropy_all_shedules[shedule_no]
+
+    def compute_best_model_diversity_gradient(self,i,delta = 5):
+
+        """ check how if I am still producing new best models or  if they are just hovering around similar models.
+            This is done by checking how the slope of tof_based_entropy changes over iterations. If that slope falls below 0
+            the PSO should spread out again and reset the global/local best memory.
+        """
+        delta = 5
+       # dont do this analysis in the beginning, if not enough data availabe
+        if i < delta:
+            slope = 0
+        
+        else:
+            iterations_to_check = np.array(np.arange(i-delta,i))
+            linear_regressor = LinearRegression()
+            entropy = []
+            for j in range(delta):
+                entropy.append(np.array(self.particle_values_converted_all_iter[(self.particle_values_converted_all_iter["iteration"] ==iterations_to_check[j]) & (self.particle_values_converted_all_iter["particle_no"] ==0)].tof_entropy_all_shedules_sum))
+            
+            iterations_to_check = np.array(np.arange(i-delta,i)).reshape(-1,1)
+
+            linear_regressor.fit(iterations_to_check,entropy)
+            slope = linear_regressor.coef_.flatten()
+        
+        self.particle_values["entropy_slope"] = float(slope)
+        self.particle_values_converted["entropy_slope"] = float(slope)
+
+        print("entropy slope for last {} iterations : {}".format(delta,float(slope)))
+        return slope
+
+    def save_all_models(self):
+        """ Save reservoir models to output folder """
+        # loading in settings that I set up on init_ABRM.py for this run
+
+        save_models = self.setup["save_all_models"]
+        n_shedules = self.setup["n_shedules"]
+        base_path = self.setup["base_path"]
+
+        if save_models == True:
+            destination_path = self.setup["folder_path"] / 'all_models'
+            data_path = destination_path / "DATA"
+            include_path = destination_path / "INCLUDE"
+            permx_path = include_path / "PERMX"
+            permy_path = include_path / "PERMY"
+            permz_path = include_path / "PERMZ"
+            poro_path = include_path / "PORO"
+
+            n_particles = self.setup["n_particles"]
+            source_path = base_path / "../FD_Models"
+
+            if not os.path.exists(destination_path):
+
+                # make folders and subfolders
+                os.makedirs(destination_path)
+                os.makedirs(data_path)
+                os.makedirs(include_path)
+                os.makedirs(permx_path)
+                os.makedirs(permy_path)
+                os.makedirs(permz_path)
+                os.makedirs(poro_path)
+
+                #copy and paste generic files into Data
+                DP_pvt_src_path = source_path / "INCLUDE/DP_pvt.INC"
+                GRID_src_path = source_path / "INCLUDE/GRID.GRDECL"
+                ROCK_RELPERMS_src_path = source_path / "INCLUDE/ROCK_RELPERMS.INC"
+                SCHEDULE_src_path = source_path / "INCLUDE/{}.INC".format(schedule)
+                SOLUTION_src_path = source_path / "INCLUDE/SOLUTION.INC"
+                SUMMARY_src_path = source_path / "INCLUDE/SUMMARY.INC"
+
+                DP_pvt_dest_path = include_path / "DP_pvt.INC"
+                GRID_dest_path = include_path / "GRID.GRDECL"
+                ROCK_RELPERMS_dest_path = include_path / "ROCK_RELPERMS.INC"
+                SCHEDULE_dest_path = include_path / "{}.INC".format(schedule)
+                SOLUTION_dest_path = include_path / "SOLUTION.INC"
+                SUMMARY_dest_path = include_path / "SUMMARY.INC"
+                
+                shutil.copy(DP_pvt_src_path,DP_pvt_dest_path)
+                shutil.copy(GRID_src_path,GRID_dest_path)
+                shutil.copy(ROCK_RELPERMS_src_path,ROCK_RELPERMS_dest_path)
+                shutil.copy(SCHEDULE_src_path,SCHEDULE_dest_path)
+                shutil.copy(SOLUTION_src_path,SOLUTION_dest_path)
+                shutil.copy(SUMMARY_src_path,SUMMARY_dest_path)
+
+            if os.path.exists(destination_path):
+
+                PERMX_src_path = source_path / "INCLUDE/PERMX"
+                PERMY_src_path = source_path / "INCLUDE/PERMY"
+                PERMZ_src_path = source_path / "INCLUDE/PERMZ"
+                PORO_src_path = source_path / "INCLUDE/PORO"
+
+                PERMX_dest_path = include_path / "PERMX"
+                PERMY_dest_path = include_path / "PERMY"
+                PERMZ_dest_path = include_path / "PERMZ"
+                PORO_dest_path = include_path / "PORO"
+
+                model_id = 0
+
+                for particle_id in range(0,n_particles):
+
+                    # set path for Datafile
+                    data_file_path = data_path / "M{}.DATA".format(model_id)
+                    # getting higher model numbers for saving
+                    while os.path.exists(data_file_path):
+                        model_id += 1
+                        data_file_path = data_path / "M{}.DATA".format(model_id)
+
+                    # open datafile file to start writing into it / updating it
+                    for shedule_no in range(n_shedules):
+                        self.built_data_file(data_file_path,model_id,shedule_no)
+
+                    #copy and paste permxyz and poro files to new location
+                    permx_file_src_path = PERMX_src_path / "M{}.GRDECL".format(particle_id)  
+                    permy_file_src_path = PERMY_src_path / "M{}.GRDECL".format(particle_id)  
+                    permz_file_src_path = PERMZ_src_path / "M{}.GRDECL".format(particle_id)  
+                    poro_file_src_path = PORO_src_path / "M{}.GRDECL".format(particle_id)
+
+                    permx_file_dest_path = PERMX_dest_path / "M{}.GRDECL".format(model_id)  
+                    permy_file_dest_path = PERMY_dest_path / "M{}.GRDECL".format(model_id)  
+                    permz_file_dest_path = PERMZ_dest_path / "M{}.GRDECL".format(model_id)  
+                    poro_file_dest_path = PORO_dest_path / "M{}.GRDECL".format(model_id) 
+
+                    shutil.copy(permx_file_src_path,permx_file_dest_path)
+                    shutil.copy(permy_file_src_path,permy_file_dest_path)
+                    shutil.copy(permz_file_src_path,permz_file_dest_path)
+                    shutil.copy(poro_file_src_path,poro_file_dest_path)
+
+    def built_data_file(self,data_file_path,model_id,shedule_no):
+        """ built data files that can be used for flow simulations or flow diagnostics """
+        shedule = "SCHEDULE_multi_" + str(shedule_no)
+        data_file = "RUNSPEC\n\nTITLE\nModel_{}_{}\n\nDIMENS\n--NX NY NZ\n200 100 7 /\n\n--Phases\nOIL\nWATER\n\n--DUALPORO\n--NODPPM\n\n--Units\nMETRIC\n\n--Number of Saturation Tables\nTABDIMS\n1 /\n\n--Maximum number of Wells\nWELLDIMS\n10 100 5 10 /\n\n--First Oil\nSTART\n1 OCT 2017 /\n\n--Memory Allocation\nNSTACK\n100 /\n\n--How many warnings allowed, but terminate after first error\nMESSAGES\n11*5000 1 /\n\n--Unified Output Files\nUNIFOUT\n\n--======================================================================\n\nGRID\n--Include corner point geometry model\nINCLUDE\n'..\INCLUDE\GRID.GRDECL'\n/\n\nACTNUM\n140000*1 /\n\n--Porosity\nINCLUDE\n'..\INCLUDE\PORO\M{}.GRDECL'\n/\n\n--Permeability\nINCLUDE\n'..\INCLUDE\PERMX\M{}.GRDECL'\n/\nINCLUDE\n'..\INCLUDE\PERMY\M{}.GRDECL'\n/\nINCLUDE\n'..\INCLUDE\PERMZ\M{}.GRDECL'\n/\n\n--Net to Gross\nNTG\n140000*1\n/\n\n--Output .INIT file to allow viewing of grid data in post proessor\nINIT\n\n--======================================================================\n\nPROPS\n\nINCLUDE\n'..\INCLUDE\DP_pvt.inc' /\n\nINCLUDE\n'..\INCLUDE\ROCK_RELPERMS.INC' /\n\n--======================================================================\n\nREGIONS\n\nEQLNUM\n140000*1\n/\nSATNUM\n140000*1\n/\nPVTNUM\n140000*1\n/\n\n--======================================================================\n\nSOLUTION\n\nINCLUDE\n'..\INCLUDE\SOLUTION.INC' /\n\n--======================================================================\n\nSUMMARY\n\nINCLUDE\n'..\INCLUDE\SUMMARY.INC' /\n\n--======================================================================\n\nSCHEDULE\n\nINCLUDE\n'..\INCLUDE\{}.INC' /\n\nEND".format(model_id,shedule_no,model_id,model_id,model_id,model_id,schedule)  
+        
+        file = open(data_file_path, "w+")
+        # write petrelfilepath and licence part into file and seed
+        file.write(data_file)
+
+        # close file
+        file.close()
+    
+    def save_data(self,i,iters):
+        """ save df to csv files / pickle that contains all data used for postprocessing """
+        print("Saving Data at Iteration {}/{}".format(i,iters-1))
+
+        # filepath setup
+        folder_path = self.setup["folder_path"]
+        
+        # output_file_performance = "swarm_performance_all_iter.csv"
+        output_file_performance = "swarm_performance_all_iter.pbz2"
+        output_file_partilce_values_converted = "swarm_particle_values_converted_all_iter.csv"
+        output_file_partilce_values = "swarm_particle_values_all_iter.csv"
+        tof_file = "tof_all_iter.pbz2"
+        setup_file = "variable_settings.pickle"
+
+        file_path_tof = folder_path / tof_file
+        file_path_performance = folder_path / output_file_performance
+        # file_path_performance_pickle = folder_path / output_file_performance_pickle
+
+        file_path_particles_values_converted = folder_path / output_file_partilce_values_converted
+        file_path_particles_values = folder_path / output_file_partilce_values
+        file_path_setup = folder_path / setup_file
+
+        # make folder
+        if not os.path.exists(folder_path):
+            os.makedirs(folder_path)
+        
+        # save all
+        # self.performance_all_iter.to_csv(file_path_performance,index=False)
+        self.particle_values_converted_all_iter.to_csv(file_path_particles_values_converted,index=False)
+        self.particle_values_all_iter.to_csv(file_path_particles_values,index=False)
+        with bz2.BZ2File(file_path_tof,"w") as f:
+            cPickle.dump(self.tof_all_iter,f)
+        with bz2.BZ2File(file_path_setup,"w") as f:
+            cPickle.dump(self.setup,f)
+        with bz2.BZ2File(file_path_performance,"w") as f:
+            cPickle.dump(self.performance_all_iter,f)

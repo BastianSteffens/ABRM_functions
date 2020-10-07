@@ -20,7 +20,7 @@ def init():
 
     ###### Set hyperparmeters for PSO ######
     n_parameters = 30
-    n_iters = 3
+    n_iters = 60
     n_particles = 6 # always pick multiple of 3. need to fix this 
     min_bound = 0 * np.ones(n_parameters)
     max_bound = 1 * np.ones(n_parameters)
@@ -109,7 +109,7 @@ def init():
     penalty = "linear"
 
     # misfit threshold to qualify as suitable model
-    best_models = 0.15
+    best_models = 0.3
 
     # seed
     set_seed = random.randint(0,10000000)

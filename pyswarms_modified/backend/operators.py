@@ -398,8 +398,6 @@ def compute_objective_function_multi(swarm, objective_func,setup,iteration, pool
                 misfit_swarm[i,shedule_no] = particle_performance[particle_performance.particle_no == i][misfit].unique()
                 LC_swarm[i,shedule_no] = particle_performance[particle_performance.particle_no == i][LC].unique()
 
-        # misfit_swarm = np.array(misfit_swarm).flatten()
-        # LC_swarm = np.array(LC_swarm).flatten()
         print("misfit:{}".format(misfit_swarm))
         
         return misfit_swarm, LC_swarm, swarm_performance, setup
