@@ -151,23 +151,37 @@ class multi_particle():
         if self.setup["n_voronoi"] > 0:
             self.patch_voronoi_models(particle_no)
 
+        particle_performance = pd.DataFrame()
+
         for shedule_no in range(self.n_shedules):
             #built model for FD
             self.built_FD_Data_files_multi(particle_no,shedule_no)
 
             # Objective Function run flow diagnostics
-            particle_performance = self.obj_fkt_FD_multi(particle_no,shedule_no)
+            particle_performance_current_shedule = self.obj_fkt_FD_multi(particle_no,shedule_no)
 
             # Compute Performance
-            particle_misfit = self.misfit_fkt_F_Phi_curve_multi(particle_performance,shedule_no)
+            particle_misfit = self.misfit_fkt_F_Phi_curve_multi(particle_performance_current_shedule,shedule_no)
             print('particle {}/{} - misfit {}'.format(particle_no,self.setup["n_particles"]-1,np.round(particle_misfit,3)))#,end = "\r")
 
             # store misfit and particle no and iteration in dataframe also voronoi zone assignment, if voronoi is used.
-            particle_no = particle_no if self.pool is None else particle_no.item()
+            # particle_no = particle_no if self.pool is None else particle_no.item()
 
+            misfit = "misfit_" + str(shedule_no)
+            EV = "EV_" + str(shedule_no)
+            tD = "tD_" + str(shedule_no)
+            F = "F_" + str(shedule_no)
+            Phi = "Phi_" + str(shedule_no)
+            LC = "LC_" + str(shedule_no)
+            tof = "tof_" + str(shedule_no)
             particle_performance["iteration"] =self.iteration
             particle_performance["particle_no"] = particle_no
-            misfit = "misfit_" + str(shedule_no)
+            particle_performance[EV] = particle_performance_current_shedule[EV]
+            particle_performance[tD] = particle_performance_current_shedule[tD] 
+            particle_performance[F] = particle_performance_current_shedule[F]
+            particle_performance[Phi] = particle_performance_current_shedule[Phi]
+            particle_performance[LC] = particle_performance_current_shedule[LC]
+            particle_performance[tof] = particle_performance_current_shedule[tof]
             particle_performance[misfit] = particle_misfit
 
         # have to do this for parallel execution. can only return one argument. and need to return voroni stuff and particle_performacne
