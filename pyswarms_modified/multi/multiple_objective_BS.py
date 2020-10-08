@@ -572,8 +572,8 @@ class MOPSO(SwarmOptimizer):
 
                 misfit = "misfit_" + str(shedule_no)
                 LC = "LC_" + str(shedule_no)
-                self.particle_values[misfit] = self.current_cost[:,shedule_no]
-                self.particle_values_converted[misfit] = self.current_cost[:,shedule_no]
+                self.particle_values[misfit] = self.swarm.current_cost[:,shedule_no]
+                self.particle_values_converted[misfit] = self.swarm.current_cost[:,shedule_no]
                 self.particle_values[LC] = self.LC[:,shedule_no].astype("float32")
                 self.particle_values_converted[LC] = self.LC[:,shedule_no].astype("float32")
 
@@ -597,9 +597,9 @@ class MOPSO(SwarmOptimizer):
 
         # check if more than 1 models exist that are better than misfit
         if particle_values_all_iter_best.shape[0] > 3:
-            print("got {} best models ...calculating entropy".format(particle_values_all_iter_best.shape[0]))
+            print(" got {} best models ...calculating entropy".format(particle_values_all_iter_best.shape[0]))
             
-            entropy_all_shedules = []
+            tof_entropy_all_shedules = []
             for shedule_no in range(n_shedules):
                 
                 tof_column = "tof_" + str(shedule_no)
@@ -636,15 +636,15 @@ class MOPSO(SwarmOptimizer):
                 tof_based_entropy_best_models = np.sum(np.array(all_cells_entropy))
                 tof_entropy_all_shedules.append(tof_based_entropy_best_models)
 
-            tof_entropy_all_shedules_sum = np.sum(np.array(entropy_all_shedules))
-            print("entropy: {}".format(tof_entropy_all_shedules))
+            tof_entropy_all_shedules_sum = np.sum(np.array(tof_entropy_all_shedules))
+            print("entropy: {}".format(tof_entropy_all_shedules_sum))
 
 
         else:
-            print("no best models")
-            entropy_all_shedules = []
+            print(" no best models")
+            tof_entropy_all_shedules = []
             for shedule_no in range(n_shedules):
-                entropy_all_shedules.append(0)
+                tof_entropy_all_shedules.append(0)
 
             tof_entropy_all_shedules_sum = 0
         
@@ -654,8 +654,8 @@ class MOPSO(SwarmOptimizer):
         for shedule_no in range(n_shedules):
             entropy_single_shedule = "tof_entropy_shedule_" + str(shedule_no)
 
-            self.particle_values[entropy_single_shedule] = entropy_all_shedules[shedule_no]
-            self.particle_values_converted[entropy_single_shedule] = entropy_all_shedules[shedule_no]
+            self.particle_values[entropy_single_shedule] = tof_entropy_all_shedules[shedule_no]
+            self.particle_values_converted[entropy_single_shedule] = tof_entropy_all_shedules[shedule_no]
 
     def compute_best_model_diversity_gradient(self,i,delta = 5):
 
@@ -716,28 +716,29 @@ class MOPSO(SwarmOptimizer):
                 os.makedirs(permy_path)
                 os.makedirs(permz_path)
                 os.makedirs(poro_path)
+                for shedule_no in range(n_shedules):
+                #copy and paste generic files into Data]
+                    schedule = "SCHEDULE_multi_" + str(shedule_no)
+                    DP_pvt_src_path = source_path / "INCLUDE/DP_pvt.INC"
+                    GRID_src_path = source_path / "INCLUDE/GRID.GRDECL"
+                    ROCK_RELPERMS_src_path = source_path / "INCLUDE/ROCK_RELPERMS.INC"
+                    SCHEDULE_src_path = source_path / "INCLUDE/{}.INC".format(schedule)
+                    SOLUTION_src_path = source_path / "INCLUDE/SOLUTION.INC"
+                    SUMMARY_src_path = source_path / "INCLUDE/SUMMARY.INC"
 
-                #copy and paste generic files into Data
-                DP_pvt_src_path = source_path / "INCLUDE/DP_pvt.INC"
-                GRID_src_path = source_path / "INCLUDE/GRID.GRDECL"
-                ROCK_RELPERMS_src_path = source_path / "INCLUDE/ROCK_RELPERMS.INC"
-                SCHEDULE_src_path = source_path / "INCLUDE/{}.INC".format(schedule)
-                SOLUTION_src_path = source_path / "INCLUDE/SOLUTION.INC"
-                SUMMARY_src_path = source_path / "INCLUDE/SUMMARY.INC"
-
-                DP_pvt_dest_path = include_path / "DP_pvt.INC"
-                GRID_dest_path = include_path / "GRID.GRDECL"
-                ROCK_RELPERMS_dest_path = include_path / "ROCK_RELPERMS.INC"
-                SCHEDULE_dest_path = include_path / "{}.INC".format(schedule)
-                SOLUTION_dest_path = include_path / "SOLUTION.INC"
-                SUMMARY_dest_path = include_path / "SUMMARY.INC"
-                
-                shutil.copy(DP_pvt_src_path,DP_pvt_dest_path)
-                shutil.copy(GRID_src_path,GRID_dest_path)
-                shutil.copy(ROCK_RELPERMS_src_path,ROCK_RELPERMS_dest_path)
-                shutil.copy(SCHEDULE_src_path,SCHEDULE_dest_path)
-                shutil.copy(SOLUTION_src_path,SOLUTION_dest_path)
-                shutil.copy(SUMMARY_src_path,SUMMARY_dest_path)
+                    DP_pvt_dest_path = include_path / "DP_pvt.INC"
+                    GRID_dest_path = include_path / "GRID.GRDECL"
+                    ROCK_RELPERMS_dest_path = include_path / "ROCK_RELPERMS.INC"
+                    SCHEDULE_dest_path = include_path / "{}.INC".format(schedule)
+                    SOLUTION_dest_path = include_path / "SOLUTION.INC"
+                    SUMMARY_dest_path = include_path / "SUMMARY.INC"
+                    
+                    shutil.copy(DP_pvt_src_path,DP_pvt_dest_path)
+                    shutil.copy(GRID_src_path,GRID_dest_path)
+                    shutil.copy(ROCK_RELPERMS_src_path,ROCK_RELPERMS_dest_path)
+                    shutil.copy(SCHEDULE_src_path,SCHEDULE_dest_path)
+                    shutil.copy(SOLUTION_src_path,SOLUTION_dest_path)
+                    shutil.copy(SUMMARY_src_path,SUMMARY_dest_path)
 
             if os.path.exists(destination_path):
 
@@ -784,7 +785,7 @@ class MOPSO(SwarmOptimizer):
 
     def built_data_file(self,data_file_path,model_id,shedule_no):
         """ built data files that can be used for flow simulations or flow diagnostics """
-        shedule = "SCHEDULE_multi_" + str(shedule_no)
+        schedule = "SCHEDULE_multi_" + str(shedule_no)
         data_file = "RUNSPEC\n\nTITLE\nModel_{}_{}\n\nDIMENS\n--NX NY NZ\n200 100 7 /\n\n--Phases\nOIL\nWATER\n\n--DUALPORO\n--NODPPM\n\n--Units\nMETRIC\n\n--Number of Saturation Tables\nTABDIMS\n1 /\n\n--Maximum number of Wells\nWELLDIMS\n10 100 5 10 /\n\n--First Oil\nSTART\n1 OCT 2017 /\n\n--Memory Allocation\nNSTACK\n100 /\n\n--How many warnings allowed, but terminate after first error\nMESSAGES\n11*5000 1 /\n\n--Unified Output Files\nUNIFOUT\n\n--======================================================================\n\nGRID\n--Include corner point geometry model\nINCLUDE\n'..\INCLUDE\GRID.GRDECL'\n/\n\nACTNUM\n140000*1 /\n\n--Porosity\nINCLUDE\n'..\INCLUDE\PORO\M{}.GRDECL'\n/\n\n--Permeability\nINCLUDE\n'..\INCLUDE\PERMX\M{}.GRDECL'\n/\nINCLUDE\n'..\INCLUDE\PERMY\M{}.GRDECL'\n/\nINCLUDE\n'..\INCLUDE\PERMZ\M{}.GRDECL'\n/\n\n--Net to Gross\nNTG\n140000*1\n/\n\n--Output .INIT file to allow viewing of grid data in post proessor\nINIT\n\n--======================================================================\n\nPROPS\n\nINCLUDE\n'..\INCLUDE\DP_pvt.inc' /\n\nINCLUDE\n'..\INCLUDE\ROCK_RELPERMS.INC' /\n\n--======================================================================\n\nREGIONS\n\nEQLNUM\n140000*1\n/\nSATNUM\n140000*1\n/\nPVTNUM\n140000*1\n/\n\n--======================================================================\n\nSOLUTION\n\nINCLUDE\n'..\INCLUDE\SOLUTION.INC' /\n\n--======================================================================\n\nSUMMARY\n\nINCLUDE\n'..\INCLUDE\SUMMARY.INC' /\n\n--======================================================================\n\nSCHEDULE\n\nINCLUDE\n'..\INCLUDE\{}.INC' /\n\nEND".format(model_id,shedule_no,model_id,model_id,model_id,model_id,schedule)  
         
         file = open(data_file_path, "w+")

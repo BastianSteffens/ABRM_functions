@@ -391,7 +391,6 @@ def compute_objective_function_multi(swarm, objective_func,setup,iteration, pool
                 setup["assign_voronoi_zone_" +str(i)] = particle_list[i]["assign_voronoi_zone_" +str(i)]
             particle_performance = particle_list[i]["particle_performance"]
             swarm_performance = swarm_performance.append(particle_performance,ignore_index = True)
-            print(particle_performance.head())
             for shedule_no in range(n_shedules):
                 misfit = "misfit_" + str(shedule_no)
                 LC = "LC_" + str(shedule_no)
