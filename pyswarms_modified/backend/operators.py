@@ -166,31 +166,6 @@ def compute_velocity(swarm, clamp, vh, bounds=None):
 
         ### BS ###
         # implement ARPSO
-    # Function setDirection
-    # if (dir > 0 && diversity < dLow) dir = -1;
-    # if (dir < 0 && diversity > dHigh) dir = 1;
-    # setDirection(); // new!
-    # updateVelocity();
-    # newPosition();
-    # assignFitness();
-    # calculateDiversity(); // new!
-    # what infulueces entropy: n_paramters,n_particles, rough
-    # try and calculate the max_entropy possible for given pso config
-    # print(ent.shannon_entropy(np.arange(10000)))
-    #
-        # entropy = load_iteration_entropy_tof()
-
-        # if entropy >= 1300 and entropy <= 2500:
-        #     temp_velocity = (w * swarm.velocity) + cognitive + social
-        #     print("entropy within bounds:{}".format(entropy))
-        #     print(temp_velocity)
-        # else:
-        #     temp_velocity = (w * swarm.velocity) + (-cognitive + -social)
-        #     print("entropy out of bounds:{}".format(entropy))
-        #     print(temp_velocity)
-    #  if (dir > 0 && diversity < dLow) dir = -1;
-    #  if (dir < 0 && diversity > dHigh) dir = 1;
-
         # Compute temp velocity (subject to clamping if possible)
         # temp_velocity = compute_ARPSO_velocity(w,swarm,cognitive,social,direction)
         temp_velocity = (w * swarm.velocity) + cognitive + social
@@ -467,3 +442,47 @@ def compute_ARPSO_velocity(w,swarm,cognitive,social,direction):
 
 
     return temp_velocity
+
+def mutate_particle(pos, bounds, iteration, n_iterations, mutationrate):
+    """ to prevent mature convergence to a false pareto front, a mutation factor is included that tries to explore 
+        with all the particles at the beginning of the search. Then, we decrease rapidly (with respect to the number 
+        of iterations) the number of particles that are affected by the mutation operator. Note that our mutation operator
+        is applied not only to the particles of the swarm, but also to the range of each design variable of the problem 
+        to be solved (using the same variation function). See Coello Coello et al. Handling Multiple Objectives with PSO (2004)."""
+
+    if (np.random.random() < ((1.0 - iteration / n_iterations) ** (5.0 /mutationrate))): # Flip
+        whichdim = np.random.randint(0, len(bounds))
+        bound = bounds[whichdim]
+        mutrange = (bound[1] - bound[0])*((1.0 - iteration / n_iterations)** (5.0 / mutationrate))
+        ub = pos[whichdim] + mutrange
+        lb = pos[whichdim] - mutrange
+
+        # Fix if out of bounds
+        if(lb < bound[0]):
+            lb = bound[0]
+        if(ub < bound[1]):
+            ub = bound[1]
+
+        pos[whichdim] = np.random.random() * (ub - lb) + lb
+
+    return pos
+
+
+def mutate(swarm, bounds, iteration, n_iterations, mutationrate):
+    """ to prevent mature convergence to a false pareto front, a mutation factor is included that tries to explore 
+        with all the particles at the beginning of the search. Then, we decrease rapidly (with respect to the number 
+        of iterations) the number of particles that are affected by the mutation operator. Note that our mutation operator
+        is applied not only to the particles of the swarm, but also to the range of each design variable of the problem 
+        to be solved (using the same variation function). See Coello Coello et al. Handling Multiple Objectives with PSO (2004)."""
+    try:
+        temp_position = swarm.position.copy()
+
+        position = np.array([mutate_particle(pos, bounds, iteration, n_iterations, mutationrate) for pos in temp_position]) # Iterate over particles
+
+    except AttributeError:
+        rep.logger.exception(
+            "Please pass a Swarm class. You passed {}".format(type(swarm))
+        )
+        raise
+    else:
+        return position

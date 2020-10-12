@@ -20,7 +20,7 @@ def init():
 
     ###### Set hyperparmeters for PSO ######
     n_parameters = 30
-    n_iters = 60
+    n_iters = 2
     n_particles = 6 # always pick multiple of 3. need to fix this 
     min_bound = 0 * np.ones(n_parameters)
     max_bound = 1 * np.ones(n_parameters)
@@ -156,7 +156,8 @@ def init():
     # optimizer = ps.multi.multiple_objective_BS(n_particles=n_particles, dimensions=dimensions, options=options, setup = setup,
     #                                            bounds= bounds, velocity_clamp= velocity_clamp, vh_strategy=vh_strategy,
     #                                            bh_strategy = bh_strategy,init_pos= init_pos)
-    optimizer = ps.multi.MOPSO(n_particles=n_particles, dimensions=dimensions, options=options, setup = setup)
+    optimizer = ps.multi.MOPSO(n_particles=n_particles, dimensions=dimensions, options=options, setup = setup,bounds= bounds, 
+                               velocity_clamp= velocity_clamp, vh_strategy=vh_strategy, bh_strategy = bh_strategy,init_pos= init_pos)
 
     pareto_front     = optimizer.optimize(multi_particle, iters=n_iters,n_processes=setup["pool"])
     print(pareto_front)

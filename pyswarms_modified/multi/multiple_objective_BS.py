@@ -63,7 +63,7 @@ from ..base import SwarmOptimizer
 from ..utils import Reporter
 from ..backend.handlers import BoundaryHandler, VelocityHandler
 from ..backend.generators import create_multi_swarm
-from ..backend.operators import compute_velocity, compute_position,compute_objective_function_multi
+from ..backend.operators import compute_velocity, compute_position,compute_objective_function_multi, mutate
 
 class MOPSO(SwarmOptimizer):
     def __init__(
@@ -182,13 +182,15 @@ class MOPSO(SwarmOptimizer):
          # Setup Pool of processes for parallel evaluation
         pool = None if n_processes is None else mp.Pool(n_processes)
 
-        self.swarm.pbest_cost = np.full((self.swarm_size[0],self.options["obj_dimensions"]), np.inf)
+        # self.swarm.pbest_cost = np.full((self.swarm_size[0],self.options["obj_dimensions"]), np.inf)
 
         # is this bit here necessary or can i push it into the for loop? otherwise would need to go through all the convert particle values / run batch fiel for petrel model steps beforehand
         # self.swarm.current_cost = objective_func(self.swarm.position, **kwargs)
         # self.swarm.update_archive()
         # self.swarm.pbest_pos = self.swarm.position
         # self.swarm.pbest_cost = self.swarm.current_cost
+        self.pre_iter_run(objective_func,self.setup,0,pool)
+
         for i in self.rep.pbar(iters, self.name):
             if not fast:
                 sleep(0.01)
@@ -264,8 +266,13 @@ class MOPSO(SwarmOptimizer):
                 self.swarm, self.bounds, self.bh
             )
 
+            # perform mutation on particle positions
+            self.swarm.position = mutate(self.swarm,self.bounds,i,iters,0.5)
+            
+
             ### BS ###
-            if self.swarm.entropy_gradient<0:
+            # reset PSO if the entropy gradient of the best solutions is declining
+            if self.swarm.entropy_gradient<5:
                 print("entropy gradient is negative --> resetting PSO")
                 # new init position
                 self.init_pos = np.array(lhsmdu.sample(numDimensions = self.setup["n_particles"],numSamples = self.setup["n_parameters"]))
@@ -831,3 +838,25 @@ class MOPSO(SwarmOptimizer):
             cPickle.dump(self.setup,f)
         with bz2.BZ2File(file_path_performance,"w") as f:
             cPickle.dump(self.performance_all_iter,f)
+
+    def pre_iter_run(self,objective_func,setup,iteration,pool):
+
+        # convert particle values to values suitable for model building
+        self.convert_particle_values()
+
+        # Built new geomodels (with batch files) in Petrel based upon converted particles.
+        self.built_batch_file_for_petrel_models_uniform()
+
+        # built multibat files to run petrel licences in parallel
+        self.built_multibat_files()
+
+        # run these batch files to built new geomodels 
+        self.run_batch_file_for_petrel_models()
+
+        # Compute cost for swarm current position, performance and personal best
+        self.swarm.current_cost,self.LC, self.performance, self.setup= compute_objective_function_multi(
+        self.swarm, objective_func,self.setup,0, pool=pool)  
+
+        self.swarm.update_archive()
+        self.swarm.pbest_pos = self.swarm.position
+        self.swarm.pbest_cost = self.swarm.current_cost
