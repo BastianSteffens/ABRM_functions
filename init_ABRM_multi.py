@@ -20,8 +20,8 @@ def init():
 
     ###### Set hyperparmeters for PSO ######
     n_parameters = 30
-    n_iters = 2
-    n_particles = 6 # always pick multiple of 3. need to fix this 
+    n_iters = 50
+    n_particles = 36 # always pick multiple of 3. need to fix this 
     min_bound = 0 * np.ones(n_parameters)
     max_bound = 1 * np.ones(n_parameters)
     bounds = (min_bound, max_bound)
@@ -101,7 +101,7 @@ def init():
     # misfit values
     # create curve and save resultign desired LC
     Phi_points_target = np.linspace(0, 1, num=11, endpoint=True)
-    F_points_target = np.array([0, 0.2, 0.35, 0.5, 0.6, 0.7, 0.8, 0.9, 0.97, 0.99, 1])
+    F_points_target = np.array([0, 0.2, 0.45, 0.6, 0.7, 0.8, 0.9, 0.95, 0.97, 0.99, 1])
 
     # what schedule 5_spot or line_drive
     schedule = "5_spot"
@@ -109,7 +109,7 @@ def init():
     penalty = "linear"
 
     # misfit threshold to qualify as suitable model
-    best_models = 0.3
+    best_models = 0.15
 
     # seed
     set_seed = random.randint(0,10000000)
@@ -121,7 +121,7 @@ def init():
     # which workflow to run in petrel (atm onlz 1 wf)
     runworkflow = "WF_2020_04_16"   #"WF_2020_07_03" #"WF_2020_04_16"#"WF_2019_09_16", "WF_test" "WF_2020_05_08"
     # run with petrel or without for test
-    petrel_on = False
+    petrel_on = True
     petrel_path = "C:/Program Files/Schlumberger/Petrel 2017/Petrel.exe"
 
     # if all models should be explicitly saved and not overwritten. 
