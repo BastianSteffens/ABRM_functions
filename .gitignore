@@ -6,6 +6,8 @@ batch_files/*
 data/*
 images/*
 Results/*
+GRDECL_file_reader/Results/*
+postprocessing_multi.ipynb
 *.pkl
 *.csv
 FD_BS_one_file.m

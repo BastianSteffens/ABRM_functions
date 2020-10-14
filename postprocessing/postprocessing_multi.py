@@ -51,7 +51,7 @@ class postprocessing_multi():
         """ read individual datasets and conconate them to one big df """
 
         for i in range(0,self.n_datasets):
-            path = str(self.setup["base_path"] / "../Output/")+ "/"+ self.data_to_process[i] + "/"
+            path = str(self.setup["base_path"] / "../../Output/")+ "/"+ self.data_to_process[i] + "/"
             performance = "swarm_performance_all_iter.pbz2"
             position = "swarm_particle_values_converted_all_iter.csv"
             setup = "variable_settings.pickle"
@@ -85,8 +85,7 @@ class postprocessing_multi():
             
             # interpolate F-Phi curve from input points with spline
             tck = interpolate.splrep(Phi_points_target,F_points_target, s = 0)
-            print(len(df_performance_single.loc[(df_performance_single.iteration == 1) & (df_performance_single.particle_no == 0), "Phi"]))
-            Phi_interpolated = np.linspace(0,1,num = len(df_performance_single.loc[(df_performance_single.iteration == 0) & (df_performance_single.particle_no == 0), "Phi"]),endpoint = True)        
+            Phi_interpolated = np.linspace(0,1,num = len(df_performance_single.loc[(df_performance_single.iteration == 0) & (df_performance_single.particle_no == 0)]["Phi_0"]),endpoint = True)        
             F_interpolated = interpolate.splev(Phi_interpolated,tck,der = 0)
             LC_interpolated = self.compute_LC(F_interpolated,Phi_interpolated)
                     
@@ -125,18 +124,17 @@ class postprocessing_multi():
         n_shedules = self.setup_all[self.data_to_process[0]]["n_shedules"]
         
         self.df_best_position = self.df_position.copy()
-        self.df_best_performance = self.df_best_performance.copy
+        self.df_best_performance = self.df_performance.copy()
         # get models tht fulfil misfit criterion of all shedules
         for shedule_no in range(n_shedules):
             misfit = "misfit_" + str(shedule_no)
-            particle_values_all_iter_best = particle_values_all_iter_best[particle_values_all_iter_best[misfit] <= self.setup["best_models"]]
             self.df_best_position =self.df_best_position[(self.df_best_position[misfit] <= misfit_tolerance)]
             self.df_best_performance =self.df_best_performance[(self.df_best_performance[misfit] <= misfit_tolerance)]
 
         if window_shape == (1,1,1) and step_size == 1:
             self.best_tof_dict = dict()
             for shedule_no in range(n_shedules):
-                tof = "tof_" + str(shedule_no)
+                tof_index = "tof_" + str(shedule_no)
 
                 df_best_tof = pd.DataFrame(columns = np.arange(int(nx/window_shape[0])*int(ny/window_shape[1])*int(nz/window_shape[2])))
 
@@ -146,7 +144,7 @@ class postprocessing_multi():
                 tof_all = pd.DataFrame()
                 for i in range(self.df_best_position.shape[0]):
 
-                    tof = self.df_tof[(self.df_tof.iteration == iteration[i]) & (self.df_tof.particle_no == particle_no[i])][tof]
+                    tof = self.df_tof[(self.df_tof.iteration == iteration[i]) & (self.df_tof.particle_no == particle_no[i])][tof_index]
                     tof.reset_index(drop=True, inplace=True)
 
                     tof_all = tof_all.append(tof,ignore_index = True)
@@ -156,26 +154,26 @@ class postprocessing_multi():
                 df_best_tof["particle_no"] = particle_no
                 df_best_tof.set_index(self.df_best_position.index.values,inplace = True)
 
-                self.best_tof_dict[tof] = df_best_tof
+                self.best_tof_dict[tof_index] = df_best_tof
 
 
         elif window_shape != (1,1,1):
             self.best_tof_dict = dict()
             
             for shedule_no in range(n_shedules):
-                tof = "tof_" + str(shedule_no)
+                tof_index = "tof_" + str(shedule_no)
                 misfit = "misfit_" + str(shedule_no)
 
                 df_best_tof = pd.DataFrame(columns = np.arange(int(nx/window_shape[0])*int(ny/window_shape[1])*int(nz/window_shape[2])))
             
-                df_best_tof_temp =self.df_tof[(self.df_tof[misfit] <= misfit_tolerance)][tof].copy()
+                df_best_tof_temp =self.df_tof[(self.df_tof[misfit] <= misfit_tolerance)][tof_index].copy()
                 iterations = df_best_tof_temp["iteration"].unique().tolist()
                 for i in range(0,len(iterations)):
                     iteration = iterations[i]
                     particle_no = df_best_tof_temp[ df_best_tof_temp.iteration == iteration].particle_no.unique().tolist()
                     for j in range(0,len(particle_no)):
                         particle = particle_no[j]
-                        tof_single_particle = np.array(df_best_tof_temp[(df_best_tof_temp.iteration == iteration) & (df_best_tof_temp.particle_no == particle)][tof])
+                        tof_single_particle = np.array(df_best_tof_temp[(df_best_tof_temp.iteration == iteration) & (df_best_tof_temp.particle_no == particle)][tof_index])
                         tof_single_particle_3d = tof_single_particle.reshape((nx,ny,nz))
                         tof_single_particle_moving_window = view_as_windows(tof_single_particle_3d, window_shape, step= step_size)
                         tof_single_particle_upscaled = []
@@ -193,7 +191,7 @@ class postprocessing_multi():
                 
                 df_best_tof.set_index(self.df_best_position.index.values,inplace = True)
 
-                self.best_tof_dict[tof] = df_best_tof
+                self.best_tof_dict[tof_index] = df_best_tof
 
 
     def compute_LC(self,F,Phi):
@@ -284,8 +282,29 @@ class postprocessing_multi():
                 showlegend=False
             )
             fig.show()
+    
+    def plot_misfit(self,objective_0 = 0,objective_1 = 1):
+        """ scatter plot showing misfit of 2 objective functions """
+        # at some point can add maybe development of swarm towards pareto front
+        # also highlight the pareto front
 
-    def plot_performance(self,shedule_no):
+        misfit_0 = "misfit_"+ str(objective_0)
+        misfit_1 = "misfit_"+ str(objective_1)
+
+        fig = make_subplots(rows =1, cols = 1,)
+
+        fig.add_trace(go.Scatter(x = self.df_position[misfit_0], y=self.df_position[misfit_1],
+                                mode='markers',
+                                line = dict(color = "lightgray"),
+                                name='Simulated'),row =1, col =1)
+        fig.add_trace(go.Scatter( x= self.df_best_position[misfit_0],y=self.df_best_position[misfit_1],
+                                    mode = "markers",
+                                line = dict(color = "magenta")),row =1, col =1)
+
+        fig.show()
+
+
+    def plot_performance(self,shedule_no = 0):
 
         """ Create plots showing the Flow Diagnostic Performance of the PSO over n iterations
             Args: filter dataset to data that are fulfill misfit tolerance """
@@ -295,8 +314,8 @@ class postprocessing_multi():
         misfit = "misfit_" + str(shedule_no)
         Phi = "Phi_" + str(shedule_no)
         F = "F_" + str(shedule_no)
-        EV = "EV_" + str(shedule_no)
-        tD = "tD_" + str(shedule_no)
+        EV_index = "EV_" + str(shedule_no)
+        tD_index = "tD_" + str(shedule_no)
 
         fig = make_subplots(rows = 2, cols = 2,
                         subplot_titles = ("Misfit","LC plot","F - Phi Graph","Sweep Efficieny Graph"))
@@ -366,8 +385,8 @@ class postprocessing_multi():
             iteration = i 
             for j in range(0,self.df_performance.particle_no.max()):
                 particle_no = j
-                EV = self.df_performance[(self.df_performance.iteration == iteration) & (self.df_performance.particle_no == particle_no)][EV]
-                tD = self.df_performance[(self.df_performance.iteration == iteration) & (self.df_performance.particle_no == particle_no)][tD]
+                EV = self.df_performance[(self.df_performance.iteration == iteration) & (self.df_performance.particle_no == particle_no)][EV_index]
+                tD = self.df_performance[(self.df_performance.iteration == iteration) & (self.df_performance.particle_no == particle_no)][tD_index]
                 fig.add_trace(go.Scatter(x=tD, y=EV,
                                     mode='lines',
                                     line = dict(color = "lightgray"),
@@ -378,9 +397,9 @@ class postprocessing_multi():
             iteration = i 
             for j in range(0,self.df_performance.particle_no.max()):
                 particle_no = j
-                EV_plot = self.df_best_performance[(self.df_best_performance.iteration == iteration) & (self.df_best_performance.particle_no == particle_no)].EV
-                tD_plot = self.df_best_performance[(self.df_best_performance.iteration == iteration) & (self.df_best_performance.particle_no == particle_no)].tD
-                fig.add_trace(go.Scatter(x=tD_plot, y=EV_plot,
+                EV = self.df_best_performance[(self.df_best_performance.iteration == iteration) & (self.df_best_performance.particle_no == particle_no)][EV_index]
+                tD = self.df_best_performance[(self.df_best_performance.iteration == iteration) & (self.df_best_performance.particle_no == particle_no)][tD_index]
+                fig.add_trace(go.Scatter(x=tD, y=EV,
                                     mode='lines',
                                     line = dict(color = "magenta"),
                                     text = "nothing yet",
@@ -396,14 +415,14 @@ class postprocessing_multi():
 
         fig.show()
 
-    def plot_tof_best_models(self,shedule_no):
+    def plot_tof_best_models(self,shedule_no = 0):
         "plot the median tof for best models to see what areas are unswept in most scenarios"
         nx = 200
         ny = 100
         nz = 7
         all_cells_median = []
         tof = "tof_" + str(shedule_no)
-        df_best_tof = self.best_tof_dict[shedule_no]
+        df_best_tof = self.best_tof_dict[tof]
         for i in range(df_best_tof.shape[1]-2):
             # single cell in all models, from seconds to years    
             cell = np.round(np.array(df_best_tof[i]).reshape(-1)/60/60/24/365.25)
@@ -426,7 +445,7 @@ class postprocessing_multi():
         boring_cmap = plt.cm.get_cmap("viridis")
         grid.plot(show_edges=False,cmap = boring_cmap)
 
-    def plot_tof_entropy(self,shedule_no):
+    def plot_tof_entropy(self,shedule_no = 0):
 
         """ plot distribution of entropy based on grid for the best models """
         nx = 200
@@ -435,7 +454,7 @@ class postprocessing_multi():
         all_cells_entropy = []
         all_cell_cluster_id = []
         tof = "tof_" + str(shedule_no)
-        df_best_tof = self.best_tof_dict[shedule_no]
+        df_best_tof = self.best_tof_dict[tof]
         for i in range(df_best_tof.shape[1]-2):
             # single cell in all models, from seconds to years    
             cell = np.round(np.array(df_best_tof[i]).reshape(-1)/60/60/24/365.25)
@@ -467,10 +486,10 @@ class postprocessing_multi():
         #get filepath and laod grid
 
         if property == "tof":
-            tof = "tof_" + str(shedule_no)
-            df_best_tof = self.best_tof_dict[shedule_no]
+            tof_index = "tof_" + str(shedule_no)
+            df_best_tof = self.best_tof_dict[tof_index]
 
-            tof_plot = df_best_tof.loc[model_id,:].drop(["iteration","particle_no"])
+            tof = df_best_tof.loc[model_id,:].drop(["iteration","particle_no"])
 
             # plot the whole thing
             nx = 200
@@ -497,8 +516,8 @@ class postprocessing_multi():
             grid.plot(show_edges=False,cmap = boring_cmap)
 
         else:   
-            geomodel_path = str(self.setup["base_path"] / "../Output/"/ self.data_to_process[0] / "all_models/INCLUDE/GRID.GRDECL")
-            property_path = str(self.setup["base_path"] /  "../Output/"/ self.data_to_process[0] / "all_models/INCLUDE" / property / "M{}.GRDECL".format(model_id))
+            geomodel_path = str(self.setup["base_path"] / "../../Output/"/ self.data_to_process[0] / "all_models/INCLUDE/GRID.GRDECL")
+            property_path = str(self.setup["base_path"] /  "../../Output/"/ self.data_to_process[0] / "all_models/INCLUDE" / property / "M{}.GRDECL".format(model_id))
             Model = GeologyModel(filename = geomodel_path)
             TempData = Model.LoadCellData(varname=property,filename=property_path)
 
@@ -507,7 +526,7 @@ class postprocessing_multi():
             Model.Write2VTP()
 
             # visulalize
-            mesh = pv.read('Results\GRID.vtp')
+            mesh = pv.read('GRDECL_file_reader\Results\GRID.vtp')
             mesh.plot(scalars = property,show_edges=False, notebook=False)
 
     def clustering_tof_or_PSO(self,n_neighbors = 30,min_dist = 0,n_components = 30, min_cluster_size = 10,
@@ -573,7 +592,7 @@ class postprocessing_multi():
 
         elif cluster_parameter == "tof":
             tof = "tof_" + str(shedule_no)
-            df_best_tof = self.best_tof_dict[shedule_no]            
+            df_best_tof = self.best_tof_dict[tof]            
             df_best_for_clustering = df_best_tof.drop(columns = ["particle_no","iteration"])
 
             #convert to years and put in bins.
@@ -891,7 +910,7 @@ class postprocessing_multi():
         for i in range(self.n_datasets):
 
             # open df_position to figure out which models performed best
-            path = str(self.setup["base_path"] / "../Output/") + "/" + self.data_to_process[i] + "/"
+            path = str(self.setup["base_path"] / "../../Output/") + "/" + self.data_to_process[i] + "/"
 
             n_best_models_selected = len(self.df_best_models_to_save)
             best_models_selected_index = self.df_best_models_to_save.index.tolist()

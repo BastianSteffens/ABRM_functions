@@ -272,7 +272,7 @@ class MOPSO(SwarmOptimizer):
 
             ### BS ###
             # reset PSO if the entropy gradient of the best solutions is declining
-            if self.swarm.entropy_gradient<5:
+            if self.swarm.entropy_gradient<0:
                 print("entropy gradient is negative --> resetting PSO")
                 # new init position
                 self.init_pos = np.array(lhsmdu.sample(numDimensions = self.setup["n_particles"],numSamples = self.setup["n_parameters"]))
