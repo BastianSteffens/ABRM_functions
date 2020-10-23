@@ -838,8 +838,10 @@ class MOPSO(SwarmOptimizer):
             cPickle.dump(self.tof_all_iter,f,protocol= 4)
         with bz2.BZ2File(file_path_setup,"w") as f:
             cPickle.dump(self.setup,f)
+        swarm_performance_short = self.performance_all_iter.iloc[::100,:].copy()
         with bz2.BZ2File(file_path_performance,"w") as f:
-            cPickle.dump(self.performance_all_iter,f, protocol= 4) # allow for larger datasets than 4 gb
+            # cPickle.dump(self.performance_all_iter,f)
+            cPickle.dump(swarm_performance_short,f, protocol= 4) # allow for larger datasets than 4 gb
 
     def pre_iter_run(self,objective_func,setup,iteration,pool):
 

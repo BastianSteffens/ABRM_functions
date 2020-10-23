@@ -551,11 +551,15 @@ class LocalBestPSO(SwarmOptimizer):
         self.particle_values_converted_all_iter.to_csv(file_path_particles_values_converted,index=False)
         self.particle_values_all_iter.to_csv(file_path_particles_values,index=False)
         with bz2.BZ2File(file_path_tof,"w") as f:
-            cPickle.dump(self.tof_all_iter,f)
+            cPickle.dump(self.tof_all_iter,f, protocol= 4)
         with bz2.BZ2File(file_path_setup,"w") as f:
-            cPickle.dump(self.setup,f)
+            cPickle.dump(self.setup,f, protocol= 4)
+        # shorten performance dataset to save time and space. this should be enough for plotting
+        swarm_performance_short = self.performance_all_iter.iloc[::100,:].copy()
         with bz2.BZ2File(file_path_performance,"w") as f:
-            cPickle.dump(self.performance_all_iter,f)
+            # cPickle.dump(self.performance_all_iter,f)
+            cPickle.dump(swarm_performance_short,f, protocol= 4)
+
 
     def convert_particle_values(self):
 
@@ -623,8 +627,8 @@ class LocalBestPSO(SwarmOptimizer):
         #  models.
         particle = self.swarm.position_converted     # all particles together    
         particle_1d_array =  particle.reshape((particle.shape[0]*particle.shape[1]))    # all particles together                
-        particlesperwf = np.linspace(0,n_modelsperbatch,n_parallel_petrel_licenses, endpoint = False,dtype = int) # this is how it should be. This is the name that each variable has per model in the petrel wf
-        # particlesperwf = np.linspace(25,27,n_modelsperbatch, endpoint = True,dtype = int) # use 25,26,27 because of petrel wf. there the variables are named like that and cant bothered to change that.
+        # particlesperwf = np.linspace(0,n_modelsperbatch,n_parallel_petrel_licenses, endpoint = False,dtype = int) # this is how it should be. This is the name that each variable has per model in the petrel wf
+        particlesperwf = np.linspace(25,27,n_modelsperbatch, endpoint = True,dtype = int) # use 25,26,27 because of petrel wf. there the variables are named like that and cant bothered to change that.
         single_wf = [str(i) for i in np.tile(particlesperwf,n_particles)]
         single_particle_in_wf = [str(i) for i in np.arange(0,n_particles+1)]
         particle_str = np.asarray([str(i) for i in particle_1d_array]).reshape(particle.shape[0],particle.shape[1])
@@ -635,7 +639,7 @@ class LocalBestPSO(SwarmOptimizer):
 
         # set up file path to petrel, petrel license and petrel projects and seed etc
         callpetrel = 'call "{}" ^'.format(petrel_path)
-        license = '\n/licensePackage Standard ^'
+        license = '\n/licensePackage Petrel_112614311_MACKPHiBP8aUA ^'
 
         runworkflow = '\n/runWorkflow "{}" ^\n'.format(runworkflow)
         seed_petrel = '/nParm seed={} ^\n'.format(seed) 
