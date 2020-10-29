@@ -15,13 +15,13 @@ from pyswarms_modified.particles.particle import particle
 
 def init():
 
-    set_seed = 4205825
+    set_seed = 23432423
     random.seed(set_seed)
 
     ###### Set hyperparmeters for PSO ######
-    n_parameters = 24#24
-    n_iters = 50
-    n_particles = 36 # always pick multiple of 3. need to fix this 
+    n_parameters = 20#24
+    n_iters = 3
+    n_particles = 6 # always pick multiple of 3. need to fix this 
     min_bound = 0 * np.ones(n_parameters)
     max_bound = 1 * np.ones(n_parameters)
     bounds = (min_bound, max_bound)
@@ -47,12 +47,16 @@ def init():
 
     ###### Set modelling parameters for Petrelworkflows ######
    
-    # if I want to set a varaible constant, just make the range = 0 e.g. varmin=varmax
+    # # if I want to set a varaible constant, just make the range = 0 e.g. varmin=varmax
+    # varminmax = np.array([[1,4],[1,200],[1,200],[1,100],[1,100],
+    #                       [1,4],[1,200],[1,200],[1,100],[1,100],
+    #                       [1,4],[1,200],[1,200],[1,100],[1,100],
+    #                       [0,1],[0,1],[0,1],[1,1500],[1,100],[1,1500],
+    #                       [1,100],[1,1500],[1,100]])
     varminmax = np.array([[1,4],[1,200],[1,200],[1,100],[1,100],
                           [1,4],[1,200],[1,200],[1,100],[1,100],
-                          [1,4],[1,200],[1,200],[1,100],[1,100],
-                          [0,1],[0,1],[0,1],[1,1500],[1,100],[1,1500],
-                          [1,100],[1,1500],[1,100]])
+                          [0,1],[0,1],[1,1500],[1,100],[1,1500],
+                          [1,100],[1,1500],[1,100],[50,150],[50,150]])
     # varminmax = np.array([[1,4],[1,4],[1,4],[1,200],[1,100],[1,200],[1,100],[1,200],
     #                       [1,100],[1,200],[1,100],[1,200],[1,100],[1,200],
     #                       [1,100],[1,200],[1,100],[1,200],[1,100],[1,200],[1,100],[1,200],[1,100],
@@ -64,7 +68,10 @@ def init():
     n_voronoi = 0
     n_voronoi_zones = 0
     # if continuoes = 0, if discrete = 1
-    continuous_discrete = [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0]
+    # continuous_discrete = [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0]
+    # continuous_discrete = [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0]
+    continuous_discrete = [1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,1,1]
+
     # continuous_discrete = [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0]
     # continuous_discrete = [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0]
 
@@ -81,18 +88,24 @@ def init():
     #            "TI3","F3_I_MIN","F3_I_MAX","F3_J_MIN","F3_J_MAX","F3_K_MIN","F3_K_MAX",
     #            "F1_Curve_Prob","F2_Curve_Prob","F3_Curve_Prob","FracpermX","MatrixpermX",
     #            "FracpermY","MatrixpermY","FracpermZ","MatrixpermZ"]  
+    # columns = ["TI1","F1_I_MIN","F1_I_MAX","F1_J_MIN","F1_J_MAX",
+    #            "TI2","F2_I_MIN","F2_I_MAX","F2_J_MIN","F2_J_MAX",
+    #            "TI3","F3_I_MIN","F3_I_MAX","F3_J_MIN","F3_J_MAX",
+    #            "F1_Curve_Prob","F2_Curve_Prob","F3_Curve_Prob","FracpermX","MatrixpermX",
+    #            "FracpermY","MatrixpermY","FracpermZ","MatrixpermZ"]
     columns = ["TI1","F1_I_MIN","F1_I_MAX","F1_J_MIN","F1_J_MAX",
-               "TI2","F2_I_MIN","F2_I_MAX","F2_J_MIN","F2_J_MAX",
                "TI3","F3_I_MIN","F3_I_MAX","F3_J_MIN","F3_J_MAX",
-               "F1_Curve_Prob","F2_Curve_Prob","F3_Curve_Prob","FracpermX","MatrixpermX",
-               "FracpermY","MatrixpermY","FracpermZ","MatrixpermZ"]     
+               "F1_Curve_Prob","F3_Curve_Prob","FracpermX","MatrixpermX",
+               "FracpermY","MatrixpermY","FracpermZ","MatrixpermZ","Hinge_min","Hinge_max"]         
     # columns = ["P32","n_sides","elongation_ratio","shape","scale","mean_dip",
     #            "mean_dip_azimuth","concentration","aperture_mean","aperture_std"]
     
     # var types str = 0, numeric =1, TI = 2, voronoi_coordinate = 3
     # parameter_type = [2,2,2,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,1,1,1,1,1,1]
     # parameter_type = [2,1,1,1,1,1,1,2,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
-    parameter_type = [2,1,1,1,1,2,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1]
+    # parameter_type = [2,1,1,1,1,2,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1]
+    parameter_type = [2,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+
 
     # parameter_type = [1,1,1,1,1,1,1,1,1,1]
 
@@ -100,7 +113,8 @@ def init():
     # misfit values
     # create curve and save resultign desired LC
     Phi_points_target = np.linspace(0, 1, num=11, endpoint=True)
-    F_points_target = np.array([0, 0.35, 0.5, 0.65, 0.75, 0.85, 0.9, 0.95, 0.97, 0.99, 1])
+    # F_points_target = np.array([0, 0.2, 0.35, 0.6, 0.65, 0.7, 0.8, 0.85, 0.9, 0.95, 1])
+    F_points_target = np.array([0, 0.2, 0.35, 0.55, 0.65, 0.75, 0.8, 0.85, 0.9, 0.95, 1])
 
     # what schedule 5_spot or line_drive
     schedule = "5_spot"
@@ -114,13 +128,13 @@ def init():
     set_seed = random.randint(0,10000000)
     random.seed(set_seed)
     # models per petrel workflow (limited to 3 atm)
-    n_modelsperbatch = 3
+    n_modelsperbatch = 6
     # how many potrel licenses to run at onces
     n_parallel_petrel_licenses = 3
     # which workflow to run in petrel (atm onlz 1 wf)
-    runworkflow = "WF_2020_10_16"   #"WF_2020_07_03" #"WF_2020_04_16"#"WF_2019_09_16", "WF_test" "WF_2020_05_08"
+    runworkflow = "WF_2020_10_26_long"   #"WF_2020_07_03" #"WF_2020_04_16"#"WF_2019_09_16", "WF_test" "WF_2020_05_08"
     # run with petrel or without for test
-    petrel_on = True
+    petrel_on = False
     petrel_path = "C:/Program Files/Schlumberger/Petrel 2017/Petrel.exe"
 
     # if all models should be explicitly saved and not overwritten. 

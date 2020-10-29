@@ -261,6 +261,7 @@ class LocalBestPSO(SwarmOptimizer):
 
             # append outputdata from current iteration to all data
             self.performance_all_iter = self.performance_all_iter.append(self.performance, ignore_index = True)
+            # self.performance_all_iter = self.performance_all_iter.append(self.swarm_performance_short, ignore_index = True)
             self.tof_all_iter = self.tof_all_iter.append(self.tof,ignore_index = True)
             self.particle_values_all_iter = self.particle_values_all_iter.append(self.particle_values, ignore_index = True)
             self.particle_values_converted_all_iter = self.particle_values_converted_all_iter.append(self.particle_values_converted, ignore_index = True)
@@ -628,7 +629,8 @@ class LocalBestPSO(SwarmOptimizer):
         particle = self.swarm.position_converted     # all particles together    
         particle_1d_array =  particle.reshape((particle.shape[0]*particle.shape[1]))    # all particles together                
         # particlesperwf = np.linspace(0,n_modelsperbatch,n_parallel_petrel_licenses, endpoint = False,dtype = int) # this is how it should be. This is the name that each variable has per model in the petrel wf
-        particlesperwf = np.linspace(25,27,n_modelsperbatch, endpoint = True,dtype = int) # use 25,26,27 because of petrel wf. there the variables are named like that and cant bothered to change that.
+        particlesperwf = np.linspace(0,n_modelsperbatch,n_modelsperbatch, endpoint = False,dtype = int) # this is how it should be. This is the name that each variable has per model in the petrel wf
+        # particlesperwf = np.linspace(25,27,n_modelsperbatch, endpoint = True,dtype = int) # use 25,26,27 because of petrel wf. there the variables are named like that and cant bothered to change that.
         single_wf = [str(i) for i in np.tile(particlesperwf,n_particles)]
         single_particle_in_wf = [str(i) for i in np.arange(0,n_particles+1)]
         particle_str = np.asarray([str(i) for i in particle_1d_array]).reshape(particle.shape[0],particle.shape[1])

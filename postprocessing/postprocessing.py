@@ -86,10 +86,17 @@ class postprocessing():
             
             # interpolate F-Phi curve from input points with spline
             tck = interpolate.splrep(Phi_points_target,F_points_target, s = 0)
-            print(len(df_performance_single.loc[(df_performance_single.iteration == 1) & (df_performance_single.particle_no == 0), "Phi"]))
-            Phi_interpolated = np.linspace(0,1,num = len(df_performance_single.loc[(df_performance_single.iteration == 0) & (df_performance_single.particle_no == 0), "Phi"]),endpoint = True)        
+            Phi_interpolated = np.linspace(0,1,num = len(df_performance_single.loc[(df_performance_single.iteration == 1) & (df_performance_single.particle_no == 1)]["Phi"]),endpoint = True)
+            print(Phi_interpolated)  
+            display(df_performance_single.head())      
             F_interpolated = interpolate.splev(Phi_interpolated,tck,der = 0)
             LC_interpolated = self.compute_LC(F_interpolated,Phi_interpolated)
+
+            # tck = interpolate.splrep(Phi_points_target,F_points_target, s = 0)
+            # print(len(df_performance_single.loc[(df_performance_single.iteration == 1) & (df_performance_single.particle_no == 0), "Phi"]))
+            # Phi_interpolated = np.linspace(0,1,num = len(df_performance_single.loc[(df_performance_single.iteration == 0) & (df_performance_single.particle_no == 0), "Phi"]),endpoint = True)        
+            # F_interpolated = interpolate.splev(Phi_interpolated,tck,der = 0)
+            # LC_interpolated = self.compute_LC(F_interpolated,Phi_interpolated)
                     
             # Concate all data together
             self.df_position = self.df_position.append(df_position_single)
