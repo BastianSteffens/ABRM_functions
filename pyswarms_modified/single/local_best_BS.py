@@ -16,7 +16,7 @@ The position update can be defined as:
 
 Where the position at the current timestep :math:`t` is updated using
 the computed velocity at :math:`t+1`. Furthermore, the velocity update
-is defined as:
+is defined as
 
 .. math::
 

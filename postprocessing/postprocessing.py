@@ -857,7 +857,8 @@ class postprocessing():
         for i in range(self.n_datasets):
 
             # open df_position to figure out which models performed best
-            path = str(self.setup["base_path"] / "../Output/") + "/" + self.data_to_process[i] + "/"
+            # path = str(self.setup["base_path"] / "../Output/") + "/" + self.data_to_process[i] + "/"
+            path = str(self.setup["base_path"] / "../../Output/")+ "/"+ self.data_to_process[i] + "/"
 
             n_best_models_selected = len(self.df_best_models_to_save)
             best_models_selected_index = self.df_best_models_to_save.index.tolist()
