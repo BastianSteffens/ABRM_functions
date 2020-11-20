@@ -1,11 +1,13 @@
 ############################################################################
 
 import TI_generator 
+import TI_run_FD
 import numpy as np
 import matplotlib.pyplot as plt
 import random 
 import datetime
 import pathlib
+
 
 ############################################################################
 
@@ -62,6 +64,8 @@ def init():
     output_file_variables = "variable_settings_saved.pickle"
     folder_path = output_path / output_folder
     file_path = folder_path / output_file_variables
+    pool = 6
+
 
     shedule = "5_spot"
     petrel_on = False
@@ -74,7 +78,7 @@ def init():
                  property_stats_area_specific = property_stats_area_specific,property_continuous_discrete = property_continuous_discrete,property_type = property_type,
                  n_modelsperbatch = n_modelsperbatch, runworkflow = runworkflow,n_parallel_petrel_licenses = n_parallel_petrel_licenses,
                  petrel_path = petrel_path,base_path = base_path,folder_path = folder_path,file_path = file_path,
-                 shedule = shedule, petrel_on = petrel_on
+                 shedule = shedule, petrel_on = petrel_on, pool = pool
                 )
 
     ###### Initialize Training image generator ######
@@ -85,6 +89,11 @@ def init():
     TI_gen.run_TI_generator()
 
     print("{} Training Images successfully generated".format(n_TI))
+
+    TI_run = TI_run_FD.TI_run_FD(setup = setup)
+    TI_run.TI_run_FD_runner()
+
+    print("Finished running flow diagnostics on training images")
 
 
 
