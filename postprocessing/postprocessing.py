@@ -51,7 +51,7 @@ class postprocessing():
         """ read individual datasets and conconate them to one big df """
 
         for i in range(0,self.n_datasets):
-            path = str(self.setup["base_path"] / "../../Output/")+ "/"+ self.data_to_process[i] + "/"
+            path = str(self.setup["base_path"] / "../../Output/PSO_modelling/")+ "/"+ self.data_to_process[i] + "/"
             # performance = "swarm_performance_all_iter.csv"
             performance = "swarm_performance_all_iter.pbz2"
             position = "swarm_particle_values_converted_all_iter.csv"
