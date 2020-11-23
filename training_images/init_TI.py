@@ -17,7 +17,7 @@ def init():
     random.seed(set_seed)
 
     ###### Set variables for Training Image generation ######
-    n_TI = 6
+    n_TI = 12
     
 
     n_fracsets_random_range = [0,4]
@@ -68,7 +68,7 @@ def init():
 
 
     shedule = "5_spot"
-    petrel_on = False
+    petrel_on = True
 
     setup = dict(n_TI = n_TI, n_fracsets_random_range = n_fracsets_random_range, n_fracsets_area_specific_range = n_fracsets_area_specific_range,
                  n_fracsets_sampling_style = n_fracsets_sampling_style,P32_total_sampling_style = P32_total_sampling_style,P32_total_range = P32_total_range,
@@ -94,10 +94,14 @@ def init():
     TI_run.TI_run_FD_runner()
 
     print("Finished running flow diagnostics on training images")
+    
+    # setup = 1
+    # dataset = "2020_11_20_16_03"
 
-
-
-
+    # TI_data = TI_selection(setup = setup, dataset = dataset)
+    # TI_data.clustering_tof_or_TI_props(n_neighbors = 2,cluster_parameter = "tof")
+    # TI_data.cluster_TI_selection()
+    # TI_data.save_best_clustered_TIs()
 def main():
     init()
 
