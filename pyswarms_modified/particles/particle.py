@@ -58,7 +58,7 @@ class particle():
         FD_data = eng.FD_BS(particle_no)
 
         # split into Ev tD F Phi and LC and tof column
-        FD_data = np.array(FD_data._data).reshape((6,len(FD_data)//6))
+        FD_data = np.array(FD_data._data).reshape((10,len(FD_data)//10))
         particle_performance = pd.DataFrame()
         
         particle_performance["EV"] = FD_data[0]
@@ -66,7 +66,13 @@ class particle():
         particle_performance["F"] = FD_data[2]
         particle_performance["Phi"] = FD_data[3]
         particle_performance["LC"] = FD_data[4]
-        particle_performance["tof"] = FD_data[5]
+        particle_performance["tof_for"] = FD_data[5]
+        particle_performance["tof_back"] = FD_data[6]
+        particle_performance["tof_combi"] = FD_data[7]
+        particle_performance["prod_part"] = FD_data[8]
+        particle_performance["inj_part"] = FD_data[9]
+  
+
         particle_performance = particle_performance.astype("float32")
 
         return(particle_performance)

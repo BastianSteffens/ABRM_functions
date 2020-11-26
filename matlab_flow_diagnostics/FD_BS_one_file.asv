@@ -1,17 +1,18 @@
-function [FD_performance] = FD_BS(x)
+function [FD_performance] = FD_BS_one_file(x)
     mrstModule add diagnostics;
     mrstModule add incomp;
     mrstModule add deckformat;
 
-    %disp('Loading Data files into Matlab and running Flow Diagnostics')
-   
-    %% Load File into MRST 
+    disp('Loading Data files into Matlab and running Flow Diagnostics')
 
+    %% Load File into MRST 
     ModelName = 'M_FD_%s.DATA';
+    %ModelName = 'M%s.DATA';
     ModelIndex = string(x);
     ModelNameIndex = sprintf(ModelName,ModelIndex);
 
-    current_dir = 'C:\AgentBased_RM\FD_Models\DATA\';
+    %current_dir = 'C:\AgentBased_RM\FD_Models\DATA\';
+    current_dir = 'C:\AgentBased_RM\benchmark_fold\DATA\';
     fn = fullfile(current_dir, ModelNameIndex);
     deck = readEclipseDeck(fn);
     deck = convertDeckUnits(deck);
@@ -25,11 +26,11 @@ function [FD_performance] = FD_BS(x)
     rock  = compressRock(rock, G.cells.indexMap);
     hT  = computeTrans(G, rock);
     pv  = sum(poreVolume(G,rock));
-  
+
     % Fluid model
     gravity reset off
     fluid = initSingleFluid('mu', 1*centi*poise, 'rho', 1014*kilogram/meter^3);
-    
+
     % well position
     W = processWells(G, rock, deck.SCHEDULE.control(1));
 
@@ -77,17 +78,17 @@ function [FD_performance] = FD_BS(x)
     % displacing fluid at time t and the volume contacted at infinite time.
     % This quantity is usually related to dimensionless time td=dPhi/dF
     [Ev,tD] = computeSweep(F,Phi);
-    
+
     % sometimes Ev and tD are missing 10 values in the end. its basicallz just
     % several 1.0 that are missing. so will just add them so that reshaping
     % wont be a problem within python.
-
     if not(length(Ev)==length(F))
         values_to_add = length(F) - length(Ev);
         Ev(end + values_to_add) = 1;
         tD(end + values_to_add) = 1;
     end
-        
+    disp("test");
+    
     Ev(end)= [];
     tD(end)= [];
     F(end)= [];
@@ -96,9 +97,11 @@ function [FD_performance] = FD_BS(x)
     tof_for = D.tof(:,1);
     tof_back = D.tof(:,2);
     tof_combi = tof_for + tof_back;
-    prod_part = D.ppart;
-    inj_part = D.ipart;
+    inj_tracer = 
+
+    FD_performance = [Ev;tD;F;Phi;LC_long;tof_for;tof_back;tof_combi];
     
 
-    FD_performance = [Ev;tD;F;Phi;LC_long;tof_for;tof_back;tof_combi;prod_part;inj_part];
+
+
 end

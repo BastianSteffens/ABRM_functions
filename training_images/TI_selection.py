@@ -19,9 +19,8 @@ import shutil
 class TI_selection():
   """ pick Training images wiht help of clustering that should be taken forward """
         
-  def __init__(self,setup,dataset,TI_name= "TI_1",nx = 60,ny = 60,nz = 1):
+  def __init__(self,dataset,TI_name= "TI_1",nx = 60,ny = 60,nz = 1):
     
-    self.setup = setup
     self.nx = nx
     self.ny = ny
     self.nz = nz
@@ -31,14 +30,22 @@ class TI_selection():
     self.dataset = dataset
     TI_props = "TI_properties.csv"
     TI_tof = "tof_all_TI.pbz2"
+    setup = "setup.pickle"
+
     folder_path = path / self.dataset
     file_path_TI_props = folder_path / TI_props
     file_path_TI_tof = folder_path / TI_tof
+    file_path_setup = folder_path / setup
 
     # load data
     self.df_TI_props = pd.read_csv(file_path_TI_props)
     self.columns = self.df_TI_props.columns.values.tolist()
     self.columns.remove("TI_no")
+
+    # load pickle file
+    data = bz2.BZ2File(file_path_setup)
+    self.setup = cPickle.load(data)
+
     #load compressed pickle file
     data = bz2.BZ2File(file_path_TI_tof,"rb")
     self.df_tof_raw = cPickle.load(data)

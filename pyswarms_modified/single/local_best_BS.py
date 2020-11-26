@@ -529,6 +529,7 @@ class LocalBestPSO(SwarmOptimizer):
         
         # output_file_performance = "swarm_performance_all_iter.csv"
         output_file_performance = "swarm_performance_all_iter.pbz2"
+        output_file_FD_metrics = "FD_metrics_all_iter.pbz2"
         output_file_partilce_values_converted = "swarm_particle_values_converted_all_iter.csv"
         output_file_partilce_values = "swarm_particle_values_all_iter.csv"
         tof_file = "tof_all_iter.pbz2"
@@ -537,7 +538,7 @@ class LocalBestPSO(SwarmOptimizer):
 
         file_path_tof = folder_path / tof_file
         file_path_performance = folder_path / output_file_performance
-        # file_path_performance_pickle = folder_path / output_file_performance_pickle
+        file_path_FD_metrics = folder_path / output_file_FD_metrics
 
         file_path_particles_values_converted = folder_path / output_file_partilce_values_converted
         file_path_particles_values = folder_path / output_file_partilce_values
@@ -560,6 +561,10 @@ class LocalBestPSO(SwarmOptimizer):
         with bz2.BZ2File(file_path_performance,"w") as f:
             # cPickle.dump(self.performance_all_iter,f)
             cPickle.dump(swarm_performance_short,f, protocol= 4)
+
+        with bz2.BZ2File(file_path_FD_metrics,"w") as f:
+            # cPickle.dump(self.performance_all_iter,f)
+            cPickle.dump(self.FD_field_metrics,f, protocol= 4) # allow for larger datasets than 4 gb
 
 
     def convert_particle_values(self):
@@ -783,8 +788,10 @@ class LocalBestPSO(SwarmOptimizer):
         """prepare dfs of whole swarm with output that is ready for postprocessing"""
         
         # raw data from FD
-        self.tof = self.performance[["tof","misfit","iteration","particle_no"]].copy()
+        self.tof = self.performance[["tof_back","misfit","iteration","particle_no"]].copy()
+        self.FD_field_metrics =  self.performance[["tof_for","tof_back","tof_combi","prod_part","inj_part,","misfit","iteration","particle_no"]].copy()
         self.swarm_performance_short = self.performance.iloc[::100,:].copy()
+
         
         # converted particles and raw particles tother with simulation outputs
         columns = self.setup["columns"]

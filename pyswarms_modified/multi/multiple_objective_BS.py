@@ -555,13 +555,14 @@ class MOPSO(SwarmOptimizer):
         for shedule_no in range(n_shedules):
 
             misfit = "misfit_" + str(shedule_no)
-            tof = "tof_" + str(shedule_no)
+            tof = "tof_back_" + str(shedule_no)
             self.tof[tof] = self.performance[tof]
             self.tof[misfit] = self.performance[misfit]
             self.tof["iteration"] = self.performance["iteration"]
             self.tof["particle_no"] = self.performance["particle_no"]
 
         # self.swarm_performance_short = self.performance.iloc[::100,:].copy()
+        self.FD_field_metrics = self.performance.copy()
         
         # converted particles and raw particles tother with simulation outputs
         columns = self.setup["columns"]
@@ -813,6 +814,7 @@ class MOPSO(SwarmOptimizer):
         
         # output_file_performance = "swarm_performance_all_iter.csv"
         output_file_performance = "swarm_performance_all_iter.pbz2"
+        output_file_FD_metrics = "FD_metrics_all_iter.pbz2"
         output_file_partilce_values_converted = "swarm_particle_values_converted_all_iter.csv"
         output_file_partilce_values = "swarm_particle_values_all_iter.csv"
         tof_file = "tof_all_iter.pbz2"
@@ -820,6 +822,7 @@ class MOPSO(SwarmOptimizer):
 
         file_path_tof = folder_path / tof_file
         file_path_performance = folder_path / output_file_performance
+        file_path_FD_metrics = folder_path / output_file_FD_metrics
         # file_path_performance_pickle = folder_path / output_file_performance_pickle
 
         file_path_particles_values_converted = folder_path / output_file_partilce_values_converted
@@ -842,6 +845,9 @@ class MOPSO(SwarmOptimizer):
         with bz2.BZ2File(file_path_performance,"w") as f:
             # cPickle.dump(self.performance_all_iter,f)
             cPickle.dump(swarm_performance_short,f, protocol= 4) # allow for larger datasets than 4 gb
+        with bz2.BZ2File(file_path_FD_metrics,"w") as f:
+            # cPickle.dump(self.performance_all_iter,f)
+            cPickle.dump(self.FD_field_metrics,f, protocol= 4) # allow for larger datasets than 4 gb
 
     def pre_iter_run(self,objective_func,setup,iteration,pool):
 

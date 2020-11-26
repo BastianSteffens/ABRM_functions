@@ -60,7 +60,7 @@ class multi_particle():
         FD_data = eng.FD_BS(model_name)
 
         # split into Ev tD F Phi and LC and tof column
-        FD_data = np.array(FD_data._data).reshape((6,len(FD_data)//6))
+        FD_data = np.array(FD_data._data).reshape((10,len(FD_data)//10))
         particle_performance = pd.DataFrame()
 
         EV = "EV_" + str(shedule_no)
@@ -68,14 +68,23 @@ class multi_particle():
         F = "F_" + str(shedule_no)
         Phi = "Phi_" + str(shedule_no)
         LC = "LC_" + str(shedule_no)
-        tof = "tof_" + str(shedule_no)
+        tof_for = "tof_for_" + str(shedule_no)
+        tof_back = "tof_back_" + str(shedule_no)
+        tof_combi = "tof_combi_" + str(shedule_no)
+        prod_part = "prod_part_" + str(shedule_no)
+        inj_part = "inj_part_" + str(shedule_no)
         
         particle_performance[EV] = FD_data[0]
         particle_performance[tD] = FD_data[1]
         particle_performance[F] = FD_data[2]
         particle_performance[Phi] = FD_data[3]
         particle_performance[LC] = FD_data[4]
-        particle_performance[tof] = FD_data[5]
+        particle_performance[tof_for] = FD_data[5]
+        particle_performance[tof_back] = FD_data[6]
+        particle_performance[tof_combi] = FD_data[7]
+        particle_performance[prod_part] = FD_data[8]
+        particle_performance[inj_part] = FD_data[9]
+
         particle_performance = particle_performance.astype("float32")
 
         return(particle_performance)
@@ -173,7 +182,12 @@ class multi_particle():
             F = "F_" + str(shedule_no)
             Phi = "Phi_" + str(shedule_no)
             LC = "LC_" + str(shedule_no)
-            tof = "tof_" + str(shedule_no)
+            tof_for = "tof_for_" + str(shedule_no)
+            tof_back = "tof_back_" + str(shedule_no)
+            tof_combi = "tof_combi_" + str(shedule_no)
+            prod_part = "prod_part_" + str(shedule_no)
+            inj_part = "inj_part_" + str(shedule_no)
+
             particle_performance["iteration"] =self.iteration
             particle_performance["particle_no"] = particle_no
             particle_performance[EV] = particle_performance_current_shedule[EV]
@@ -181,7 +195,11 @@ class multi_particle():
             particle_performance[F] = particle_performance_current_shedule[F]
             particle_performance[Phi] = particle_performance_current_shedule[Phi]
             particle_performance[LC] = particle_performance_current_shedule[LC]
-            particle_performance[tof] = particle_performance_current_shedule[tof]
+            particle_performance[tof_for] = particle_performance_current_shedule[tof_for]
+            particle_performance[tof_back] = particle_performance_current_shedule[tof_back]
+            particle_performance[tof_combi] = particle_performance_current_shedule[tof_combi]
+            particle_performance[prod_part] = particle_performance_current_shedule[prod_part]
+            particle_performance[inj_part] = particle_performance_current_shedule[inj_part]
             particle_performance[misfit] = particle_misfit
 
         # have to do this for parallel execution. can only return one argument. and need to return voroni stuff and particle_performacne
