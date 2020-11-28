@@ -21,7 +21,7 @@ def init():
     ###### Set hyperparmeters for PSO ######
     n_parameters = 20#24
     n_iters = 50
-    n_particles = 36 # always pick multiple of 3. need to fix this 
+    n_particles = 6 # always pick multiple of 3. need to fix this 
     min_bound = 0 * np.ones(n_parameters)
     max_bound = 1 * np.ones(n_parameters)
     bounds = (min_bound, max_bound)
@@ -134,7 +134,7 @@ def init():
     # which workflow to run in petrel (atm onlz 1 wf)
     runworkflow = "WF_2020_10_26_long"   #"WF_2020_07_03" #"WF_2020_04_16"#"WF_2019_09_16", "WF_test" "WF_2020_05_08"
     # run with petrel or without for test
-    petrel_on = True
+    petrel_on = False
     petrel_path = "C:/Program Files/Schlumberger/Petrel 2017/Petrel.exe"
 
     # if all models should be explicitly saved and not overwritten. 
@@ -152,7 +152,7 @@ def init():
                  PSO_parameters = options,initial_inertia = inertia)
 
     base_path = pathlib.Path(__file__).parent
-    output_path = base_path / "../Output/PSO_modelling"
+    output_path = base_path / "../Output/PSO_modelling/"
     output_folder = str(datetime.datetime.today().replace(microsecond= 0, second = 0).strftime("%Y_%m_%d_%H_%M"))
     output_file_variables = "variable_settings_saved.pickle"
     folder_path = output_path / output_folder

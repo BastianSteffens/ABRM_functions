@@ -93,14 +93,15 @@ function [FD_performance] = FD_TI(x)
     F(end)= [];
     Phi(end)= [];
     LC_long = zeros(length(Ev),1) + LC;
-    tof_for = D.tof(:,1);
-    tof_back = D.tof(:,2);
-    tof_combi = tof_for + tof_back;
-    prod_part = D.ppart;
-    inj_part = D.ipart;
+    tof = D.tof(:,2);
+    %tof_for = D.tof(:,1);
+    %tof_back = D.tof(:,2);
+    %tof_combi = tof_for + tof_back;
+    %prod_part = D.ppart;
+    %inj_part = D.ipart;
     
-
-    FD_performance = [Ev;tD;F;Phi;LC_long;tof_for;tof_back;tof_combi;prod_part;inj_part];
+    FD_performance = [Ev;tD;F;Phi;LC_long;tof];
+    %FD_performance = [Ev;tD;F;Phi;LC_long;tof_for;tof_back;tof_combi;prod_part;inj_part];
     
 %           'tof'     - time-of-flight and reverse time-of-flight returned
 %                   as an array where the first (G.cells.num x 2) elements

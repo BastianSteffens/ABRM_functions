@@ -56,12 +56,17 @@ class TI_generator():
                 self.generate_variables(P32_fractype = P32_random,n_fracsets = n_fracsets_random, fracset_no = j,frac_type ="random")
 
             # set up area specific fracture sets
-            for j in range(n_fracsets_area_specific_range[1]):
+            # for j in range(n_fracsets_area_specific_range[1]):
+            for j in range(4):
+
                 self.generate_variables(P32_fractype = P32_area_specific,n_fracsets = n_fracsets_area_specific, fracset_no = j,frac_type ="area_specific")
             
             # add data to overarching df
             self.df_all_TI_data = self.df_all_TI_data.append(self.df_current_TI_data, ignore_index = True)
-
+        
+        # save TI_settings data
+        self.save_TI_settings()
+        
         # built batch files
         self.built_batch_file_petrel()
 
@@ -92,6 +97,8 @@ class TI_generator():
 
         # set % random fractures
         random_fracs_share = np.round(self.sample_from_distribution(sampling_style = random_fracs_sampling_style,property_stats = random_fracs_fraction_range),2)
+        while random_fracs_share > 1 or random_fracs_share <0:
+            random_fracs_share = np.round(self.sample_from_distribution(sampling_style = random_fracs_sampling_style,property_stats = random_fracs_fraction_range),2)
 
         # set % zone specific fractures
         area_fracs_share = np.round(1-random_fracs_share,2)
@@ -110,10 +117,6 @@ class TI_generator():
     
     def sample_from_distribution(self,sampling_style,property_stats):
         """ random sample from uniform/gaussian/logarithmic/bimodal distribution """
-        # from scipy.stats import uniform
-        # just say what min and what max value is
-        # from scipy.stats import norm
-        # mean and std
         # from scipy.stats import gamma
 
         if sampling_style == "uniform":
@@ -327,6 +330,30 @@ class TI_generator():
 
         else:
             print("dry run - no Training Image building",end = "\r")
+
+    def save_TI_settings(self):
+        """ save df to csv files with all data used for Training Image generation """
+
+        # filepath setup
+        folder_path = self.setup["folder_path"]
+        schedule = self.setup["shedule"]
+        base_path = self.setup["base_path"]
+        
+        output_Training_image_settings = "TI_properties.csv"
+        setup_file = "setup.pickle"
+
+        file_path_output_Training_image_settings = folder_path / output_Training_image_settings
+        file_path_setup = folder_path / setup_file
+
+        # make folder
+        if not os.path.exists(folder_path):
+            os.makedirs(folder_path)
+        
+        # save all
+        self.df_all_TI_data.to_csv(file_path_output_Training_image_settings,index=False)
+        with bz2.BZ2File(file_path_setup,"w") as f:
+            cPickle.dump(self.setup,f, protocol= 4)
+
     def save_data(self):
         """ save df to csv files with all data used for Training Image generation also data from petrel get saved in extra folder """
 

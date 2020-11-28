@@ -17,16 +17,18 @@ def init():
     random.seed(set_seed)
 
     ###### Set variables for Training Image generation ######
-    n_TI = 600
+    n_TI = 1200
     
 
-    n_fracsets_random_range = [0,4]
-    n_fracsets_area_specific_range = [0,4]
+    n_fracsets_random_range = [1,4]
+    n_fracsets_area_specific_range = [1,3]
     n_fracsets_sampling_style = "uniform"
-    P32_total_range = [0.5,0.2]
-    P32_total_sampling_style = "normal"
-    random_fracs_fraction_range = [0.4,0.1]
+    P32_total_range = [0.05,2]
+    P32_total_sampling_style = "uniform"
+    random_fracs_fraction_range = [0.4,0.2]
     random_fracs_sampling_style = "normal"
+    # ranges P32=[0.001,3] frac_length_scale = [5,25], frac_length_shape = [2.1,2.5], frac_length_max = [100,1000], frac_orient_dip = [0,90], 
+    # frac_orient_azimuth = [0,360] if want 2 sets of fracs, both showing 360 but one dipping 15 degrees left, other 15degrees right, i need to give one 180 degree, frac_orient_concentration = [0,100] 100 = all fractures very much algined
     property_name = ["frac_length_shape","frac_length_scale","frac_length_max","frac_orient_dip","frac_orient_azimuth","frac_orient_concentration"]
     property_sampling_style = ["uniform","uniform","uniform","uniform","uniform","uniform","uniform"]
     # next to properties listed above this also has to include individual seed for fracutre networks and also P32 for each fracture network
@@ -37,15 +39,15 @@ def init():
     # uniform [min,max]
     # normal  [mean,std]
     # gamma etc.
-    property_stats_random = [[[2.1,3.0],[15,25],[50,500],[45,85],[25,50],[0,50]],
-                      [[2.1,3.0],[15,25],[50,500],[45,85],[25,50],[0,50]],
-                      [[2.1,3.0],[15,25],[50,500],[45,85],[25,50],[0,50]],
-                      [[2.1,3.0],[15,25],[50,500],[45,85],[25,50],[0,50]],
+    property_stats_random = [[[2.1,2.5],[5,25],[50,1000],[0,90],[0,360],[0,50]],
+                             [[2.1,2.5],[5,25],[50,1000],[0,90],[0,360],[0,50]],
+                             [[2.1,2.5],[5,25],[50,1000],[0,90],[0,360],[0,50]],
+                             [[2.1,2.5],[5,25],[50,1000],[0,90],[0,360],[0,50]],
                      ]
-    property_stats_area_specific = [[[2.1,3.0],[15,25],[50,500],[45,85],[25,50],[0,50]],
-                      [[2.1,3.0],[15,25],[50,500],[45,85],[25,50],[0,50]],
-                      [[2.1,3.0],[15,25],[50,500],[45,85],[10,350],[0,50]],
-                      [[2.1,3.0],[15,25],[50,500],[45,85],[10,350],[0,50]],
+    property_stats_area_specific = [[[2.1,2.5],[5,25],[50,1000],[75,90],[150,180],[0,50]],
+                                    [[2.1,2.5],[5,25],[50,1000],[75,90],[330,360],[0,50]],
+                                    [[2.1,2.5],[5,25],[50,1000],[85,90],[170,190],[0,50]],
+                                    [[2.1,2.5],[5,25],[50,1000],[85,90],[170,350],[0,50]],
                      ]
 
     # seed

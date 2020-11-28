@@ -147,7 +147,7 @@ def init():
                  PSO_parameters = options,initial_inertia = inertia, n_shedules = n_shedules)
 
     base_path = pathlib.Path(__file__).parent
-    output_path = base_path / "../Output/"
+    output_path = base_path / "../Output/PSO_modelling_multi/"
     output_folder = str(datetime.datetime.today().replace(microsecond= 0, second = 0).strftime("%Y_%m_%d_%H_%M"))
     output_file_variables = "variable_settings_saved.pickle"
     folder_path = output_path / output_folder

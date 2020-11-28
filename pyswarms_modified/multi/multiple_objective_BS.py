@@ -612,7 +612,7 @@ class MOPSO(SwarmOptimizer):
             tof_entropy_all_shedules = []
             for shedule_no in range(n_shedules):
                 
-                tof_column = "tof_" + str(shedule_no)
+                tof_column = "tof_back_" + str(shedule_no)
                 # filter out tof for all best models and make it readable for clustering
                 iteration = particle_values_all_iter_best.iteration.tolist()
                 particle_no =  particle_values_all_iter_best.particle_no.tolist()  

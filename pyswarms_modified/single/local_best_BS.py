@@ -352,7 +352,7 @@ class LocalBestPSO(SwarmOptimizer):
             tof_all = pd.DataFrame()
             for i in range(particle_values_all_iter_best.shape[0]):
 
-                tof = temp_all_iter_tof[(temp_all_iter_tof.iteration == iteration[i]) & (temp_all_iter_tof.particle_no == particle_no[i])].tof
+                tof = temp_all_iter_tof[(temp_all_iter_tof.iteration == iteration[i]) & (temp_all_iter_tof.particle_no == particle_no[i])].tof_back
                 tof.reset_index(drop=True, inplace=True)
                 tof_all = tof_all.append(tof,ignore_index = True)
 
@@ -789,7 +789,7 @@ class LocalBestPSO(SwarmOptimizer):
         
         # raw data from FD
         self.tof = self.performance[["tof_back","misfit","iteration","particle_no"]].copy()
-        self.FD_field_metrics =  self.performance[["tof_for","tof_back","tof_combi","prod_part","inj_part,","misfit","iteration","particle_no"]].copy()
+        self.FD_field_metrics =  self.performance[["tof_for","tof_back","tof_combi","prod_part","inj_part","misfit","iteration","particle_no"]].copy()
         self.swarm_performance_short = self.performance.iloc[::100,:].copy()
 
         
