@@ -70,6 +70,7 @@ def init():
 
 
     shedule = "5_spot"
+    n_shedules = 2
     petrel_on = True
 
     setup = dict(n_TI = n_TI, n_fracsets_random_range = n_fracsets_random_range, n_fracsets_area_specific_range = n_fracsets_area_specific_range,
@@ -80,15 +81,15 @@ def init():
                  property_stats_area_specific = property_stats_area_specific,property_continuous_discrete = property_continuous_discrete,property_type = property_type,
                  n_modelsperbatch = n_modelsperbatch, runworkflow = runworkflow,n_parallel_petrel_licenses = n_parallel_petrel_licenses,
                  petrel_path = petrel_path,base_path = base_path,folder_path = folder_path,file_path = file_path,
-                 shedule = shedule, petrel_on = petrel_on, pool = pool
+                 shedule = shedule, petrel_on = petrel_on, pool = pool, n_shedules = n_shedules
                 )
 
     ###### Initialize Training image generator ######
 
     # Call instance of TI generator
-    TI_gen = TI_generator.TI_generator(seed = set_seed,setup = setup)
+    # TI_gen = TI_generator.TI_generator(seed = set_seed,setup = setup)
 
-    TI_gen.run_TI_generator()
+    # TI_gen.run_TI_generator()
 
     print("{} Training Images successfully generated".format(n_TI))
 
