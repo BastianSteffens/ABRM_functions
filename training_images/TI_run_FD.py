@@ -22,7 +22,6 @@ class TI_run_FD():
     # self.all_TI_performance = pd.DataFrame(columns = ["EV","tD","F","Phi","LC","tof","TI_no"])
     self.all_TI_performance = pd.DataFrame()
 
-
   def TI_run_FD_runner(self):
 
     if self.setup["n_shedules"] == 1:
@@ -91,7 +90,7 @@ class TI_run_FD():
         eng.matlab_starter(nargout = 0)
 
         # run FD and output dictionary
-        TI_no = TI_no if self.pool is None else TI_no.item()
+        # TI_no = TI_no if self.pool is None else TI_no.item()
 
         TI_name = str(TI_no) + "_" + str(shedule_no)
         FD_data = eng.FD_TI(TI_name)
@@ -146,7 +145,7 @@ class TI_run_FD():
         self.built_FD_Data_files_multi(TI_no= TI_no,shedule_no= shedule_no)
         TI_performance = self.run_FD_multi(TI_no,shedule_no)
 
-        TI_no = TI_no if self.pool is None else TI_no.item()
+        # TI_no = TI_no if self.pool is None else TI_no.item()
 
         TI_performance["TI_no"] = TI_no
         TI_dict = dict()
