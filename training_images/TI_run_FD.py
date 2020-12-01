@@ -140,16 +140,32 @@ class TI_run_FD():
 
   def run_FD_parallel_multi(self,TI_no):
     """run flow diagnostics parallel """
+    TI_performance = pd.DataFrame()
     for shedule_no in range(self.n_shedules):
 
         self.built_FD_Data_files_multi(TI_no= TI_no,shedule_no= shedule_no)
-        TI_performance = self.run_FD_multi(TI_no,shedule_no)
+        TI_performance_current_shedule = self.run_FD_multi(TI_no,shedule_no)
 
         # TI_no = TI_no if self.pool is None else TI_no.item()
 
         TI_performance["TI_no"] = TI_no
-        TI_dict = dict()
-        TI_dict["TI_performance"] = TI_performance
+        EV = "EV_" + str(shedule_no)
+        tD = "tD_" + str(shedule_no)
+        F = "F_" + str(shedule_no)
+        Phi = "Phi_" + str(shedule_no)
+        LC = "LC_" + str(shedule_no)
+        tof = "tof_" + str(shedule_no)
+
+        TI_performance[EV] = TI_performance_current_shedule[EV]
+        TI_performance[tD] = TI_performance_current_shedule[tD] 
+        TI_performance[F] = TI_performance_current_shedule[F]
+        TI_performance[Phi] = TI_performance_current_shedule[Phi]
+        TI_performance[LC] = TI_performance_current_shedule[LC]
+        TI_performance[tof] = TI_performance_current_shedule[tof]
+
+
+    TI_dict = dict()
+    TI_dict["TI_performance"] = TI_performance
     print("{}/1200 TIs done".format(TI_no))
     return TI_dict
 
@@ -188,6 +204,8 @@ class TI_run_FD():
       for shedule_no in range(self.n_shedules):
         tof = "tof_" + str(shedule_no)
         self.tof[tof] = self.all_TI_performance[tof]
+
+      self.all_TI_performance_short = self.all_TI_performance.iloc[::100,:].copy()
 
   def save_data(self):
       """ save df to csv files / pickle that contains all data used for postprocessing """

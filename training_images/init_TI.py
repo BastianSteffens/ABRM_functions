@@ -17,7 +17,7 @@ def init():
     random.seed(set_seed)
 
     ###### Set variables for Training Image generation ######
-    n_TI = 1200
+    n_TI = 10
     
 
     n_fracsets_random_range = [1,4]
