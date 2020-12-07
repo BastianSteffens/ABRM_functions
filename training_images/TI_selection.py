@@ -19,12 +19,14 @@ import shutil
 class TI_selection():
     """ pick Training images wiht help of clustering that should be taken forward """
 
-    def __init__(self,dataset,TI_name= "TI_1",nx = 60,ny = 60,nz = 1):
+    def __init__(self,dataset,TI_name= "TI_1",nx = 60,ny = 60,nz = 1,n_shedules = 1,n_TI = 1200):
     
         self.nx = nx
         self.ny = ny
         self.nz = nz
         self.TI_name = TI_name
+        self.n_shedules = n_shedules
+        self.n_TI = n_TI
         self.base_path = pathlib.Path(__file__).parent  
         path = self.base_path / "../../Output/training_images/{}/".format(self.TI_name)
         self.dataset = dataset
@@ -58,93 +60,188 @@ class TI_selection():
         self.df_TI_performance = cPickle.load(data)
         
         #convert to readable format for ploting
-        self.df_tof = pd.DataFrame(columns = np.arange(int(self.nx)*int(self.ny)*int(self.nz)))
-
+        # self.df_tof = pd.DataFrame(columns = np.arange(int(self.nx)*int(self.ny)*int(self.nz)*self.n_shedules))
+   
         TI_no = self.df_TI_props.TI_no.tolist()
         tof_all = pd.DataFrame()
-        for i in range(self.df_TI_props.shape[0]):
-            tof = self.df_tof_raw[(self.df_tof_raw.TI_no == TI_no[i])].tof
-            tof.reset_index(drop=True, inplace=True)
-            tof_all = tof_all.append(tof,ignore_index = True)
+        self.df_tof = pd.DataFrame()
+        if self.n_shedules == 1:
+            for i in range(self.df_TI_props.shape[0]):
+                tof = self.df_tof_raw[(self.df_tof_raw.TI_no == TI_no[i])].tof
+                tof.reset_index(drop=True, inplace=True)
+                tof_all = tof_all.append(tof,ignore_index = True)
+            self.df_tof = tof_all
+            self.df_tof["TI_no"] = TI_no
+            self.df_tof.set_index(self.df_TI_props.index.values,inplace = True)
+        
+        else:
+            # TI_no_extended = list()
+            for shedule_no in range(self.n_shedules):
+                tof_all = pd.DataFrame()
+                tof_name = "tof_" + str(shedule_no)
+                # TI_no_extended.extend(TI_no)
 
-        self.df_tof = tof_all
-        self.df_tof["TI_no"] = TI_no
-        self.df_tof.set_index(self.df_TI_props.index.values,inplace = True)
+                for i in range(self.df_TI_props.shape[0]):
+
+                    tof = self.df_tof_raw[(self.df_tof_raw.TI_no == TI_no[i])][tof_name]
+                    tof.reset_index(drop=True, inplace=True)
+                    tof_all = tof_all.append(tof,ignore_index = True)
+
+                tof_all = tof_all.add_suffix("_" + str(shedule_no))
+                self.df_tof = pd.concat([self.df_tof,tof_all],axis = 1)
+            self.df_tof["TI_no"] = TI_no
+
 
     def plot_TI_performance(self):
         """ Create plots showing the Flow Diagnostic Performance of the PSO over n iterations
             Args: filter dataset to data that are fulfill misfit tolerance """
-
-        # Create traces
-
-        fig = make_subplots(rows = 1, cols = 3,
-                        subplot_titles = ("LC plot","F - Phi Graph","Sweep Efficieny Graph"))
-
-        ### LC plot ###
         
-        fig.add_trace(go.Scatter(x = self.df_TI_performance.index, y=self.df_TI_performance.LC,
-                                mode='markers',
-                                line = dict(color = "lightgray"),
-                                name='Simulated'),row =1, col =1)
+        if self.n_shedules == 1:
+            # Create traces
+            
+            fig = make_subplots(rows = 1, cols = 3,
+                            subplot_titles = ("LC plot","F - Phi Graph","Sweep Efficieny Graph"))
 
-        fig.update_xaxes(title_text = "TI_no",range = [0,self.df_TI_performance.TI_no.max()],row =1, col = 1)
-        fig.update_yaxes(title_text = "LC",range = [0,1], row =1, col = 1)
+            ### LC plot ###
+            
+            fig.add_trace(go.Scatter(x = self.df_TI_performance.index, y=self.df_TI_performance.LC,
+                                    mode='markers',
+                                    line = dict(color = "lightgray"),
+                                    name='Simulated'),row =1, col =1)
 
-        ### F - Phi plot ###
+            fig.update_xaxes(title_text = "TI_no",range = [0,self.df_TI_performance.TI_no.max()],row =1, col = 1)
+            fig.update_yaxes(title_text = "LC",range = [0,1], row =1, col = 1)
+
+            ### F - Phi plot ###
+            
+            fig.add_trace(go.Scatter(x=self.df_TI_performance.Phi, y=self.df_TI_performance.F,
+                                    mode='lines',
+                                    line = dict(color = "lightgray"),
+                                    name='Simulated'),row =1, col =2)
         
-        fig.add_trace(go.Scatter(x=self.df_TI_performance.Phi, y=self.df_TI_performance.F,
-                                mode='lines',
-                                line = dict(color = "lightgray"),
-                                name='Simulated'),row =1, col =2)
-    
-        fig.add_trace(go.Scatter(x = [0,1], y = [0,1],
-                                mode = "lines",
-                                line = dict(color = "black", width = 3),
-                                name = "homogeneous"),row =1, col =2)
-        fig.update_xaxes(title_text = "Phi", range = [0,1],row =1, col =2)
-        fig.update_yaxes(title_text = "F",range = [0,1], row =1, col = 2)
+            fig.add_trace(go.Scatter(x = [0,1], y = [0,1],
+                                    mode = "lines",
+                                    line = dict(color = "black", width = 3),
+                                    name = "homogeneous"),row =1, col =2)
+            fig.update_xaxes(title_text = "Phi", range = [0,1],row =1, col =2)
+            fig.update_yaxes(title_text = "F",range = [0,1], row =1, col = 2)
 
-        ### Sweep efficiency plot ###
+            ### Sweep efficiency plot ###
+            
+            for TI_no in range (0,self.df_TI_performance.TI_no.max()):
+
+                EV = self.df_TI_performance[(self.df_TI_performance.TI_no == TI_no)].EV
+                tD = self.df_TI_performance[(self.df_TI_performance.TI_no == TI_no)].tD
+                fig.add_trace(go.Scatter(x=tD, y=EV,
+                                    mode='lines',
+                                    line = dict(color = "lightgray"),
+                                    text = "nothing yet",
+                                    name = "Simulated"),row =1, col =3)
+
+            fig.update_xaxes(title_text = "tD", range = [0,1],row =1, col =3)
+            fig.update_yaxes(title_text = "Ev",range = [0,1], row =1, col = 3)
+            fig.update_layout(title='Performance Evaluation - TI generator -{}'.format(self.dataset),
+                            autosize = False,
+                            width = 1500,
+                            height = 500,
+                            showlegend = False)
+
+            fig.show()
         
-        for TI_no in range (0,self.df_TI_performance.TI_no.max()):
+        else:
 
-            EV = self.df_TI_performance[(self.df_TI_performance.TI_no == TI_no)].EV
-            tD = self.df_TI_performance[(self.df_TI_performance.TI_no == TI_no)].tD
-            fig.add_trace(go.Scatter(x=tD, y=EV,
-                                mode='lines',
-                                line = dict(color = "lightgray"),
-                                text = "nothing yet",
-                                name = "Simulated"),row =1, col =3)
+            # Create traces
+            
+            fig = make_subplots(rows = self.n_shedules, cols = 3,
+                                subplot_titles = ("LC plot","F - Phi Graph","Sweep Efficieny Graph"))
+            for shedule_no in range(self.n_shedules):
 
-        fig.update_xaxes(title_text = "tD", range = [0,1],row =1, col =3)
-        fig.update_yaxes(title_text = "Ev",range = [0,1], row =1, col = 3)
-        fig.update_layout(title='Performance Evaluation - TI generator -{}'.format(self.dataset),
-                        autosize = False,
-                        width = 1500,
-                        height = 500,
-                        showlegend = False)
+                    
+                EV = "EV_" + str(shedule_no)
+                tD = "tD_" + str(shedule_no)
+                F = "F_" + str(shedule_no)
+                Phi = "Phi_" + str(shedule_no)
+                LC = "LC_" + str(shedule_no)
+                tof = "tof_" + str(shedule_no)
 
-        fig.show()
+                ### LC plot ###
+                
+                fig.add_trace(go.Scatter(x = self.df_TI_performance.TI_no, y=self.df_TI_performance[LC],
+                                        mode='markers',
+                                        line = dict(color = "lightgray"),
+                                        name='Simulated'),row =shedule_no+1, col =1)
 
+                fig.update_xaxes(title_text = "TI_no",range = [0,self.df_TI_performance.TI_no.max()],row =shedule_no+1, col = 1)
+                fig.update_yaxes(title_text = "LC",range = [0,1], row =shedule_no+1, col = 1)
 
-    def plot_tof_all_models(self,min_tof_bin = 1,max_tof_bin = 20, n_bins = 20):
+                ### F - Phi plot ###
+                
+                fig.add_trace(go.Scatter(x=self.df_TI_performance[Phi], y=self.df_TI_performance[F],
+                                        mode='lines',
+                                        line = dict(color = "lightgray"),
+                                        name='Simulated'),row =shedule_no+1, col =2)
+            
+                fig.add_trace(go.Scatter(x = [0,1], y = [0,1],
+                                        mode = "lines",
+                                        line = dict(color = "black", width = 3),
+                                        name = "homogeneous"),row = shedule_no+1, col =2)
+                fig.update_xaxes(title_text = "Phi", range = [0,1],row =shedule_no+1, col =2)
+                fig.update_yaxes(title_text = "F",range = [0,1], row =shedule_no+1, col = 2)
+
+                ### Sweep efficiency plot ###
+                
+                for TI_no in range (0,self.df_TI_performance.TI_no.max()):
+
+                    EV_plt = self.df_TI_performance[(self.df_TI_performance.TI_no == TI_no)][EV]
+                    tD_plt = self.df_TI_performance[(self.df_TI_performance.TI_no == TI_no)][tD]
+                    fig.add_trace(go.Scatter(x=tD_plt, y=EV_plt,
+                                        mode='lines',
+                                        line = dict(color = "lightgray"),
+                                        text = "nothing yet",
+                                        name = "Simulated"),row =shedule_no+1, col =3)
+
+                fig.update_xaxes(title_text = "tD", range = [0,1],row =shedule_no+1, col =3)
+                fig.update_yaxes(title_text = "Ev",range = [0,1], row =shedule_no+1, col = 3)
+                fig.update_layout(title='Performance Evaluation - TI generator -{}'.format(self.dataset),
+                                autosize = False,
+                                width = 1500,
+                                height = 500*self.n_shedules,
+                                showlegend = False)
+
+            fig.show()
+        
+    def plot_tof_all_models(self,min_tof_bin = 1,max_tof_bin = 20, n_bins = 20,shedule_no = 0):
         "plot the median tof for TI to see what areas are unswept in most scenarios"
 
         all_cells_median = []
         bins = np.linspace(min_tof_bin,max_tof_bin,n_bins)
 
-        for i in range(self.df_tof.shape[1]-1):
-            # single cell in all models, from seconds to years    
-            cell = np.round(np.array(self.df_tof[i]).reshape(-1)/60/60/24/365.25)
-            cell_binned = np.digitize(cell,bins=bins)
-            for j in range(1,n_bins+1):
-                cell_binned[cell_binned == j] = bins[j-1]
-            # calculate entropy based upon clusters
-            cell_median = np.median(cell_binned)
-            all_cells_median.append(cell_median)
-
-
+        if self.n_shedules == 1:
+        
+            for i in range(self.df_tof.shape[1]-1):
+                # single cell in all models, from seconds to years    
+                cell = np.round(np.array(self.df_tof[i]).reshape(-1)/60/60/24/365.25)
+                cell_binned = np.digitize(cell,bins=bins)
+                for j in range(1,n_bins+1):
+                    cell_binned[cell_binned == j] = bins[j-1]
+                # calculate entropy based upon clusters
+                cell_median = np.median(cell_binned)
+                all_cells_median.append(cell_median)
+        
+        else:
             
+            shedule_id = "_" + str(shedule_no)
+            col_list = [col for col in self.df_tof.columns if shedule_id in col]
+            for i in range(len(col_list)):
+                # single cell in all models, from seconds to years    
+                cell = np.round(np.array(self.df_tof[col_list[i]]).reshape(-1)/60/60/24/365.25)
+                cell_binned = np.digitize(cell,bins=bins)
+                for j in range(1,n_bins+1):
+                    cell_binned[cell_binned == j] = bins[j-1]
+                # calculate entropy based upon clusters
+                cell_median = np.median(cell_binned)
+                all_cells_median.append(cell_median)
+                
         # plot the whole thing
         values = np.array(all_cells_median).reshape(self.nx,self.ny,self.nz)
         # Create the spatial reference
@@ -159,22 +256,39 @@ class TI_selection():
         boring_cmap = plt.cm.get_cmap("viridis")
         grid.plot(show_edges=False,cmap = boring_cmap)
 
-    def plot_tof_entropy(self,min_tof_bin = 1,max_tof_bin = 20, n_bins = 20):
+    def plot_tof_entropy(self,min_tof_bin = 1,max_tof_bin = 20, n_bins = 20,shedule_no = 0):
         """ plot distribution of entropy based on grid for all TIs """
 
         all_cells_entropy = []
         all_cell_cluster_id = []
         bins = np.linspace(min_tof_bin,max_tof_bin,n_bins)
 
-        for i in range(self.df_tof.shape[1]-1):
-            # single cell in all models, from seconds to years    
-            cell = np.round(np.array(self.df_tof[i]).reshape(-1)/60/60/24/365.25)
-            cell_binned = np.digitize(cell,bins= bins)
-            for j in range(1,n_bins+1):
-                cell_binned[cell_binned == j] = bins[j-1]
-            # calculate entropy based upon clusters
-            cell_entropy = np.array(ent.shannon_entropy(cell_binned))
-            all_cells_entropy.append(cell_entropy)
+        if self.n_shedules == 1:
+
+            for i in range(self.df_tof.shape[1]-1):
+                # single cell in all models, from seconds to years    
+                cell = np.round(np.array(self.df_tof[i]).reshape(-1)/60/60/24/365.25)
+                cell_binned = np.digitize(cell,bins= bins)
+                for j in range(1,n_bins+1):
+                    cell_binned[cell_binned == j] = bins[j-1]
+                # calculate entropy based upon clusters
+                cell_entropy = np.array(ent.shannon_entropy(cell_binned))
+                all_cells_entropy.append(cell_entropy)
+        
+        else:
+            
+            shedule_id = "_" + str(shedule_no)
+            col_list = [col for col in self.df_tof.columns if shedule_id in col]
+            for i in range(len(col_list)):
+                # single cell in all models, from seconds to years    
+                cell = np.round(np.array(self.df_tof[col_list[i]]).reshape(-1)/60/60/24/365.25)
+                cell_binned = np.digitize(cell,bins= bins)
+                for j in range(1,n_bins+1):
+                    cell_binned[cell_binned == j] = bins[j-1]
+                # calculate entropy based upon clusters
+                cell_entropy = np.array(ent.shannon_entropy(cell_binned))
+                all_cells_entropy.append(cell_entropy)
+                
 
         # plot the whole thing    
         values = np.array(all_cells_entropy).reshape(self.nx,self.ny,self.nz)
@@ -190,7 +304,7 @@ class TI_selection():
         boring_cmap = plt.cm.get_cmap("viridis")
         grid.plot(show_edges=False,cmap = boring_cmap)
 
-    def plot_best_model(self,random_TI = True,TI_id = 0,property = "PORO",min_tof_bin = 1,max_tof_bin = 20, n_bins = 20):
+    def plot_best_model(self,random_TI = True,TI_id = 0,property = "PORO",min_tof_bin = 1,max_tof_bin = 20, n_bins = 20,shedule_no = 0):
         "visualize the properties of either a radom Training image model or a specific best model"
         
         if random_TI == True:
@@ -200,7 +314,14 @@ class TI_selection():
         #get filepath and laod grid
 
         if property == "tof":
-            tof = self.df_tof.loc[TI_id,:].drop(["TI_no"])
+
+            if self.n_shedules == 1:
+                tof = self.df_tof.loc[TI_id,:].drop(["TI_no"])
+            else:
+                shedule_id = "_" + str(shedule_no)
+                col_list = [col for col in self.df_tof.columns if shedule_id in col]
+                tof = self.df_tof.loc[TI_id,:]
+                tof = tof[col_list]
 
             #tof to years and then binned
             values = np.array(tof)/60/60/24/365.25
@@ -269,7 +390,7 @@ class TI_selection():
         if cluster_parameter == "TI_props":
 
             # df_best_for_clustering = self.df_TI_props.drop(["TI_no"], axis = 1)
-            df_best_for_clustering = self.df_TI_props(columns = self.columns)
+            df_best_for_clustering = self.df_TI_props[self.columns]
 
             # Create UMAP reducer
             reducer    = umap.UMAP(n_neighbors=n_neighbors,min_dist = min_dist, n_components =n_components)

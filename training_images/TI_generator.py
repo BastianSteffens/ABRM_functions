@@ -79,10 +79,11 @@ class TI_generator():
         # built DATA files
         self.built_data_files()
 
+        # extract mean_permxzy and frac_cell_fraction
+        self.get_TI_frac_data()
+
         # save everything
         self.save_data()
-
-
 
     def set_fracture_P32_distribution(self):
         """ define P32, and how it is distributed over random and zone specific fractures """
@@ -170,7 +171,7 @@ class TI_generator():
         # set all other paramters
         for i in range(len(property_name)):
             fracset_property_name = property_name[i] + "_" + frac_type + "_" + str(fracset_no)
-            fracset_property_value = np.round(self.sample_from_distribution(sampling_style= sampling_styles[i],property_stats = property_stats[i]),1)
+            fracset_property_value = np.round(self.sample_from_distribution(sampling_style= sampling_styles[i],property_stats = property_stats[i]),2)
             self.df_current_TI_data[fracset_property_name] = [fracset_property_value]
     
     def built_batch_file_petrel(self):
@@ -283,13 +284,10 @@ class TI_generator():
 
         for i in range(0,n_multibats):
             built_multibat = self.setup["base_path"] / "../../ABRM_functions/batch_files/multi_bat_{}.bat".format(i)
-            # built_multibat = r'{}\batch_files\multi_bat_{}.bat'.format(self.setup["base_path"],i)
-            # run_petrel_batch = self.setup["base_path"] / "../../ABRM_functions/batch_files/run_petrel_{}.bat".format(i)
             file = open(built_multibat, "w+")
 
             for _j in range(0,n_parallel_petrel_licenses):
 
-                # run_petrel_bat = '\nStart {}/batch_files/run_petrel_{}.bat'.format(self.setup["base_path"],run_petrel_ticker)
                 run_petrel_bat = '\nStart ' + str(self.setup["base_path"] / "../../ABRM_functions/batch_files/run_petrel_{}.bat".format(run_petrel_ticker))
                 file.write(run_petrel_bat)
                 run_petrel_ticker+=1
@@ -319,11 +317,19 @@ class TI_generator():
                 subprocess.call([run_multibat])
                 # not continue until lock files are gone and petrel is finished.
                 time.sleep(60)
-                kill_timer = 1 # waits 2h before petrel project is shut down if it has a bug 
-                while len(glob.glob(lock_files)) >= 1 or kill_timer > 7200:
+                kill_timer = 1 # waits 0.5h before petrel project is shut down if it has a bug 
+                while len(glob.glob(lock_files)) >= 1 or kill_timer > 360:
                     kill_timer += 1
                     time.sleep(5)
                 time.sleep(30)
+
+                #retry once
+                if kill_timer >= 360:
+                    subprocess.call([kill_petrel])
+                    time.sleep(30)
+                    subprocess.call([run_multibat])
+                    time.sleep(360)
+
                 subprocess.call([kill_petrel]) # might need to add something that removes lock file here.
 
             print('Building Training Images complete',end = "\r")
@@ -497,3 +503,84 @@ class TI_generator():
 
         # close file
         file.close()
+    
+    def Remove_Comment_Lines(self,data,commenter='--'):
+        #Remove comment and empty lines as well as -- Generated : Petrel
+        data_lines=data.strip().split('\n')
+        newdata=[]
+        for line in data_lines:
+            if line.startswith(commenter) or not line.strip():
+                # skip comments and blank lines
+                continue
+            
+            newdata.append(line)
+        return '\n'.join(newdata)
+    
+    def get_TI_frac_data(self):
+        """ extract mean permxzy and fraction of fracutred cells from output file from petrel - a bit tedious """
+
+        base_path = self.setup["base_path"]
+        source_path = base_path / "../../Output/training_images/current_run"
+        mean_permx_path = source_path / "mean_permx"
+        mean_permy_path = source_path / "mean_permy"
+        mean_permz_path = source_path / "mean_permz"
+        frac_cell_fraction_path = source_path / "frac_cell_fraction"
+        print(base_path)
+        print("source_path>")
+        print(source_path)
+        print(mean_permx_path)
+        self.mean_permx_all = []
+        self.mean_permy_all = []
+        self.mean_permz_all = []
+        self.frac_cell_fraction_all = []
+
+        for TI_id in range(self.n_TI):
+
+            mean_permx_file_path = mean_permx_path / "TI{}.GRDECL".format(TI_id)  
+            mean_permx=open(mean_permx_file_path)
+            mean_permx_contents=mean_permx.read()
+            mean_permx_contents=self.Remove_Comment_Lines(mean_permx_contents,commenter='--')
+            mean_permx_block_dataset=mean_permx_contents.strip().split() #Sepeart input file by slash /
+            mean_permx_block_dataset=np.array(mean_permx_block_dataset)
+            mean_permx_block_dataset = mean_permx_block_dataset[12]
+            mean_permx_value = np.array(mean_permx_block_dataset[5:],dtype=float)
+            self.mean_permx_all.append(mean_permx_value)
+            mean_permx.close() 
+
+            mean_permy_file_path = mean_permy_path / "TI{}.GRDECL".format(TI_id)  
+            mean_permy=open(mean_permy_file_path)
+            mean_permy_contents=mean_permy.read()
+            mean_permy_contents=self.Remove_Comment_Lines(mean_permy_contents,commenter='--')
+            mean_permy_block_dataset=mean_permy_contents.strip().split() #Sepeart input file by slash /
+            mean_permy_block_dataset=np.array(mean_permy_block_dataset)
+            mean_permy_block_dataset = mean_permy_block_dataset[12]
+            mean_permy_value = np.array(mean_permy_block_dataset[5:],dtype=float)
+            self.mean_permy_all.append(mean_permy_value)
+            mean_permy.close() 
+
+            mean_permz_file_path = mean_permz_path / "TI{}.GRDECL".format(TI_id)  
+            mean_permz=open(mean_permz_file_path)
+            mean_permz_contents=mean_permz.read()
+            mean_permz_contents=self.Remove_Comment_Lines(mean_permz_contents,commenter='--')
+            mean_permz_block_dataset=mean_permz_contents.strip().split() #Sepeart input file by slash /
+            mean_permz_block_dataset=np.array(mean_permz_block_dataset)
+            mean_permz_block_dataset = mean_permz_block_dataset[12]
+            mean_permz_value = np.array(mean_permz_block_dataset[5:],dtype=float)
+            self.mean_permz_all.append(mean_permz_value)
+            mean_permz.close() 
+
+            frac_cell_fraction_file_path = frac_cell_fraction_path / "TI{}.GRDECL".format(TI_id)  
+            frac_cell_fraction=open(frac_cell_fraction_file_path)
+            frac_cell_fraction_contents=frac_cell_fraction.read()
+            frac_cell_fraction_contents=self.Remove_Comment_Lines(frac_cell_fraction_contents,commenter='--')
+            frac_cell_fraction_dataset=frac_cell_fraction_contents.strip().split() #Sepeart input file by slash /
+            frac_cell_fraction_dataset=np.array(frac_cell_fraction_dataset)
+            frac_cell_fraction_dataset = frac_cell_fraction_dataset[12]
+            frac_cell_fraction_value = np.array(frac_cell_fraction_dataset[5:],dtype=float)
+            self.frac_cell_fraction_all.append(frac_cell_fraction_value)
+            frac_cell_fraction.close()
+
+        self.df_all_TI_data["mean_permx"] = self.mean_permx_all
+        self.df_all_TI_data["mean_permy"] = self.mean_permy_all     
+        self.df_all_TI_data["mean_permz"] = self.mean_permz_all
+        self.df_all_TI_data["frac_cell_fraction"] = self.frac_cell_fraction_all
