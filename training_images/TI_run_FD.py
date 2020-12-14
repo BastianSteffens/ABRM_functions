@@ -18,9 +18,11 @@ class TI_run_FD():
     self.n_TI = self.setup["n_TI"]
     self.pool = self.setup["pool"]
     self.n_shedules = self.setup["n_shedules"]
-
-    # self.all_TI_performance = pd.DataFrame(columns = ["EV","tD","F","Phi","LC","tof","TI_no"])
     self.all_TI_performance = pd.DataFrame()
+    if self.n_shedules == 1:
+      self.LC = np.zeros((self.n_TI))
+    else: 
+      self.LC = np.zeros((self.n_TI,self.n_shedules))
 
   def TI_run_FD_runner(self):
 
@@ -37,6 +39,7 @@ class TI_run_FD():
         TI_list = pool.map(self.run_FD_parallel,[TI_no for TI_no in TI_array])
         for TI_no in range(self.n_TI):
             TI_performance = TI_list[TI_no]["TI_performance"]
+            self.LC[TI_no] = TI_performance["LC"][0]
             self.all_TI_performance = self.all_TI_performance.append(TI_performance,ignore_index = True)
     
     else:
@@ -54,6 +57,9 @@ class TI_run_FD():
         for TI_no in range(self.n_TI):
             TI_performance = TI_list[TI_no]["TI_performance"]
             self.all_TI_performance = self.all_TI_performance.append(TI_performance,ignore_index = True)
+            for shedule_no in range(self.n_shedules):
+              LC = "LC_" + str(shedule_no)
+              self.LC[TI_no,shedule_no] = TI_performance[LC][0]
 
     self.get_output_dfs()
 
@@ -135,7 +141,7 @@ class TI_run_FD():
       TI_performance["TI_no"] = TI_no
       TI_dict = dict()
       TI_dict["TI_performance"] = TI_performance
-      print("{}/1200 TIs done".format(TI_no))
+      print("{}/P{} TIs done".format(TI_no,self.n_TI))
       return TI_dict
 
   def run_FD_parallel_multi(self,TI_no):
@@ -166,7 +172,7 @@ class TI_run_FD():
 
     TI_dict = dict()
     TI_dict["TI_performance"] = TI_performance
-    print("{}/1200 TIs done".format(TI_no))
+    print("{}/{} TIs done".format(TI_no,self.n_TI))
     return TI_dict
 
   def run_FD_iterator(self):
@@ -175,7 +181,7 @@ class TI_run_FD():
       for TI_no in range(self.n_TI):
 
         TI_performance = self.run_FD(TI_no)
-
+        self.LC[TI_no]= TI_performance["LC"][0]
         self.all_TI_performance = self.all_TI_performance.append(TI_performance) # store for data saving
   
   def run_FD_iterator_multi(self):
@@ -185,11 +191,18 @@ class TI_run_FD():
           for shedule_no in range(self.n_shedules):
             self.built_FD_Data_files_multi(TI_no= TI_no,shedule_no= shedule_no)
             TI_performance = self.run_FD_multi(TI_no,shedule_no)
-
+            LC = "LC_{}".format(shedule_no)
+            self.LC[TI_no,shedule_no] = TI_performance[LC][0]
             self.all_TI_performance = self.all_TI_performance.append(TI_performance) # store for data saving
   
   def get_output_dfs(self):
     """prepare dfs for output that is ready for postprocessing"""
+
+    # load TI_pros to attach LC
+    folder_path = self.setup["folder_path"]
+    TI_props = "TI_properties.csv"
+    file_path_TI_props = folder_path / TI_props
+    self.df_TI_props = pd.read_csv(file_path_TI_props)
     
     if self.setup["n_shedules"] == 1:
 
@@ -197,12 +210,15 @@ class TI_run_FD():
       self.tof = self.all_TI_performance[["tof","TI_no"]].copy()
       # shorten performance dataset to save time and space. this should be enough for plotting
       self.all_TI_performance_short = self.all_TI_performance.iloc[::100,:].copy()
-      
+      self.df_TI_props["LC"] = self.LC
+
     else:
 
       self.tof = self.all_TI_performance[["TI_no"]].copy()
       for shedule_no in range(self.n_shedules):
         tof = "tof_" + str(shedule_no)
+        LC = "LC_" + str(shedule_no)
+        self.df_TI_props[LC] = self.LC[:,shedule_no]
         self.tof[tof] = self.all_TI_performance[tof]
 
       self.all_TI_performance_short = self.all_TI_performance.iloc[::100,:].copy()
@@ -210,14 +226,18 @@ class TI_run_FD():
   def save_data(self):
       """ save df to csv files / pickle that contains all data used for postprocessing """
 
+
+
       # filepath setup
       folder_path = self.setup["folder_path"]
       
       output_file_performance = "all_TI_performance.pbz2"
       tof_file = "tof_all_TI.pbz2"
+      TI_props = "TI_properties.csv"
 
       file_path_tof = folder_path / tof_file
       file_path_performance = folder_path / output_file_performance
+      file_path_TI_props = folder_path / TI_props
 
       # make folder
       if not os.path.exists(folder_path):
@@ -228,6 +248,7 @@ class TI_run_FD():
           cPickle.dump(self.tof,f, protocol= 4)
       with bz2.BZ2File(file_path_performance,"w") as f:
           cPickle.dump(self.all_TI_performance_short,f, protocol= 4)
+      self.df_TI_props.to_csv(file_path_TI_props,index=False)
 
   def built_FD_Data_files_multi(self,TI_no,shedule_no):
       # loading in settings that I set up on init_ABRM.py for this run

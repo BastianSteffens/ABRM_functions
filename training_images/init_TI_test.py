@@ -13,20 +13,20 @@ import pathlib
 
 def init():
 
-    set_seed = 234343
+    set_seed = 234343124
     random.seed(set_seed)
 
     ###### Set variables for Training Image generation ######
     n_TI = 600
     
 
-    n_fracsets_random_range = [1,4]
-    n_fracsets_area_specific_range = [1,3]
+    n_fracsets_random_range = [4,4]
+    n_fracsets_area_specific_range = [4,4]
     n_fracsets_sampling_style = "uniform"
-    P32_total_range = [0.01,0.1]
+    P32_total_range = [0.01,0.01]
     P32_total_sampling_style = "uniform"
-    random_fracs_fraction_range = [0.4,0.2]
-    random_fracs_sampling_style = "normal"
+    random_fracs_fraction_range = [0.1,0.1]
+    random_fracs_sampling_style = "uniform"
     # ranges P32=[0.001,3] frac_length_scale = [5,25], frac_length_shape = [2.1,2.5], frac_length_max = [100,1000], frac_orient_dip = [0,90], 
     # frac_orient_azimuth = [0,360] if want 2 sets of fracs, both showing 360 but one dipping 15 degrees left, other 15degrees right, i need to give one 180 degree, frac_orient_concentration = [0,100] 100 = all fractures very much algined
     property_name = ["frac_length_shape","frac_length_scale","frac_length_max","frac_orient_dip","frac_orient_azimuth","frac_orient_concentration"]
@@ -39,16 +39,17 @@ def init():
     # uniform [min,max]
     # normal  [mean,std]
     # gamma etc.
-    property_stats_random = [[[2.1,2.5],[5,25],[50,1000],[0,90],[0,360],[0,50]],
-                             [[2.1,2.5],[5,25],[50,1000],[0,90],[0,360],[0,50]],
-                             [[2.1,2.5],[5,25],[50,1000],[0,90],[0,360],[0,50]],
-                             [[2.1,2.5],[5,25],[50,1000],[0,90],[0,360],[0,50]],
+    property_stats_random = [[[2.1,2.1],[5,5],[500,500],[80,80],[300,300],[50,50]],
+                             [[2.1,2.1],[5,5],[500,500],[80,80],[300,300],[50,50]],
+                             [[2.1,2.1],[5,5],[500,500],[80,80],[300,300],[50,50]],
+                             [[2.1,2.1],[5,5],[500,500],[80,80],[300,300],[50,50]],
                      ]
-    property_stats_area_specific = [[[2.1,2.5],[5,25],[50,1000],[75,90],[150,180],[0,50]],
-                                    [[2.1,2.5],[5,25],[50,1000],[75,90],[330,360],[0,50]],
-                                    [[2.1,2.5],[5,25],[50,1000],[85,90],[170,190],[0,50]],
-                                    [[2.1,2.5],[5,25],[50,1000],[85,90],[170,350],[0,50]],
+    property_stats_area_specific = [[[2.1,2.1],[5,5],[500,500],[80,80],[300,300],[50,50]],
+                             [[2.1,2.1],[5,5],[500,500],[80,80],[300,300],[50,50]],
+                             [[2.1,2.1],[5,5],[500,500],[80,80],[300,300],[50,50]],
+                             [[2.1,2.1],[5,5],[500,500],[80,80],[300,300],[50,50]],
                      ]
+
 
     # seed
     set_seed = random.randint(0,10000000)
@@ -58,10 +59,10 @@ def init():
     # how many potrel licenses to run at onces
     n_parallel_petrel_licenses = 3
     # which workflow to run in petrel (atm onlz 1 wf)
-    runworkflow = "WF_TI_flank_generator"   
+    runworkflow = "WF_TI_crest_generator"   
     petrel_path = "C:/Program Files/Schlumberger/Petrel 2017/Petrel.exe"
     base_path = pathlib.Path(__file__).parent
-    output_path = base_path / "../../Output/training_images/TI_flank/"
+    output_path = base_path / "../../Output/training_images/TI_crest/"
     output_folder = str(datetime.datetime.today().replace(microsecond= 0, second = 0).strftime("%Y_%m_%d_%H_%M"))
     output_file_variables = "variable_settings_saved.pickle"
     folder_path = output_path / output_folder
@@ -71,7 +72,7 @@ def init():
 
     shedule = "5_spot"
     n_shedules = 2
-    petrel_on = False
+    petrel_on = True
 
     setup = dict(n_TI = n_TI, n_fracsets_random_range = n_fracsets_random_range, n_fracsets_area_specific_range = n_fracsets_area_specific_range,
                  n_fracsets_sampling_style = n_fracsets_sampling_style,P32_total_sampling_style = P32_total_sampling_style,P32_total_range = P32_total_range,
@@ -86,7 +87,7 @@ def init():
 
     ###### Initialize Training image generator ######
 
-    # # Call instance of TI generator
+    # Call instance of TI generator
     TI_gen = TI_generator.TI_generator(seed = set_seed,setup = setup)
 
     TI_gen.run_TI_generator()

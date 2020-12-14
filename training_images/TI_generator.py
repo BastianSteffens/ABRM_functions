@@ -155,6 +155,8 @@ class TI_generator():
         # set seed for each individual fracture set
         fracset_seed = "seed_" + frac_type + "_" + str(fracset_no)
         seed = np.round(np.random.uniform(0,100000),1)
+        # seed = 123
+        # seed = 111222.2
         self.df_current_TI_data[fracset_seed] = [seed]
 
         # set P32 for fracture set
@@ -313,23 +315,21 @@ class TI_generator():
             n_multibats = int(np.ceil(n_TI / n_modelsperbatch/n_parallel_petrel_licenses))
             for i in range(0,n_multibats):
                 run_multibat = str(self.setup["base_path"] / "../../ABRM_functions/batch_files/multi_bat_{}.bat".format(i))
-
                 subprocess.call([run_multibat])
                 # not continue until lock files are gone and petrel is finished.
                 time.sleep(60)
-                kill_timer = 1 # waits 0.5h before petrel project is shut down if it has a bug 
-                while len(glob.glob(lock_files)) >= 1 or kill_timer > 360:
+                kill_timer = 1 # waits 1h before petrel project is shut down if it has a bug 
+                n_locked_files = len(glob.glob(lock_files)) 
+                while n_locked_files >= 1:
                     kill_timer += 1
                     time.sleep(5)
+                    print("waiting for petrel: {}/15min".format((np.round(5*kill_timer/60,2))),end = "\r")
+                    if kill_timer >= 180:
+                        n_locked_files = 0
+                    else:
+                        n_locked_files = len(glob.glob(lock_files)) 
+
                 time.sleep(30)
-
-                #retry once
-                if kill_timer >= 360:
-                    subprocess.call([kill_petrel])
-                    time.sleep(30)
-                    subprocess.call([run_multibat])
-                    time.sleep(360)
-
                 subprocess.call([kill_petrel]) # might need to add something that removes lock file here.
 
             print('Building Training Images complete',end = "\r")

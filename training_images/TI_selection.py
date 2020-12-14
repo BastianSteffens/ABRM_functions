@@ -19,7 +19,7 @@ import shutil
 class TI_selection():
     """ pick Training images wiht help of clustering that should be taken forward """
 
-    def __init__(self,dataset,TI_name= "TI_1",nx = 60,ny = 60,nz = 1,n_shedules = 1,n_TI = 1200):
+    def __init__(self,dataset,TI_name= "TI_crest",nx = 60,ny = 60,nz = 1,n_shedules = 1,n_TI = 1200):
     
         self.nx = nx
         self.ny = ny
