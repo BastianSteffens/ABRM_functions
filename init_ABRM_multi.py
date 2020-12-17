@@ -19,9 +19,9 @@ def init():
     random.seed(set_seed)
 
     ###### Set hyperparmeters for PSO ######
-    n_parameters = 24
-    n_iters = 50
-    n_particles = 36 # always pick multiple of 3. need to fix this 
+    n_parameters = 12
+    n_iters = 5
+    n_particles = 3 # always pick multiple of 3. need to fix this 
     min_bound = 0 * np.ones(n_parameters)
     max_bound = 1 * np.ones(n_parameters)
     bounds = (min_bound, max_bound)
@@ -57,11 +57,14 @@ def init():
     ###### Set modelling parameters for Petrelworkflows ######
    
     # if I want to set a varaible constant, just make the range = 0 e.g. varmin=varmax
-    varminmax = np.array([[1,4],[1,200],[1,200],[1,100],[1,100],
-                          [1,4],[1,200],[1,200],[1,100],[1,100],
-                          [1,4],[1,200],[1,200],[1,100],[1,100],
-                          [0,1],[0,1],[0,1],[1,1500],[1,100],[1,1500],
-                          [1,100],[1,1500],[1,100]])
+    # varminmax = np.array([[1,4],[1,200],[1,200],[1,100],[1,100],
+    #                       [1,4],[1,200],[1,200],[1,100],[1,100],
+    #                       [1,4],[1,200],[1,200],[1,100],[1,100],
+    #                       [0,1],[0,1],[0,1],[1,1500],[1,100],[1,1500],
+    #                       [1,100],[1,1500],[1,100]])
+    varminmax = np.array([[1,20],[1,200],[1,200],[1,100],[1,100],
+                        [1,20],[1,200],[1,200],[1,100],[1,100],
+                        [50,150],[50,150]])
     # varminmax = np.array([[1,4],[1,4],[1,4],[1,200],[1,100],[1,200],[1,100],[1,200],
     #                       [1,100],[1,200],[1,100],[1,200],[1,100],[1,200],
     #                       [1,100],[1,200],[1,100],[1,200],[1,100],[1,200],[1,100],[1,200],[1,100],
@@ -73,9 +76,10 @@ def init():
     n_voronoi = 0
     n_voronoi_zones = 0
     # if continuoes = 0, if discrete = 1
-    continuous_discrete = [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0]
+    # continuous_discrete = [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0]
     # continuous_discrete = [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0]
     # continuous_discrete = [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0]
+    continuous_discrete = [1,1,1,1,1,1,1,1,1,1,1,1]
 
     # continuous_discrete = [0,1,0,0,0,0,0,0,0,0]
     # var names
@@ -90,22 +94,26 @@ def init():
     #            "TI3","F3_I_MIN","F3_I_MAX","F3_J_MIN","F3_J_MAX","F3_K_MIN","F3_K_MAX",
     #            "F1_Curve_Prob","F2_Curve_Prob","F3_Curve_Prob","FracpermX","MatrixpermX",
     #            "FracpermY","MatrixpermY","FracpermZ","MatrixpermZ"]
+    # columns = ["TI1","F1_I_MIN","F1_I_MAX","F1_J_MIN","F1_J_MAX",
+    #            "TI2","F2_I_MIN","F2_I_MAX","F2_J_MIN","F2_J_MAX",
+    #            "TI3","F3_I_MIN","F3_I_MAX","F3_J_MIN","F3_J_MAX",
+    #            "F1_Curve_Prob","F2_Curve_Prob","F3_Curve_Prob","FracpermX","MatrixpermX",
+    #            "FracpermY","MatrixpermY","FracpermZ","MatrixpermZ"] 
     columns = ["TI1","F1_I_MIN","F1_I_MAX","F1_J_MIN","F1_J_MAX",
-               "TI2","F2_I_MIN","F2_I_MAX","F2_J_MIN","F2_J_MAX",
                "TI3","F3_I_MIN","F3_I_MAX","F3_J_MIN","F3_J_MAX",
-               "F1_Curve_Prob","F2_Curve_Prob","F3_Curve_Prob","FracpermX","MatrixpermX",
-               "FracpermY","MatrixpermY","FracpermZ","MatrixpermZ"]  
+               "Hinge_min","Hinge_max"]    
     # columns = ["P32","n_sides","elongation_ratio","shape","scale","mean_dip",
     #            "mean_dip_azimuth","concentration","aperture_mean","aperture_std"]
     
     # var types str = 0, numeric =1, TI = 2, voronoi_coordinate = 3
     # parameter_type = [2,2,2,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,1,1,1,1,1,1]
     # parameter_type = [2,1,1,1,1,1,1,2,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
-    parameter_type = [2,1,1,1,1,2,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1]
+    # parameter_type = [2,1,1,1,1,2,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1]
+    parameter_type = [2,1,1,1,1,2,1,1,1,1,1,1]
 
     # parameter_type = [1,1,1,1,1,1,1,1,1,1]
 
-    n_trainingimages = 4
+    n_trainingimages = 20
     # misfit values
     # create curve and save resultign desired LC
     Phi_points_target = np.linspace(0, 1, num=11, endpoint=True)
@@ -117,19 +125,19 @@ def init():
     penalty = "linear"
 
     # misfit threshold to qualify as suitable model
-    best_models = 0.15
+    best_models = 1
 
     # seed
     set_seed = random.randint(0,10000000)
     random.seed(set_seed)
     # models per petrel workflow (limited to 3 atm)
-    n_modelsperbatch = 3
+    n_modelsperbatch = 1
     # how many potrel licenses to run at onces
     n_parallel_petrel_licenses = 3
     # which workflow to run in petrel (atm onlz 1 wf)
-    runworkflow = "WF_2020_10_16"   #"WF_2020_07_03" #"WF_2020_04_16"#"WF_2019_09_16", "WF_test" "WF_2020_05_08"
+    runworkflow = "WF_2020_12_14"#"WF_2020_10_16"   #"WF_2020_07_03" #"WF_2020_04_16"#"WF_2019_09_16", "WF_test" "WF_2020_05_08"
     # run with petrel or without for test
-    petrel_on = True
+    petrel_on = False
     petrel_path = "C:/Program Files/Schlumberger/Petrel 2017/Petrel.exe"
 
     # if all models should be explicitly saved and not overwritten. 

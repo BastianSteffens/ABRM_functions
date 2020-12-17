@@ -328,12 +328,68 @@ class LocalBestPSO(SwarmOptimizer):
 
     ### BS ###
 
+    # def compute_tof_based_entropy_best_models(self):
+    #     """ function to compute the entropy of the models that fulfill misfit criterion based on the time-of-flight"""
+
+    #     #generate temporary all iter particle df
+    #     temp_all_iter_particle_values = self.particle_values_all_iter.append(self.particle_values, ignore_index = True)
+    #     temp_all_iter_tof = self.tof_all_iter.append(self.tof,ignore_index = True)
+
+    #     # get models taht fulfil misfit criterion
+    #     particle_values_all_iter_best = temp_all_iter_particle_values[temp_all_iter_particle_values["misfit"] <= self.setup["best_models"]]
+
+    #     all_cells_entropy = []
+
+    #     # check if more than 1 models exist that are better than misfit
+    #     if particle_values_all_iter_best.shape[0] > 3:
+    #         print("got {} best models ...calculating entropy".format(particle_values_all_iter_best.shape[0]))
+            
+    #         # filter out tof for all best models and make it readable for clustering
+    #         iteration = particle_values_all_iter_best.iteration.tolist()
+    #         particle_no =  particle_values_all_iter_best.particle_no.tolist()  
+    #         best_tof = pd.DataFrame(columns = np.arange(200*100*7))
+      
+    #         tof_all = pd.DataFrame()
+    #         for i in range(particle_values_all_iter_best.shape[0]):
+
+    #             tof = temp_all_iter_tof[(temp_all_iter_tof.iteration == iteration[i]) & (temp_all_iter_tof.particle_no == particle_no[i])].tof_back
+    #             tof.reset_index(drop=True, inplace=True)
+    #             tof_all = tof_all.append(tof,ignore_index = True)
+
+    #         best_tof = tof_all
+    #         best_tof["iteration"] = iteration
+    #         best_tof["particle_no"] = particle_no
+    #         best_tof.set_index(particle_values_all_iter_best.index.values,inplace = True)
+
+
+    #         for i in range(best_tof.shape[1]-2):
+
+    #             cell = np.round(np.array(best_tof[i]).reshape(-1)/60/60/24/365.25)
+
+    #             #over 20 years tof is binend together.considered unswept.
+    #             cell_binned = np.digitize(cell,bins=[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20])
+        
+    #                # calculate entropy based upon clusters
+    #             cell_entropy = np.array(ent.shannon_entropy(cell_binned))
+    #             all_cells_entropy.append(cell_entropy)
+
+    #         # sum up entropy for all cells
+    #         tof_based_entropy_best_models = np.sum(np.array(all_cells_entropy))
+    #         print("entropy: {}".format(tof_based_entropy_best_models))
+
+
+    #     else:
+    #         print("no best models")
+    #         tof_based_entropy_best_models = 0
+        
+    #     self.particle_values["tof_based_entropy_best_models"] = tof_based_entropy_best_models
+    #     self.particle_values_converted["tof_based_entropy_best_models"] = tof_based_entropy_best_models
     def compute_tof_based_entropy_best_models(self):
         """ function to compute the entropy of the models that fulfill misfit criterion based on the time-of-flight"""
 
         #generate temporary all iter particle df
         temp_all_iter_particle_values = self.particle_values_all_iter.append(self.particle_values, ignore_index = True)
-        temp_all_iter_tof = self.tof_all_iter.append(self.tof,ignore_index = True)
+        temp_all_iter_tof = np.array(self.tof_all_iter.append(self.tof,ignore_index = True),dtype = np.float32)
 
         # get models taht fulfil misfit criterion
         particle_values_all_iter_best = temp_all_iter_particle_values[temp_all_iter_particle_values["misfit"] <= self.setup["best_models"]]
@@ -345,32 +401,26 @@ class LocalBestPSO(SwarmOptimizer):
             print("got {} best models ...calculating entropy".format(particle_values_all_iter_best.shape[0]))
             
             # filter out tof for all best models and make it readable for clustering
-            iteration = particle_values_all_iter_best.iteration.tolist()
-            particle_no =  particle_values_all_iter_best.particle_no.tolist()  
+            iteration = np.array(particle_values_all_iter_best.iteration.tolist(),dtype = np.int)
+            particle_no =  np.array(particle_values_all_iter_best.particle_no.tolist(),dtype = np.int)  
             best_tof = pd.DataFrame(columns = np.arange(200*100*7))
       
-            tof_all = pd.DataFrame()
             for i in range(particle_values_all_iter_best.shape[0]):
-
-                tof = temp_all_iter_tof[(temp_all_iter_tof.iteration == iteration[i]) & (temp_all_iter_tof.particle_no == particle_no[i])].tof_back
-                tof.reset_index(drop=True, inplace=True)
-                tof_all = tof_all.append(tof,ignore_index = True)
-
-            best_tof = tof_all
+                tof = temp_all_iter_tof[(temp_all_iter_tof[:,2] == iteration[i]) & (temp_all_iter_tof[:,3] == particle_no[i]),0]
+                tof = pd.DataFrame(tof.reshape((1,(200*100*7))))
+                best_tof = best_tof.append(tof,ignore_index = True)
             best_tof["iteration"] = iteration
             best_tof["particle_no"] = particle_no
             best_tof.set_index(particle_values_all_iter_best.index.values,inplace = True)
 
+            cells = np.array(best_tof/60/60/242/365.25)
+            #over 20 years tof is binend together.considered unswept.
+            cells_binned = np.digitize(cells,bins=[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20])
 
             for i in range(best_tof.shape[1]-2):
-
-                cell = np.round(np.array(best_tof[i]).reshape(-1)/60/60/24/365.25)
-
-                #over 20 years tof is binend together.considered unswept.
-                cell_binned = np.digitize(cell,bins=[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20])
         
-                   # calculate entropy based upon clusters
-                cell_entropy = np.array(ent.shannon_entropy(cell_binned))
+                # calculate entropy based upon clusters
+                cell_entropy = np.array(ent.shannon_entropy(cells_binned[:,i]))
                 all_cells_entropy.append(cell_entropy)
 
             # sum up entropy for all cells

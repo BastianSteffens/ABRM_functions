@@ -394,8 +394,8 @@ class MOPSO(SwarmOptimizer):
         #  models.
         particle = self.swarm.position_converted     # all particles together    
         particle_1d_array =  particle.reshape((particle.shape[0]*particle.shape[1]))    # all particles together                
-        # particlesperwf = np.linspace(0,n_modelsperbatch,n_parallel_petrel_licenses, endpoint = False,dtype = int) # this is how it should be. This is the name that each variable has per model in the petrel wf
-        particlesperwf = np.linspace(25,27,n_modelsperbatch, endpoint = True,dtype = int) # use 25,26,27 because of petrel wf. there the variables are named like that and cant bothered to change that.
+        particlesperwf = np.linspace(0,n_modelsperbatch,n_parallel_petrel_licenses, endpoint = False,dtype = int) # this is how it should be. This is the name that each variable has per model in the petrel wf
+        # particlesperwf = np.linspace(25,27,n_modelsperbatch, endpoint = True,dtype = int) # use 25,26,27 because of petrel wf. there the variables are named like that and cant bothered to change that.
         single_wf = [str(i) for i in np.tile(particlesperwf,n_particles)]
         single_particle_in_wf = [str(i) for i in np.arange(0,n_particles+1)]
         particle_str = np.asarray([str(i) for i in particle_1d_array]).reshape(particle.shape[0],particle.shape[1])
@@ -587,6 +587,85 @@ class MOPSO(SwarmOptimizer):
                 self.particle_values[LC] = self.LC[:,shedule_no].astype("float32")
                 self.particle_values_converted[LC] = self.LC[:,shedule_no].astype("float32")
 
+    # def compute_tof_based_entropy_best_models(self):
+
+    #     """ function to compute the entropy of the models that fulfill misfit criterion based on the time-of-flight"""
+       
+    #     n_shedules = self.setup["n_shedules"]
+
+    #     #generate temporary all iter particle df
+    #     temp_all_iter_particle_values = self.particle_values_all_iter.append(self.particle_values, ignore_index = True)
+    #     temp_all_iter_tof = self.tof_all_iter.append(self.tof,ignore_index = True)
+
+    #     particle_values_all_iter_best = temp_all_iter_particle_values.copy()
+    #     # get models tht fulfil misfit criterion of all shedules
+    #     for shedule_no in range(n_shedules):
+    #         misfit = "misfit_" + str(shedule_no)
+    #         particle_values_all_iter_best = particle_values_all_iter_best[particle_values_all_iter_best[misfit] <= self.setup["best_models"]]
+
+    #     all_cells_entropy = []
+
+    #     # check if more than 1 models exist that are better than misfit
+    #     if particle_values_all_iter_best.shape[0] > 3:
+    #         print(" got {} best models ...calculating entropy".format(particle_values_all_iter_best.shape[0]))
+            
+    #         tof_entropy_all_shedules = []
+    #         for shedule_no in range(n_shedules):
+                
+    #             tof_column = "tof_back_" + str(shedule_no)
+    #             # filter out tof for all best models and make it readable for clustering
+    #             iteration = particle_values_all_iter_best.iteration.tolist()
+    #             particle_no =  particle_values_all_iter_best.particle_no.tolist()  
+    #             best_tof = pd.DataFrame(columns = np.arange(200*100*7))
+        
+    #             tof_all = pd.DataFrame()
+    #             for i in range(particle_values_all_iter_best.shape[0]):
+
+    #                 tof = temp_all_iter_tof[(temp_all_iter_tof.iteration == iteration[i]) & (temp_all_iter_tof.particle_no == particle_no[i])][tof_column]#.tof
+    #                 tof.reset_index(drop=True, inplace=True)
+    #                 tof_all = tof_all.append(tof,ignore_index = True)
+
+    #             best_tof = tof_all
+    #             best_tof["iteration"] = iteration
+    #             best_tof["particle_no"] = particle_no
+    #             best_tof.set_index(particle_values_all_iter_best.index.values,inplace = True)
+
+
+    #             for i in range(best_tof.shape[1]-2):
+
+    #                 cell = np.round(np.array(best_tof[i]).reshape(-1)/60/60/24/365.25)
+
+    #                 #over 20 years tof is binend together.considered unswept.
+    #                 cell_binned = np.digitize(cell,bins=[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20])
+            
+    #                 # calculate entropy based upon clusters
+    #                 cell_entropy = np.array(ent.shannon_entropy(cell_binned))
+    #                 all_cells_entropy.append(cell_entropy)
+
+    #             # sum up entropy for all cells
+    #             tof_based_entropy_best_models = np.sum(np.array(all_cells_entropy))
+    #             tof_entropy_all_shedules.append(tof_based_entropy_best_models)
+
+    #         tof_entropy_all_shedules_sum = np.sum(np.array(tof_entropy_all_shedules))
+    #         print("entropy: {}".format(tof_entropy_all_shedules_sum))
+
+
+    #     else:
+    #         print(" no best models")
+    #         tof_entropy_all_shedules = []
+    #         for shedule_no in range(n_shedules):
+    #             tof_entropy_all_shedules.append(0)
+
+    #         tof_entropy_all_shedules_sum = 0
+        
+    #     self.particle_values["tof_entropy_all_shedules_sum"] = tof_entropy_all_shedules_sum
+    #     self.particle_values_converted["tof_entropy_all_shedules_sum"] = tof_entropy_all_shedules_sum
+
+    #     for shedule_no in range(n_shedules):
+    #         entropy_single_shedule = "tof_entropy_shedule_" + str(shedule_no)
+
+    #         self.particle_values[entropy_single_shedule] = tof_entropy_all_shedules[shedule_no]
+    #         self.particle_values_converted[entropy_single_shedule] = tof_entropy_all_shedules[shedule_no]
     def compute_tof_based_entropy_best_models(self):
 
         """ function to compute the entropy of the models that fulfill misfit criterion based on the time-of-flight"""
@@ -595,7 +674,7 @@ class MOPSO(SwarmOptimizer):
 
         #generate temporary all iter particle df
         temp_all_iter_particle_values = self.particle_values_all_iter.append(self.particle_values, ignore_index = True)
-        temp_all_iter_tof = self.tof_all_iter.append(self.tof,ignore_index = True)
+        temp_all_iter_tof = np.array(self.tof_all_iter.append(self.tof,ignore_index = True),dtype = np.float32)
 
         particle_values_all_iter_best = temp_all_iter_particle_values.copy()
         # get models tht fulfil misfit criterion of all shedules
@@ -612,34 +691,32 @@ class MOPSO(SwarmOptimizer):
             tof_entropy_all_shedules = []
             for shedule_no in range(n_shedules):
                 
-                tof_column = "tof_back_" + str(shedule_no)
+                
+                tof_column = shedule_no * 4
                 # filter out tof for all best models and make it readable for clustering
-                iteration = particle_values_all_iter_best.iteration.tolist()
-                particle_no =  particle_values_all_iter_best.particle_no.tolist()  
+                iteration = np.array(particle_values_all_iter_best.iteration.tolist(),dtype = np.int)
+                particle_no =  np.array(particle_values_all_iter_best.particle_no.tolist(),dtype = np.int)  
                 best_tof = pd.DataFrame(columns = np.arange(200*100*7))
         
-                tof_all = pd.DataFrame()
                 for i in range(particle_values_all_iter_best.shape[0]):
 
-                    tof = temp_all_iter_tof[(temp_all_iter_tof.iteration == iteration[i]) & (temp_all_iter_tof.particle_no == particle_no[i])][tof_column]#.tof
-                    tof.reset_index(drop=True, inplace=True)
-                    tof_all = tof_all.append(tof,ignore_index = True)
+                    tof = temp_all_iter_tof[(temp_all_iter_tof[:,2] == iteration[i]) & (temp_all_iter_tof[:,3] == particle_no[i]),tof_column]
+                    tof = pd.DataFrame(tof.reshape((1,(200*100*7))))
+                    best_tof = best_tof.append(tof,ignore_index = True)
 
-                best_tof = tof_all
                 best_tof["iteration"] = iteration
                 best_tof["particle_no"] = particle_no
                 best_tof.set_index(particle_values_all_iter_best.index.values,inplace = True)
 
+                
+                cells = np.array(best_tof/60/60/242/365.25)
+                #over 20 years tof is binend together.considered unswept.
+                cells_binned = np.digitize(cells,bins=[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20])
 
                 for i in range(best_tof.shape[1]-2):
 
-                    cell = np.round(np.array(best_tof[i]).reshape(-1)/60/60/24/365.25)
-
-                    #over 20 years tof is binend together.considered unswept.
-                    cell_binned = np.digitize(cell,bins=[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20])
-            
                     # calculate entropy based upon clusters
-                    cell_entropy = np.array(ent.shannon_entropy(cell_binned))
+                    cell_entropy = np.array(ent.shannon_entropy(cells_binned[:,i]))
                     all_cells_entropy.append(cell_entropy)
 
                 # sum up entropy for all cells
