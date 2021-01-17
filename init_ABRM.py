@@ -20,7 +20,7 @@ def init():
 
     ###### Set hyperparmeters for PSO ######
     n_parameters = 27#24
-    n_iters = 30
+    n_iters = 100
     n_particles = 36 # always pick multiple of 3. need to fix this 
     min_bound = 0 * np.ones(n_parameters)
     max_bound = 1 * np.ones(n_parameters)

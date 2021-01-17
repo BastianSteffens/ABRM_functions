@@ -285,7 +285,7 @@ class particle():
         voronoi_y = np.array(voronoi_y)
         voronoi_points = np.vstack((voronoi_x,voronoi_y)).T
         # voronoi_z = np.array(voronoi_z)
-        voronoi_points[0] = voronoi_points[1]
+
         #crosscheck if any points lie on top of each other. if so --> move one point
         unq, unq_idx, unq_cnt = np.unique(voronoi_points, return_inverse=True, return_counts=True,axis = 0)
         dup = unq[unq_cnt > 1]

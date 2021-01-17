@@ -296,6 +296,24 @@ class multi_particle():
                                 voronoi_points[k,1] = voronoi_points[k,1] + move_in_shape_vector
                        
                         dublicate_tracker = 0
+                        
+            # reassign new position to particle
+            voronoi_x_ticker = 0
+            voronoi_y_ticker = 0
+            for j in range(n_parameters):
+
+                # find voronoi positions
+                if parameter_type[j] == 3:
+                    if "x" in parameter_name[j] and "Voronoi"in parameter_name[j]:
+                        self.swarm.position_converted[particle_no,j] = voronoi_points[voronoi_x_ticker,0]
+                        self.swarm.position[particle_no,j] =  0 + ((self.swarm.position_converted[particle_no,j] - varminmax[j,0])*(1-0))/(varminmax[j,1] - varminmax[j,0])
+                        voronoi_x_ticker += 1 
+                    elif "y" in parameter_name[j] and "Voronoi"in parameter_name[j]:
+                        self.swarm.position_converted[particle_no,j] = voronoi_points[voronoi_y_ticker,1]
+                        self.swarm.position[particle_no,j] =  0 + ((self.swarm.position_converted[particle_no,j] - varminmax[j,0])*(1-0))/(varminmax[j,1] - varminmax[j,0])
+
+                        voronoi_y_ticker += 1
+
             unq, unq_idx, unq_cnt = np.unique(points, return_inverse=True, return_counts=True,axis = 0)
             dup = unq[unq_cnt > 1]
 

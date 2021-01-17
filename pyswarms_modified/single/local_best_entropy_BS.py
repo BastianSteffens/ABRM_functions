@@ -227,6 +227,7 @@ class LocalBestEntropyPSO(SwarmOptimizer):
 
         self.swarm.pbest_cost = np.full(self.swarm_size[0], np.inf)
         self.swarm.tof_based_entropy_best_models = 0
+        self.entropy_plateau = 0
 
         for i in self.rep.pbar(iters, self.name):
 
@@ -311,6 +312,19 @@ class LocalBestEntropyPSO(SwarmOptimizer):
             self.swarm.position = self.top.compute_position(
                 self.swarm, self.bounds, self.bh
             )
+            ### BS ###
+            if self.entropy_plateau>=5:
+                print("No new max entropy for 5 iterations --> resetting PSO")
+                # new init position
+                self.init_pos = np.array(lhsmdu.sample(numDimensions = self.setup["n_particles"],numSamples = self.setup["n_parameters"]))
+                # reset swarm
+                self.reset()
+                self.swarm.pbest_cost = np.full(self.swarm_size[0], np.inf)
+                # reset inertia
+                self.swarm.options["w"] = self.setup["initial_inertia"]  
+
+                # reset entropy plateau
+                self.entropy_plateau = 0
 
         # Obtain the final best_cost and the final best_position
         final_best_cost = self.swarm.best_cost#.copy()
@@ -372,8 +386,11 @@ class LocalBestEntropyPSO(SwarmOptimizer):
             if iteration > 0:
                 particle_values_all_iter_best_previous_iter = self.particle_values_all_iter[(self.particle_values_all_iter["misfit"] <= self.setup["best_models"]) & (self.particle_values_all_iter["entropy_contribution"] > 0) ]
                 if particle_values_all_iter_best.shape[0] == particle_values_all_iter_best_previous_iter.shape[0]:
-                    print("no new best models this iteration.")
-                    print("entropy: {}".format(tof_based_entropy_best_models))
+                    self.entropy_plateau += 1
+                    print("no new best models this iteration. {}/5 iterations in a row before restart".format(self.entropy_plateau))
+                    print("entropy: {}".format(self.swarm.tof_based_entropy_best_models))
+                    tof_based_entropy_best_models = self.swarm.tof_based_entropy_best_models
+
                 else:
                     # filter out tof for all best models and make it readable for clustering
                     iteration = np.array(particle_values_all_iter_best.iteration.tolist(),dtype = np.int)
