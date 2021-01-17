@@ -248,10 +248,10 @@ class multi_particle():
 
             # find voronoi positions
             if parameter_type[j] == 3:
-                if "x" in parameter_name[j]:
+                if "x" in parameter_name[j] and "Voronoi"in parameter_name[j]:
                     voronoi_x_temp = self.swarm.position_converted[particle_no,j]
                     voronoi_x.append(voronoi_x_temp)
-                elif "y" in parameter_name[j]:
+                elif "y" in parameter_name[j] and "Voronoi"in parameter_name[j]:
                     voronoi_y_temp = self.swarm.position_converted[particle_no,j]
                     voronoi_y.append(voronoi_y_temp)
                 # elif "z" in parameter_name[j]:
@@ -264,23 +264,40 @@ class multi_particle():
         voronoi_points = np.vstack((voronoi_x,voronoi_y)).T
         # voronoi_z = np.array(voronoi_z)
 
-        #crosscheck if any points lie on top of each other. if so --> move one
-        for j in range(len(voronoi_points)):
-            boolean = voronoi_points == voronoi_points[j]
-            dublicate_tracker = 0
-            for k in range(len(boolean)):
-                if np.sum(boolean[k]) == 2:
-                    dublicate_tracker +=1
-                if dublicate_tracker ==2:
-                    print("dublicate voronoi points --> reassignemnt")
-                    voronoi_points[k] = voronoi_points[k]+ np.random.randint(0,10)
+        #crosscheck if any points lie on top of each other. if so --> move one point
+        unq, unq_idx, unq_cnt = np.unique(points, return_inverse=True, return_counts=True,axis = 0)
+        dup = unq[unq_cnt > 1]
+        while len(dup)>0:
+            for j in range(len(voronoi_points)):
+                boolean = voronoi_points == voronoi_points[j]
+                dublicate_tracker = 0
+                for k in range(len(boolean)):
+                    if np.sum(boolean[k]) == 2:
+                        dublicate_tracker +=1
+                    if dublicate_tracker ==2:
+                        print("dublicate voronoi points --> reassignemnt")
+                        move_vector = np.random.default_rng().uniform(-10,10,1)
+                        
+                        while move_vector == 0:
+                            move_vector = np.random.default_rng().uniform(-10,10,1)
+                        voronoi_points[k] = voronoi_points[k]+ move_vector
 
-                    if voronoi_points[k,0] >= nx:
-                        voronoi_points[k,0] = voronoi_points[k,0] - np.random.randint(0,20)
-                    if voronoi_points[k,1] >= ny:
-                        voronoi_points[k,1] = voronoi_points[k,1] - np.random.randint(0,20)
-
-                    dublicate_tracker = 0
+                        while voronoi_points[k,0] >= nx or voronoi_points[k,0] < 1:
+                            move_in_shape_vector = np.random.default_rng().uniform(1,10,1)
+                            if voronoi_points[k,0] >= nx:
+                                voronoi_points[k,0] = voronoi_points[k,0] - move_in_shape_vector
+                            elif voronoi_points[k,0] < 1:
+                                voronoi_points[k,0] = voronoi_points[k,0] + move_in_shape_vector
+                        while voronoi_points[k,1] >= ny or voronoi_points[k,1] < 1:
+                            move_in_shape_vector = np.random.default_rng().uniform(1,10,1)
+                            if voronoi_points[k,1] >= ny:
+                                voronoi_points[k,1] = voronoi_points[k,1] - move_in_shape_vector
+                            elif voronoi_points[k,1] < 1:
+                                voronoi_points[k,1] = voronoi_points[k,1] + move_in_shape_vector
+                       
+                        dublicate_tracker = 0
+            unq, unq_idx, unq_cnt = np.unique(points, return_inverse=True, return_counts=True,axis = 0)
+            dup = unq[unq_cnt > 1]
 
         # #define grid and  position initianinon points of n polygons
         grid = Polygon([(0, 0), (0, ny), (nx, ny), (nx, 0)])

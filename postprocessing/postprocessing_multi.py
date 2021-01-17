@@ -111,7 +111,7 @@ class postprocessing_multi():
         display(self.df_position.head())
         display(self.df_tof.head())
 
-    def get_df_best(self,misfit_tolerance,window_shape = (1,1,1),step_size = 1):
+    def get_df_best(self,misfit_tolerance,window_shape = (1,1,1),step_size = 1,tof_type = "tof_back_"):
         """ create dfs that only contains the models that satisfy the misfit tolerance 
             the tof can also be upscaled by changing the window_shape and step size parameters below."""
          
@@ -134,7 +134,7 @@ class postprocessing_multi():
         if window_shape == (1,1,1) and step_size == 1:
             self.best_tof_dict = dict()
             for shedule_no in range(n_shedules):
-                tof_index = "tof_" + str(shedule_no)
+                tof_index = tof_type + str(shedule_no)
 
                 df_best_tof = pd.DataFrame(columns = np.arange(int(nx/window_shape[0])*int(ny/window_shape[1])*int(nz/window_shape[2])))
 
@@ -161,7 +161,7 @@ class postprocessing_multi():
             self.best_tof_dict = dict()
             
             for shedule_no in range(n_shedules):
-                tof_index = "tof_" + str(shedule_no)
+                tof_index = tof_type + str(shedule_no)
                 misfit = "misfit_" + str(shedule_no)
 
                 df_best_tof = pd.DataFrame(columns = np.arange(int(nx/window_shape[0])*int(ny/window_shape[1])*int(nz/window_shape[2])))

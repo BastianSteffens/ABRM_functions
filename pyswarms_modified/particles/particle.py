@@ -8,6 +8,7 @@ from sklearn.metrics import mean_squared_error
 from sklearn.neighbors import NearestNeighbors
 from GRDECL_file_reader.GRDECL2VTK import *
 from geovoronoi import voronoi_regions_from_coords
+from pyentrp import entropy as ent
 
 ########################
 
@@ -27,6 +28,7 @@ class particle():
         self.misfit_swarm = np.zeros(self.n_particles)
         self.LC_swarm = np.zeros(self.n_particles)
         self.swarm_performance = pd.DataFrame()
+        self.entropy_contribution_swarm = np.zeros(self.n_particles)
 
         print("########################################## starting model evaluation  iteration {}/{} ##########################################".format(self.iteration,self.setup["n_iters"]-1))
 
@@ -34,7 +36,7 @@ class particle():
         # Objective Function run flow diagnostics
         particle_performance = self.obj_fkt_FD(particle_no)
 
-        # Compute Performance
+        # Compute fitness
         particle_misfit = self.misfit_fkt_F_Phi_curve(particle_performance)
         print('particle {}/{} - misfit {}'.format(particle_no,self.setup["n_particles"]-1,np.round(particle_misfit,3)),end = "\r")
 
@@ -45,6 +47,13 @@ class particle():
         particle_performance["iteration"] =self.iteration
         particle_performance["particle_no"] = particle_no
         particle_performance["misfit"] = particle_misfit
+
+        # if running with entropy PSO
+        if self.setup["entropy_PSO"] == True:
+            #compute entropy that particle contributes to best models
+            entropy_contribution = self.calculate_particle_entropy_contribution(particle_performance,particle_misfit)
+            particle_performance["entropy_contribution"] = entropy_contribution
+
 
         return particle_performance
 
@@ -115,13 +124,60 @@ class particle():
         LC = 2*(np.sum(((np.array(F[0:-1]) + np.array(F[1:]))/2*v))-0.5)
         LC = LC.astype("float32")
         return LC
-     
+
+    def calculate_particle_entropy_contribution(self,particle_performance,particle_misfit):
+        """ calculate how much entropy/information a given particle that passes the minimum misfit requirement would add to the entropy of all best reservoir models"""
+
+        tof_best = self.swarm.tof_best.copy()
+        if self.swarm.tof_based_entropy_best_models > 0: 
+            tof_best = tof_best.drop(["iteration","particle_no"],1)
+        best_models = self.setup["best_models"]
+        tof_based_entropy_best_models = self.swarm.tof_based_entropy_best_models
+        all_cells_entropy = []
+
+        # check if misfit criterion is satisfied
+        if particle_misfit <= best_models:
+
+            if self.swarm.tof_based_entropy_best_models == 0:
+                # if there is just one value --> 0 entropy
+                entropy_contribution = 0
+            else:
+                # get tof values for particle
+                tof_particle = np.array(particle_performance["tof_back"])
+                tof_particle = pd.DataFrame(tof_particle.reshape((1,(200*100*7))))
+                # add to current best tof value df
+                tof_best = tof_best.append(tof_particle,ignore_index = True)
+                
+                # calculate entropy
+                cells = np.array(tof_best/60/60/242/365.25)
+                # over 20 years tof is binend together.considered unswept.
+                cells_binned = np.digitize(cells,bins=[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20])
+
+                for i in range(tof_best.shape[1]): #-2 might eventually cause problems
+            
+                    # calculate entropy based upon clusters
+                    cell_entropy = np.array(ent.shannon_entropy(cells_binned[:,i]))
+                    all_cells_entropy.append(cell_entropy)
+
+                # sum up entropy for all cells
+                tof_based_entropy_best_models_with_particle = np.sum(np.array(all_cells_entropy)) 
+
+                # if negative ==> got very similar model in set already. no info added. 
+                entropy_contribution = tof_based_entropy_best_models_with_particle - tof_based_entropy_best_models 
+
+        else:
+            # as particle does not qualify for fitness misfit cirterion the dynamic response is too far off to be of any interest, tehrefore not considered.
+            entropy_contribution = np.nan
+        
+        return entropy_contribution
+
     def particle_iterator(self):
 
         for particle_no in range(self.n_particles):
         
             # if working with voronoi tesselation for zonation. now its time to patch the previously built models together
             if self.setup["n_voronoi"] > 0:
+                print("running voronoi tesselation")
                 self.patch_voronoi_models(particle_no)
 
             #built model for FD
@@ -131,6 +187,11 @@ class particle():
 
             self.misfit_swarm[particle_no] = particle_performance["misfit"][0]
             self.LC_swarm[particle_no] = particle_performance["LC"][0]
+            
+            # if running with entropy PSO
+            if self.setup["entropy_PSO"] == True:
+                self.entropy_contribution_swarm[particle_no] = particle_performance["entropy_contribution"][0]
+            
             self.swarm_performance = self.swarm_performance.append(particle_performance) # store for data saving
             
         print('swarm misfit {}                  '.format(np.round(self.misfit_swarm,2)))
@@ -147,7 +208,7 @@ class particle():
         # Objective Function run flow diagnostics
         particle_performance = self.obj_fkt_FD(particle_no)
 
-        # Compute Performance
+        # Compute fitness
         particle_misfit = self.misfit_fkt_F_Phi_curve(particle_performance)
         print('particle {}/{} - misfit {}'.format(particle_no,self.setup["n_particles"]-1,np.round(particle_misfit,3)))#,end = "\r")
 
@@ -157,8 +218,15 @@ class particle():
         particle_performance["iteration"] =self.iteration
         particle_performance["particle_no"] = particle_no
         particle_performance["misfit"] = particle_misfit
+        
+        # if running with entropy PSO
+        if self.setup["entropy_PSO"] == True:
+            particle_entropy_contribution = self.calculate_particle_entropy_contribution(particle_performance,particle_misfit)
+            particle_performance["entropy_contribution"] = particle_entropy_contribution
+           
         particle_dict = dict()
         particle_dict["particle_performance"] = particle_performance
+        
         if self.setup["n_voronoi"] > 0:
             particle_dict["assign_voronoi_zone_" + str(particle_no)] = self.setup["assign_voronoi_zone_" +str(particle_no)] 
 
@@ -190,6 +258,7 @@ class particle():
         ny = self.setup["ny"]
         nz = self.setup["nz"]
         iter_ticker = self.iteration
+        varminmax = self.setup["varminmax"]
 
         n_neighbors = np.int(n_voronoi /n_voronoi_zones)
         
@@ -201,10 +270,10 @@ class particle():
 
             # find voronoi positions
             if parameter_type[j] == 3:
-                if "x" in parameter_name[j]:
+                if "x" in parameter_name[j] and "Voronoi"in parameter_name[j]:
                     voronoi_x_temp = self.swarm.position_converted[particle_no,j]
                     voronoi_x.append(voronoi_x_temp)
-                elif "y" in parameter_name[j]:
+                elif "y" in parameter_name[j] and "Voronoi"in parameter_name[j]:
                     voronoi_y_temp = self.swarm.position_converted[particle_no,j]
                     voronoi_y.append(voronoi_y_temp)
                 # elif "z" in parameter_name[j]:
@@ -216,24 +285,59 @@ class particle():
         voronoi_y = np.array(voronoi_y)
         voronoi_points = np.vstack((voronoi_x,voronoi_y)).T
         # voronoi_z = np.array(voronoi_z)
+        voronoi_points[0] = voronoi_points[1]
+        #crosscheck if any points lie on top of each other. if so --> move one point
+        unq, unq_idx, unq_cnt = np.unique(voronoi_points, return_inverse=True, return_counts=True,axis = 0)
+        dup = unq[unq_cnt > 1]
+        while len(dup)>0:
+            for j in range(len(voronoi_points)):
+                boolean = voronoi_points == voronoi_points[j]
+                dublicate_tracker = 0
+                for k in range(len(boolean)):
+                    if np.sum(boolean[k]) == 2:
+                        dublicate_tracker +=1
+                    if dublicate_tracker ==2:
+                        print("dublicate voronoi points --> reassignemnt")
+                        move_vector = np.random.default_rng().uniform(-10,10,1)
+                        
+                        while move_vector == 0:
+                            move_vector = np.random.default_rng().uniform(-10,10,1)
+                        voronoi_points[k] = voronoi_points[k]+ move_vector
 
-        #crosscheck if any points lie on top of each other. if so --> move one
-        for j in range(len(voronoi_points)):
-            boolean = voronoi_points == voronoi_points[j]
-            dublicate_tracker = 0
-            for k in range(len(boolean)):
-                if np.sum(boolean[k]) == 2:
-                    dublicate_tracker +=1
-                if dublicate_tracker ==2:
-                    print("dublicate voronoi points --> reassignemnt")
-                    voronoi_points[k] = voronoi_points[k]+ np.random.randint(0,10)
+                        while voronoi_points[k,0] >= nx or voronoi_points[k,0] < 1:
+                            move_in_shape_vector = np.random.default_rng().uniform(1,10,1)
+                            if voronoi_points[k,0] >= nx:
+                                voronoi_points[k,0] = voronoi_points[k,0] - move_in_shape_vector
+                            elif voronoi_points[k,0] < 1:
+                                voronoi_points[k,0] = voronoi_points[k,0] + move_in_shape_vector
+                        while voronoi_points[k,1] >= ny or voronoi_points[k,1] < 1:
+                            move_in_shape_vector = np.random.default_rng().uniform(1,10,1)
+                            if voronoi_points[k,1] >= ny:
+                                voronoi_points[k,1] = voronoi_points[k,1] - move_in_shape_vector
+                            elif voronoi_points[k,1] < 1:
+                                voronoi_points[k,1] = voronoi_points[k,1] + move_in_shape_vector
+                       
+                        dublicate_tracker = 0
 
-                    if voronoi_points[k,0] >= nx:
-                        voronoi_points[k,0] = voronoi_points[k,0] - np.random.randint(0,20)
-                    if voronoi_points[k,1] >= ny:
-                        voronoi_points[k,1] = voronoi_points[k,1] - np.random.randint(0,20)
+            # reassign new position to particle
+            voronoi_x_ticker = 0
+            voronoi_y_ticker = 0
+            for j in range(n_parameters):
 
-                    dublicate_tracker = 0
+                # find voronoi positions
+                if parameter_type[j] == 3:
+                    if "x" in parameter_name[j] and "Voronoi"in parameter_name[j]:
+                        self.swarm.position_converted[particle_no,j] = voronoi_points[voronoi_x_ticker,0]
+                        self.swarm.position[particle_no,j] =  0 + ((self.swarm.position_converted[particle_no,j] - varminmax[j,0])*(1-0))/(varminmax[j,1] - varminmax[j,0])
+                        voronoi_x_ticker += 1 
+                    elif "y" in parameter_name[j] and "Voronoi"in parameter_name[j]:
+                        self.swarm.position_converted[particle_no,j] = voronoi_points[voronoi_y_ticker,1]
+                        self.swarm.position[particle_no,j] =  0 + ((self.swarm.position_converted[particle_no,j] - varminmax[j,0])*(1-0))/(varminmax[j,1] - varminmax[j,0])
+
+                        voronoi_y_ticker += 1
+
+            unq, unq_idx, unq_cnt = np.unique(voronoi_points, return_inverse=True, return_counts=True,axis = 0)
+            dup = unq[unq_cnt > 1]
 
         # #define grid and  position initianinon points of n polygons
         grid = Polygon([(0, 0), (0, ny), (nx, ny), (nx, 0)])

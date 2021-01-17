@@ -120,7 +120,7 @@ class postprocessing():
         display(self.df_position.head())
         display(self.df_tof.head())
 
-    def get_df_best(self,misfit_tolerance,window_shape = (1,1,1),step_size = 1):
+    def get_df_best(self,misfit_tolerance,window_shape = (1,1,1),step_size = 1,tof_type = "tof_back"):
         """ create dfs that only contains the models that satisfy the misfit tolerance 
             the tof can also be upscaled by changing the window_shape and step size parameters below."""
          
@@ -144,7 +144,7 @@ class postprocessing():
             tof_all = pd.DataFrame()
             for i in range(self.df_best_position.shape[0]):
 
-                tof = self.df_tof[(self.df_tof.iteration == iteration[i]) & (self.df_tof.particle_no == particle_no[i])].tof
+                tof = self.df_tof[(self.df_tof.iteration == iteration[i]) & (self.df_tof.particle_no == particle_no[i])][tof_type]
                 tof.reset_index(drop=True, inplace=True)
 
                 tof_all = tof_all.append(tof,ignore_index = True)
@@ -166,7 +166,7 @@ class postprocessing():
                 particle_no = df_best_tof_temp[ df_best_tof_temp.iteration == iteration].particle_no.unique().tolist()
                 for j in range(0,len(particle_no)):
                     particle = particle_no[j]
-                    tof_single_particle = np.array(df_best_tof_temp[(df_best_tof_temp.iteration == iteration) & (df_best_tof_temp.particle_no == particle)].tof)
+                    tof_single_particle = np.array(df_best_tof_temp[(df_best_tof_temp.iteration == iteration) & (df_best_tof_temp.particle_no == particle)][tof_type])
                     tof_single_particle_3d = tof_single_particle.reshape((nx,ny,nz))
                     tof_single_particle_moving_window = view_as_windows(tof_single_particle_3d, window_shape, step= step_size)
                     tof_single_particle_upscaled = []

@@ -19,7 +19,8 @@ from .global_best import GlobalBestPSO
 # from .local_best import LocalBestPSO
 from .local_best_BS import LocalBestPSO
 # from local_swarm_BS import local_swarm_BS
+from .local_best_entropy_BS import LocalBestEntropyPSO
 
 from .general_optimizer import GeneralOptimizerPSO
 
-__all__ = ["GlobalBestPSO", "LocalBestPSO", "GeneralOptimizerPSO"]
+__all__ = ["GlobalBestPSO", "LocalBestPSO", "GeneralOptimizerPSO","LocalBestEntropyPSO"]

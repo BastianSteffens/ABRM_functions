@@ -353,6 +353,8 @@ class MOPSO(SwarmOptimizer):
                 # discrete values
                 elif continuous_discrete[index] == 1:
                     converted_vals[index] = np.around((value * (converted_vals_range[index,1] - converted_vals_range[index,0]) + converted_vals_range[index,0]))
+                elif continuous_discrete[index] == 2:
+                    converted_vals[index] = np.round((value * (converted_vals_range[index,1] - converted_vals_range[index,0]) + converted_vals_range[index,0]),2)
 
             # transpose back to initial setup
             self.swarm.position_converted = np.array(converted_vals.T).astype("float32")
@@ -372,6 +374,7 @@ class MOPSO(SwarmOptimizer):
 
                             if self.swarm.position_converted[i,j] > self.swarm.position_converted[i,j+1]:
                                 self.swarm.position_converted[i,j],self.swarm.position_converted[i,j+1] = self.swarm.position_converted[i,j+1],self.swarm.position_converted[i,j] 
+                                self.swarm.position[i,j],self.swarm.position[i,j+1] = self.swarm.position[i,j+1],self.swarm.position[i,j] 
 
     def built_batch_file_for_petrel_models_uniform(self):
         # loading in settings that I set up on init_ABRM.py for this run

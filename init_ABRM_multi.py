@@ -19,9 +19,9 @@ def init():
     random.seed(set_seed)
 
     ###### Set hyperparmeters for PSO ######
-    n_parameters = 12
+    n_parameters = 13
     n_iters = 5
-    n_particles = 3 # always pick multiple of 3. need to fix this 
+    n_particles = 9 # always pick multiple of 3. need to fix this 
     min_bound = 0 * np.ones(n_parameters)
     max_bound = 1 * np.ones(n_parameters)
     bounds = (min_bound, max_bound)
@@ -64,7 +64,7 @@ def init():
     #                       [1,100],[1,1500],[1,100]])
     varminmax = np.array([[1,20],[1,200],[1,200],[1,100],[1,100],
                         [1,20],[1,200],[1,200],[1,100],[1,100],
-                        [50,150],[50,150]])
+                        [50,150],[50,150],[0.01,10]])
     # varminmax = np.array([[1,4],[1,4],[1,4],[1,200],[1,100],[1,200],[1,100],[1,200],
     #                       [1,100],[1,200],[1,100],[1,200],[1,100],[1,200],
     #                       [1,100],[1,200],[1,100],[1,200],[1,100],[1,200],[1,100],[1,200],[1,100],
@@ -75,11 +75,11 @@ def init():
     nz = 7
     n_voronoi = 0
     n_voronoi_zones = 0
-    # if continuoes = 0, if discrete = 1
+    # if continuoes = 0, if discrete = 1, if float 2
     # continuous_discrete = [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0]
     # continuous_discrete = [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0]
     # continuous_discrete = [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0]
-    continuous_discrete = [1,1,1,1,1,1,1,1,1,1,1,1]
+    continuous_discrete = [1,1,1,1,1,1,1,1,1,1,1,1,2]
 
     # continuous_discrete = [0,1,0,0,0,0,0,0,0,0]
     # var names
@@ -101,7 +101,7 @@ def init():
     #            "FracpermY","MatrixpermY","FracpermZ","MatrixpermZ"] 
     columns = ["TI1","F1_I_MIN","F1_I_MAX","F1_J_MIN","F1_J_MAX",
                "TI3","F3_I_MIN","F3_I_MAX","F3_J_MIN","F3_J_MAX",
-               "Hinge_min","Hinge_max"]    
+               "Hinge_min","Hinge_max","Matrix_perm"]    
     # columns = ["P32","n_sides","elongation_ratio","shape","scale","mean_dip",
     #            "mean_dip_azimuth","concentration","aperture_mean","aperture_std"]
     
@@ -109,7 +109,7 @@ def init():
     # parameter_type = [2,2,2,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,1,1,1,1,1,1]
     # parameter_type = [2,1,1,1,1,1,1,2,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
     # parameter_type = [2,1,1,1,1,2,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1]
-    parameter_type = [2,1,1,1,1,2,1,1,1,1,1,1]
+    parameter_type = [2,1,1,1,1,2,1,1,1,1,1,1,1]
 
     # parameter_type = [1,1,1,1,1,1,1,1,1,1]
 
@@ -131,13 +131,13 @@ def init():
     set_seed = random.randint(0,10000000)
     random.seed(set_seed)
     # models per petrel workflow (limited to 3 atm)
-    n_modelsperbatch = 1
+    n_modelsperbatch = 3
     # how many potrel licenses to run at onces
     n_parallel_petrel_licenses = 3
     # which workflow to run in petrel (atm onlz 1 wf)
     runworkflow = "WF_2020_12_14"#"WF_2020_10_16"   #"WF_2020_07_03" #"WF_2020_04_16"#"WF_2019_09_16", "WF_test" "WF_2020_05_08"
     # run with petrel or without for test
-    petrel_on = False
+    petrel_on = True
     petrel_path = "C:/Program Files/Schlumberger/Petrel 2017/Petrel.exe"
 
     # if all models should be explicitly saved and not overwritten. 

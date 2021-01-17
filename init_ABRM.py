@@ -19,9 +19,9 @@ def init():
     random.seed(set_seed)
 
     ###### Set hyperparmeters for PSO ######
-    n_parameters = 12#24
-    n_iters = 10
-    n_particles = 12 # always pick multiple of 3. need to fix this 
+    n_parameters = 27#24
+    n_iters = 30
+    n_particles = 36 # always pick multiple of 3. need to fix this 
     min_bound = 0 * np.ones(n_parameters)
     max_bound = 1 * np.ones(n_parameters)
     bounds = (min_bound, max_bound)
@@ -30,7 +30,7 @@ def init():
     inertia = 0.9
     damping_factor = 0.99
     direction  = 1
-    n_neighbors  =  2
+    n_neighbors  =  5
     distance_measure  = 2 # 2 = euclidian 1 = manhatten
     dimensions = n_parameters
     options = {'c1': social_component, 'c2': cognitive_component, 'w':inertia, 'k':n_neighbors, 'p':distance_measure,'d':damping_factor, "direction": direction}
@@ -57,24 +57,33 @@ def init():
     #                       [1,4],[1,200],[1,200],[1,100],[1,100],
     #                       [0,1],[0,1],[1,1500],[1,100],[1,1500],
     #                       [1,100],[1,1500],[1,100],[50,150],[50,150]])
-    varminmax = np.array([[1,20],[1,200],[1,200],[1,100],[1,100],
-                          [1,20],[1,200],[1,200],[1,100],[1,100],
-                          [50,150],[50,150]])
+    # varminmax = np.array([[1,20],[1,200],[1,200],[1,100],[1,100],
+    #                       [1,20],[1,200],[1,200],[1,100],[1,100],
+    #                       [50,150],[50,150],[0.01,10]])
     # varminmax = np.array([[1,4],[1,4],[1,4],[1,200],[1,100],[1,200],[1,100],[1,200],
     #                       [1,100],[1,200],[1,100],[1,200],[1,100],[1,200],
     #                       [1,100],[1,200],[1,100],[1,200],[1,100],[1,200],[1,100],[1,200],[1,100],
     #                       [1,200],[1,100],[1,200],[1,100],[1,1000],[1,100],[1,1000],[1,100],[1,1000],[1,100]])
     # # # varminmax = np.array([[0.001,1.5],[4,10],[0.1,3],[2.01,5],[1,100],[0,90],[0,90],[1,100],[0.00075,0.0000075],[0.000015,0.00000015]])    
+    varminmax = np.array([[1,20],[1,20],[1,200],[1,100],[1,200],[1,100],
+                          [1,200],[1,100],[1,200],[1,100],[1,200],
+                          [1,100],[1,200],[1,100],[1,200],[1,100],
+                          [1,200],[1,100],[1,200],[1,100],[1,200],
+                          [1,100],[1,200],[1,100],[1,200],[1,100],
+                          [0.01,10]])
+    
+    
     nx = 200
     ny = 100
     nz = 7
-    n_voronoi = 0
-    n_voronoi_zones = 0
-    # if continuoes = 0, if discrete = 1
+    n_voronoi = 12
+    n_voronoi_zones = 2
+    # if continuoes = 0 (10 decimels), if discrete = 1, if float = 2 (2 decimels)
     # continuous_discrete = [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0]
     # continuous_discrete = [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0]
     # continuous_discrete = [1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,1,1]
-    continuous_discrete = [1,1,1,1,1,1,1,1,1,1,1,1]
+    # continuous_discrete = [1,1,1,1,1,1,1,1,1,1,1,1,2]
+    continuous_discrete = [1,1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2]
 
     # continuous_discrete = [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0]
     # continuous_discrete = [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0]
@@ -87,6 +96,12 @@ def init():
     #            "Voronoi_x_7","Voronoi_y_7","Voronoi_x_8","Voronoi_y_8","Voronoi_x_9",
     #            "Voronoi_y_9","Voronoi_x_10","Voronoi_y_10","Voronoi_x_11","Voronoi_y_11","FracpermX",
     #            "MatrixpermX","FracpermY","MatrixpermY","FracpermZ","MatrixpermZ"]
+    columns = ["TI1","TI3","Voronoi_x_0","Voronoi_y_0","Voronoi_x_1","Voronoi_y_1",
+               "Voronoi_x_2","Voronoi_y_2","Voronoi_x_3","Voronoi_y_3","Voronoi_x_4",
+               "Voronoi_y_4","Voronoi_x_5","Voronoi_y_5","Voronoi_x_6","Voronoi_y_6",
+               "Voronoi_x_7","Voronoi_y_7","Voronoi_x_8","Voronoi_y_8","Voronoi_x_9",
+               "Voronoi_y_9","Voronoi_x_10","Voronoi_y_10","Voronoi_x_11","Voronoi_y_11",
+               "Matrix_perm"]   
     # columns = ["TI1","F1_I_MIN","F1_I_MAX","F1_J_MIN","F1_J_MAX","F1_K_MIN","F1_K_MAX",
     #            "TI2","F2_I_MIN","F2_I_MAX","F2_J_MIN","F2_J_MAX","F2_K_MIN","F2_K_MAX",
     #            "TI3","F3_I_MIN","F3_I_MAX","F3_J_MIN","F3_J_MAX","F3_K_MIN","F3_K_MAX",
@@ -101,9 +116,9 @@ def init():
     #            "TI3","F3_I_MIN","F3_I_MAX","F3_J_MIN","F3_J_MAX",
     #            "F1_Curve_Prob","F3_Curve_Prob","FracpermX","MatrixpermX",
     #            "FracpermY","MatrixpermY","FracpermZ","MatrixpermZ","Hinge_min","Hinge_max"]    columns = ["TI1","F1_I_MIN","F1_I_MAX","F1_J_MIN","F1_J_MAX",
-    columns = ["TI1","F1_I_MIN","F1_I_MAX","F1_J_MIN","F1_J_MAX",
-               "TI3","F3_I_MIN","F3_I_MAX","F3_J_MIN","F3_J_MAX",
-               "Hinge_min","Hinge_max"]   
+    # columns = ["TI1","F1_I_MIN","F1_I_MAX","F1_J_MIN","F1_J_MAX",
+    #            "TI3","F3_I_MIN","F3_I_MAX","F3_J_MIN","F3_J_MAX",
+    #            "Hinge_min","Hinge_max","Matrix_perm"]   
                   # columns = ["P32","n_sides","elongation_ratio","shape","scale","mean_dip",
     #            "mean_dip_azimuth","concentration","aperture_mean","aperture_std"]
     
@@ -112,7 +127,8 @@ def init():
     # parameter_type = [2,1,1,1,1,1,1,2,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
     # parameter_type = [2,1,1,1,1,2,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1]
     # parameter_type = [2,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
-    parameter_type = [2,1,1,1,1,2,1,1,1,1,1,1]
+    # parameter_type = [2,1,1,1,1,2,1,1,1,1,1,1,1]
+    parameter_type = [2,2,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,1]
 
 
     # parameter_type = [1,1,1,1,1,1,1,1,1,1]
@@ -130,17 +146,17 @@ def init():
     penalty = "linear"
 
     # misfit threshold to qualify as suitable model
-    best_models = 1
+    best_models = 0.15
 
     # seed
     set_seed = random.randint(0,10000000)
     random.seed(set_seed)
     # models per petrel workflow (limited to 3 atm)
-    n_modelsperbatch = 1
+    n_modelsperbatch = 3
     # how many potrel licenses to run at onces
     n_parallel_petrel_licenses = 3
-    # which workflow to run in petrel (atm onlz 1 wf)
-    runworkflow =  "WF_2020_12_14"#"WF_2020_10_26_long"   #"WF_2020_07_03" #"WF_2020_04_16"#"WF_2019_09_16", "WF_test" "WF_2020_05_08"
+    # which workflow to run in petrel
+    runworkflow =  "WF_2020_12_22"#"WF_2020_12_14"#"WF_2020_10_26_long"   #"WF_2020_07_03" #"WF_2020_04_16"#"WF_2019_09_16", "WF_test" "WF_2020_05_08"
     # run with petrel or without for test
     petrel_on = False
     petrel_path = "C:/Program Files/Schlumberger/Petrel 2017/Petrel.exe"
@@ -170,11 +186,16 @@ def init():
     setup["folder_path"] = folder_path
     setup["base_path"] = base_path
     setup["pool"] = 6
-
+    setup["entropy_PSO"] = True
+    setup["fitness_weight"] = 0.3
+    setup["entropy_contribution_weight"] = 0.7
     ###### Initialize swarm ######
 
     # Call instance of PSO
-    optimizer = ps.single.LocalBestPSO(n_particles=n_particles, dimensions=dimensions, options=options, setup = setup,
+    # optimizer = ps.single.LocalBestPSO(n_particles=n_particles, dimensions=dimensions, options=options, setup = setup,
+    #                                    bounds= bounds, velocity_clamp= velocity_clamp, vh_strategy=vh_strategy,
+    #                                    bh_strategy = bh_strategy,init_pos= init_pos)
+    optimizer = ps.single.LocalBestEntropyPSO(n_particles=n_particles, dimensions=dimensions, options=options, setup = setup,
                                        bounds= bounds, velocity_clamp= velocity_clamp, vh_strategy=vh_strategy,
                                        bh_strategy = bh_strategy,init_pos= init_pos)
 

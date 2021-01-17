@@ -45,7 +45,7 @@ An example usage is as follows:
 
     # Call instance of LBestPSO with a neighbour-size of 3 determined by
     # the L2 (p=2) distance.
-    optimizer = ps.single.LocalBestPSO(n_particles=10, dimensions=2,
+    optimizer = ps.single.LocalBestEntropyPSO(n_particles=10, dimensions=2,
                                        options=options)
 
     # Perform optimization
@@ -81,15 +81,16 @@ import datetime
 import time
 import glob 
 import lhsmdu
+from sklearn.preprocessing import MinMaxScaler
 
 
-from ..backend.operators import compute_pbest, compute_objective_function
+from ..backend.operators import compute_pbest_entropy, compute_objective_function_entropy
 from ..backend.topology import Ring
 from ..backend.handlers import BoundaryHandler, VelocityHandler
 from ..base import SwarmOptimizer
 from ..utils.reporter import Reporter
 
-class LocalBestPSO(SwarmOptimizer):
+class LocalBestEntropyPSO(SwarmOptimizer):
     def __init__(
         self,
         n_particles,
@@ -158,7 +159,7 @@ class LocalBestPSO(SwarmOptimizer):
         # Assign k-neighbors and p-value as attributes
         self.k, self.p = options["k"], options["p"]
         # Initialize parent class
-        super(LocalBestPSO, self).__init__(
+        super(LocalBestEntropyPSO, self).__init__(
             n_particles=n_particles,
             dimensions=dimensions,
             options=options,
@@ -182,6 +183,7 @@ class LocalBestPSO(SwarmOptimizer):
         self.setup = setup
         self.performance_all_iter = pd.DataFrame()
         self.tof_all_iter = pd.DataFrame()
+        self.swarm.tof_best = pd.DataFrame()
         self.particle_values_all_iter = pd.DataFrame()
         self.particle_values_converted_all_iter = pd.DataFrame()
         
@@ -224,6 +226,7 @@ class LocalBestPSO(SwarmOptimizer):
         pool = None if n_processes is None else mp.Pool(n_processes)
 
         self.swarm.pbest_cost = np.full(self.swarm_size[0], np.inf)
+        self.swarm.tof_based_entropy_best_models = 0
 
         for i in self.rep.pbar(iters, self.name):
 
@@ -240,11 +243,21 @@ class LocalBestPSO(SwarmOptimizer):
             self.run_batch_file_for_petrel_models()
 
             # Compute cost for swarm current position, performance and personal best
-            self.swarm.current_cost,self.LC, self.performance, self.setup= compute_objective_function(
-            self.swarm, objective_func,self.setup,i, pool=pool)       
-            self.swarm.pbest_pos, self.swarm.pbest_cost = compute_pbest(self.swarm)
-            best_cost_yet_found = np.min(self.swarm.best_cost)
-            # Update gbest from neighborhood
+            self.swarm.current_cost,self.swarm.entropy_contribution,self.LC, self.performance, self.setup= compute_objective_function_entropy(
+            self.swarm, objective_func,self.setup,i, pool=pool)
+
+            # rank entropy and fitness contribution of each particle, scale entorpy and fitness contribution and rank for particle quality
+            self.swarm.particle_quality = self.rank_particle_quality()
+
+            # is same to current run as history is not kept    
+            self.swarm.pbest_pos, self.swarm.pbest_cost = compute_pbest_entropy(self.swarm)
+
+            # get new global best cost and position            
+            self.swarm.global_best_cost = np.min(self.swarm.pbest_cost)
+            self.swarm.global_best_pos = self.swarm.pbest_pos[np.argmin(self.swarm.pbest_cost)]
+            # best_cost_yet_found = np.min(self.swarm.best_cost)
+
+            # Update gbest from local neighborhood
             self.swarm.best_pos, self.swarm.best_cost = self.top.compute_gbest(
                 self.swarm, p=self.p, k=self.k)
 
@@ -254,20 +267,15 @@ class LocalBestPSO(SwarmOptimizer):
             self.get_output_dfs(i)
 
             # calculate tof-based entropy of models in swarm that pass misfit criterion
-            self.compute_tof_based_entropy_best_models()
-
-            # calculate the gradient of entropy change of best models
-            self.swarm.entropy_gradient = self.compute_best_model_diversity_gradient(i)
+            self.compute_tof_based_entropy_best_models(iteration = i)
 
             # append outputdata from current iteration to all data
             self.performance_all_iter = self.performance_all_iter.append(self.performance, ignore_index = True)
-            # self.performance_all_iter = self.performance_all_iter.append(self.swarm_performance_short, ignore_index = True)
             self.tof_all_iter = self.tof_all_iter.append(self.tof,ignore_index = True)
             self.particle_values_all_iter = self.particle_values_all_iter.append(self.particle_values, ignore_index = True)
             self.particle_values_converted_all_iter = self.particle_values_converted_all_iter.append(self.particle_values_converted, ignore_index = True)
 
             # save all reservoir models
-            # self.save_data(i,iters)
             self.save_all_models()
 
             # save all outputdata from models, at beginning, the end and every 5 iteration for checkup
@@ -288,13 +296,13 @@ class LocalBestPSO(SwarmOptimizer):
                 velocity=self.swarm.velocity,
             )
             self._populate_history(hist)
-            # Verify stop criteria based on the relative acceptable cost ftol
-            relative_measure = self.ftol * (1 + np.abs(best_cost_yet_found))
-            if (
-                np.abs(self.swarm.best_cost - best_cost_yet_found)
-                < relative_measure
-            ):
-                break
+            # # Verify stop criteria based on the relative acceptable cost ftol
+            # relative_measure = self.ftol * (1 + np.abs(best_cost_yet_found))
+            # if (
+            #     np.abs(self.swarm.best_cost - best_cost_yet_found)
+            #     < relative_measure
+            # ):
+            #     break
 
             # Perform position velocity update
             self.swarm.velocity = self.top.compute_velocity(
@@ -303,16 +311,6 @@ class LocalBestPSO(SwarmOptimizer):
             self.swarm.position = self.top.compute_position(
                 self.swarm, self.bounds, self.bh
             )
-            ### BS ###
-            if self.swarm.entropy_gradient<0:
-                print("entropy gradient is negative --> resetting PSO")
-                # new init position
-                self.init_pos = np.array(lhsmdu.sample(numDimensions = self.setup["n_particles"],numSamples = self.setup["n_parameters"]))
-                # reset swarm
-                self.reset()
-                self.swarm.pbest_cost = np.full(self.swarm_size[0], np.inf)
-                # reset inertia
-                self.swarm.options["w"] = self.setup["initial_inertia"]  
 
         # Obtain the final best_cost and the final best_position
         final_best_cost = self.swarm.best_cost#.copy()
@@ -328,48 +326,112 @@ class LocalBestPSO(SwarmOptimizer):
 
     ### BS ###
 
-    def compute_tof_based_entropy_best_models(self):
+    def rank_particle_quality(self):
+        
+        swarm_fitness = np.array(self.swarm.current_cost).reshape(-1,1)
+        swarm_entropy_contribution = np.array(self.swarm.entropy_contribution).reshape(-1,1)
+        fitness_weight = self.setup["fitness_weight"]
+        entropy_contribution_weight = self.setup["entropy_contribution_weight"]
+        
+        #scale fitness values minmax
+        scaler = MinMaxScaler()
+        scaler.fit(swarm_fitness)
+        swarm_fitness = scaler.transform(swarm_fitness).flatten()
+
+        #scale entropy contribution values min max and then invert and fill in np.nan valus(values that dont have low enough fitness dont qualify for entropy evaluation)
+        scaler = MinMaxScaler()
+        scaler.fit(swarm_entropy_contribution)
+        swarm_entropy_contribution = scaler.transform(swarm_entropy_contribution).flatten()
+        swarm_entropy_contribution = 1-swarm_entropy_contribution
+        swarm_entropy_contribution[np.isnan(swarm_entropy_contribution)] = 1
+ 
+        # weight contribuion of entropy and fitness to rank particle quality
+        particle_quality = fitness_weight * swarm_fitness + entropy_contribution_weight *swarm_entropy_contribution
+
+        return particle_quality
+
+    def compute_tof_based_entropy_best_models(self,iteration):
         """ function to compute the entropy of the models that fulfill misfit criterion based on the time-of-flight"""
 
         #generate temporary all iter particle df
         temp_all_iter_particle_values = self.particle_values_all_iter.append(self.particle_values, ignore_index = True)
         temp_all_iter_tof = np.array(self.tof_all_iter.append(self.tof,ignore_index = True),dtype = np.float32)
 
-        # get models taht fulfil misfit criterion
-        particle_values_all_iter_best = temp_all_iter_particle_values[temp_all_iter_particle_values["misfit"] <= self.setup["best_models"]]
+        # get models taht fulfil misfit and entropy criterion > 0
+        if self.swarm.tof_based_entropy_best_models == 0:
+            particle_values_all_iter_best = temp_all_iter_particle_values[temp_all_iter_particle_values["misfit"] <= self.setup["best_models"]]
 
+        else:
+            particle_values_all_iter_best = temp_all_iter_particle_values[(temp_all_iter_particle_values["misfit"] <= self.setup["best_models"]) & (temp_all_iter_particle_values["entropy_contribution"] > 0) ]
         all_cells_entropy = []
 
         # check if more than 1 models exist that are better than misfit
-        if particle_values_all_iter_best.shape[0] > 3:
+        if particle_values_all_iter_best.shape[0] > 0:
             print("got {} best models ...calculating entropy".format(particle_values_all_iter_best.shape[0]))
+
+            if iteration > 0:
+                particle_values_all_iter_best_previous_iter = self.particle_values_all_iter[(self.particle_values_all_iter["misfit"] <= self.setup["best_models"]) & (self.particle_values_all_iter["entropy_contribution"] > 0) ]
+                if particle_values_all_iter_best.shape[0] == particle_values_all_iter_best_previous_iter.shape[0]:
+                    print("no new best models this iteration.")
+                    print("entropy: {}".format(tof_based_entropy_best_models))
+                else:
+                    # filter out tof for all best models and make it readable for clustering
+                    iteration = np.array(particle_values_all_iter_best.iteration.tolist(),dtype = np.int)
+                    particle_no =  np.array(particle_values_all_iter_best.particle_no.tolist(),dtype = np.int)  
+                    best_tof = pd.DataFrame(columns = np.arange(200*100*7))
             
-            # filter out tof for all best models and make it readable for clustering
-            iteration = np.array(particle_values_all_iter_best.iteration.tolist(),dtype = np.int)
-            particle_no =  np.array(particle_values_all_iter_best.particle_no.tolist(),dtype = np.int)  
-            best_tof = pd.DataFrame(columns = np.arange(200*100*7))
-      
-            for i in range(particle_values_all_iter_best.shape[0]):
-                tof = temp_all_iter_tof[(temp_all_iter_tof[:,2] == iteration[i]) & (temp_all_iter_tof[:,3] == particle_no[i]),0]
-                tof = pd.DataFrame(tof.reshape((1,(200*100*7))))
-                best_tof = best_tof.append(tof,ignore_index = True)
-            best_tof["iteration"] = iteration
-            best_tof["particle_no"] = particle_no
-            best_tof.set_index(particle_values_all_iter_best.index.values,inplace = True)
+                    for i in range(particle_values_all_iter_best.shape[0]):
+                        tof = temp_all_iter_tof[(temp_all_iter_tof[:,2] == iteration[i]) & (temp_all_iter_tof[:,3] == particle_no[i]),0]
+                        tof = pd.DataFrame(tof.reshape((1,(200*100*7))))
+                        best_tof = best_tof.append(tof,ignore_index = True)
+                    best_tof["iteration"] = iteration
+                    best_tof["particle_no"] = particle_no
+                    best_tof.set_index(particle_values_all_iter_best.index.values,inplace = True)
+                    self.swarm.tof_best = best_tof
 
-            cells = np.array(best_tof/60/60/242/365.25)
-            # over 20 years tof is binend together.considered unswept.
-            cells_binned = np.digitize(cells,bins=[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20])
+                    cells = np.array(best_tof/60/60/242/365.25)
+                    #over 20 years tof is binend together.considered unswept.
+                    cells_binned = np.digitize(cells,bins=[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20])
 
-            for i in range(best_tof.shape[1]-2):
+                    for i in range(best_tof.shape[1]-2):
+                
+                        # calculate entropy based upon clusters
+                        cell_entropy = np.array(ent.shannon_entropy(cells_binned[:,i]))
+                        all_cells_entropy.append(cell_entropy)
+
+                    # sum up entropy for all cells
+                    tof_based_entropy_best_models = np.sum(np.array(all_cells_entropy))
+                    print("entropy: {}".format(tof_based_entropy_best_models))
+
+            else:
+            
+                # filter out tof for all best models and make it readable for clustering
+                iteration = np.array(particle_values_all_iter_best.iteration.tolist(),dtype = np.int)
+                particle_no =  np.array(particle_values_all_iter_best.particle_no.tolist(),dtype = np.int)  
+                best_tof = pd.DataFrame(columns = np.arange(200*100*7))
         
-                # calculate entropy based upon clusters
-                cell_entropy = np.array(ent.shannon_entropy(cells_binned[:,i]))
-                all_cells_entropy.append(cell_entropy)
+                for i in range(particle_values_all_iter_best.shape[0]):
+                    tof = temp_all_iter_tof[(temp_all_iter_tof[:,2] == iteration[i]) & (temp_all_iter_tof[:,3] == particle_no[i]),0]
+                    tof = pd.DataFrame(tof.reshape((1,(200*100*7))))
+                    best_tof = best_tof.append(tof,ignore_index = True)
+                best_tof["iteration"] = iteration
+                best_tof["particle_no"] = particle_no
+                best_tof.set_index(particle_values_all_iter_best.index.values,inplace = True)
+                self.swarm.tof_best = best_tof
 
-            # sum up entropy for all cells
-            tof_based_entropy_best_models = np.sum(np.array(all_cells_entropy))
-            print("entropy: {}".format(tof_based_entropy_best_models))
+                cells = np.array(best_tof/60/60/242/365.25)
+                #over 20 years tof is binend together.considered unswept.
+                cells_binned = np.digitize(cells,bins=[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20])
+
+                for i in range(best_tof.shape[1]-2):
+            
+                    # calculate entropy based upon clusters
+                    cell_entropy = np.array(ent.shannon_entropy(cells_binned[:,i]))
+                    all_cells_entropy.append(cell_entropy)
+
+                # sum up entropy for all cells
+                tof_based_entropy_best_models = np.sum(np.array(all_cells_entropy))
+                print("entropy: {}".format(tof_based_entropy_best_models))
 
 
         else:
@@ -378,34 +440,7 @@ class LocalBestPSO(SwarmOptimizer):
         
         self.particle_values["tof_based_entropy_best_models"] = tof_based_entropy_best_models
         self.particle_values_converted["tof_based_entropy_best_models"] = tof_based_entropy_best_models
-
-    def compute_best_model_diversity_gradient(self,i,delta = 5):
-        """ check how if I am still producing new best models or  if they are just hovering around similar models.
-            This is done by checking how the slope of tof_based_entropy changes over iterations. If that slope falls below 0
-            the PSO should spread out again and reset the global/local best memory.
-        """
-        delta = 5
-       # dont do this analysis in the beginning, if not enough data availabe
-        if i < delta:
-            slope = 0
-        
-        else:
-            iterations_to_check = np.array(np.arange(i-delta,i))
-            linear_regressor = LinearRegression()
-            entropy = []
-            for j in range(delta):
-                entropy.append(np.array(self.particle_values_converted_all_iter[(self.particle_values_converted_all_iter["iteration"] ==iterations_to_check[j]) & (self.particle_values_converted_all_iter["particle_no"] ==0)].tof_based_entropy_best_models))
-            
-            iterations_to_check = np.array(np.arange(i-delta,i)).reshape(-1,1)
-
-            linear_regressor.fit(iterations_to_check,entropy)
-            slope = linear_regressor.coef_.flatten()
-        
-        self.particle_values["entropy_slope"] = float(slope)
-        self.particle_values_converted["entropy_slope"] = float(slope)
-
-        print("entropy slope for last {} iterations : {}".format(delta,float(slope)))
-        return slope
+        self.swarm.tof_based_entropy_best_models = tof_based_entropy_best_models
 
     def built_data_file(self,data_file_path,model_id):
         """ built data files that can be used for flow simulations or flow diagnostics """
@@ -586,6 +621,7 @@ class LocalBestPSO(SwarmOptimizer):
             # discrete values
             elif continuous_discrete[index] == 1:
                 converted_vals[index] = np.around((value * (converted_vals_range[index,1] - converted_vals_range[index,0]) + converted_vals_range[index,0]))
+            # float
             elif continuous_discrete[index] == 2:
                 converted_vals[index] = np.round((value * (converted_vals_range[index,1] - converted_vals_range[index,0]) + converted_vals_range[index,0]),2)
         # transpose back to initial setup
@@ -797,6 +833,12 @@ class LocalBestPSO(SwarmOptimizer):
         # add misfit to df
         self.particle_values_converted["misfit"]= self.swarm.current_cost
         self.particle_values["misfit"]= self.swarm.current_cost
+        # add entropy contribution to df
+        self.particle_values_converted["entropy_contribution"] = self.swarm.entropy_contribution
+        self.particle_values["entropy_contribution"] = self.swarm.entropy_contribution
+        # add particle quality to df
+        self.particle_values_converted["particle_quality"] = self.swarm.particle_quality
+        self.particle_values["particle_quality"] = self.swarm.particle_quality
         # add LC to df
         self.particle_values_converted["LC"] = self.LC.astype("float32")
         self.particle_values["LC"] = self.LC.astype("float32")
@@ -807,3 +849,4 @@ class LocalBestPSO(SwarmOptimizer):
         particle_no = np.arange(self.swarm.position_converted.shape[0], dtype = int)
         self.particle_values_converted["particle_no"] = particle_no
         self.particle_values["particle_no"] = particle_no
+

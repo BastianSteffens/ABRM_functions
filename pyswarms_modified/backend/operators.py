@@ -100,6 +100,23 @@ def compute_pbest(swarm):
     else:
         return (new_pbest_pos, new_pbest_cost)
 
+def compute_pbest_entropy(swarm):
+    """Update the personal best score of a swarm instance
+
+        In this setting there are no historic data--> new pbest is current run
+    """
+    try:
+        new_pbest_pos = swarm.position
+        new_pbest_cost = swarm.particle_quality
+    except AttributeError:
+        rep.logger.exception(
+            "Please pass a Swarm class. You passed {}".format(type(swarm))
+        )
+        raise
+    else:
+        return (new_pbest_pos, new_pbest_cost)
+
+
 
 def compute_velocity(swarm, clamp, vh, bounds=None):
     """Update the velocity matrix
@@ -191,6 +208,95 @@ def compute_velocity(swarm, clamp, vh, bounds=None):
     else:
         return updated_velocity
 
+def compute_velocity_entropy(swarm, clamp, vh, bounds=None):
+    """Update the velocity matrix
+
+    This method updates the velocity matrix using the best and current
+    positions of the swarm. The velocity matrix is computed using the
+    cognitive and social terms of the swarm. The velocity is handled
+    by a :code:`VelocityHandler`.
+
+    A sample usage can be seen with the following:
+
+    .. code-block :: python
+
+        import pyswarms.backend as P
+        from pyswarms.swarms.backend import Swarm, VelocityHandler
+
+        my_swarm = P.create_swarm(n_particles, dimensions)
+        my_vh = VelocityHandler(strategy="invert")
+
+        for i in range(iters):
+            # Inside the for-loop
+            my_swarm.velocity = compute_velocity(my_swarm, clamp, my_vh, bounds)
+
+    Parameters
+    ----------
+    swarm : pyswarms.backend.swarms.Swarm
+        a Swarm instance
+    clamp : tuple of floats, optional
+        a tuple of size 2 where the first entry is the minimum velocity
+        and the second entry is the maximum velocity. It
+        sets the limits for velocity clamping.
+    vh : pyswarms.backend.handlers.VelocityHandler
+        a VelocityHandler object with a specified handling strategy.
+        For further information see :mod:`pyswarms.backend.handlers`.
+    bounds : tuple of numpy.ndarray or list, optional
+        a tuple of size 2 where the first entry is the minimum bound while
+        the second entry is the maximum bound. Each array must be of shape
+        :code:`(dimensions,)`.
+
+    Returns
+    -------
+    numpy.ndarray
+        Updated velocity matrix
+    """
+    try:
+        # Prepare parameters
+        swarm_size = swarm.position.shape
+        c1 = swarm.options["c1"]
+        c2 = swarm.options["c2"]
+        w = swarm.options["w"]
+        direction = swarm.options["direction"]
+
+        # Compute for cognitive and social terms
+        cognitive = (
+            c1
+            * np.random.uniform(0, 1, swarm_size)
+            * (swarm.best_pos - swarm.position)
+        )
+        social = (
+            c2
+            * np.random.uniform(0, 1, swarm_size)
+            * (swarm.global_best_pos - swarm.position)
+        )
+
+        ### BS ###
+        # implement ARPSO
+        # Compute temp velocity (subject to clamping if possible)
+        # temp_velocity = compute_ARPSO_velocity(w,swarm,cognitive,social,direction)
+        temp_velocity = (w * swarm.velocity) + cognitive + social
+        updated_velocity = vh(
+            temp_velocity, clamp, position=swarm.position, bounds=bounds
+        )
+
+        ###BS###
+        #adjust w with damping factor put this after calcluations are done.
+        w_damp = swarm.options["d"]
+        w = w*w_damp
+        #update w in options dict. this should slow down veloctiy over time
+        swarm.options["w"] = w
+
+    except AttributeError:
+        rep.logger.exception(
+            "Please pass a Swarm class. You passed {}".format(type(swarm))
+        )
+        raise
+    except KeyError:
+        rep.logger.exception("Missing keyword in swarm.options")
+        raise
+    else:
+        return updated_velocity
 
 def compute_position(swarm, bounds, bh):
     """Update the position matrix
@@ -244,6 +350,74 @@ def compute_position(swarm, bounds, bh):
     else:
         return position
 
+def compute_objective_function_entropy(swarm, objective_func,setup,iteration, pool=None, **kwargs):
+
+    """Evaluate particles using the objective function
+
+    This method evaluates each particle in the swarm according to the objective
+    function passed.
+
+    If a pool is passed, then the evaluation of the particles is done in
+    parallel using multiple processes.
+
+    Parameters
+    ----------
+    swarm : pyswarms.backend.swarms.Swarm
+        a Swarm instance
+    objective_func : function
+        objective function to be evaluated
+    setup: dict
+        dictionary that contains all important information for modelling settings ### BS ###
+    pool: multiprocessing.Pool
+        multiprocessing.Pool to be used for parallel particle evaluation
+    kwargs : dict
+        arguments for the objective function
+
+    Returns
+    -------
+    numpy.ndarray
+        Cost-matrix for the given swarm
+
+    data_to_save :
+        data that need to be saved
+    """
+
+    ### BS ###
+    if pool is None:
+        all_particles = objective_func(swarm,setup,iteration)
+        all_particles.particle_iterator()
+        print("misfit:{}".format(all_particles.misfit_swarm))
+
+        return all_particles.misfit_swarm,all_particles.entropy_contribution_swarm, all_particles.LC_swarm, all_particles.swarm_performance, setup
+
+    else:
+        particle_array = np.arange(0,swarm.n_particles)
+        all_particles = objective_func(swarm,setup,iteration)
+        particle_list = pool.map(all_particles.calculate_particle_parallel,[particle_no for particle_no in particle_array])
+        n_particles = setup["n_particles"]
+        misfit_swarm = []
+        LC_swarm = []
+        entropy_contribution_swarm = []
+   
+        # swarm_performance = pd.DataFrame(columns = ["EV","tD","F","Phi","LC","tof","iteration","particle_no","misfit","entropy_contribution"])
+        swarm_performance = pd.DataFrame(columns = ["EV","tD","F","Phi","LC","tof_for","tof_back","tof_combi","prod_part","prod_inj","iteration","particle_no","misfit","entropy_contribution"])
+
+        n_particles = setup["n_particles"]
+        for i in range(n_particles):
+            if setup["n_voronoi"] > 0:
+                setup["assign_voronoi_zone_" +str(i)] = particle_list[i]["assign_voronoi_zone_" +str(i)]
+            particle_performance = particle_list[i]["particle_performance"]
+            swarm_performance = swarm_performance.append(particle_performance,ignore_index = True)
+            misfit_swarm.append(particle_performance[particle_performance.particle_no == i].misfit.unique())
+            LC_swarm.append(particle_performance[particle_performance.particle_no == i].LC.unique())
+            entropy_contribution_swarm.append(particle_performance[particle_performance.particle_no == i].entropy_contribution.unique())
+
+        misfit_swarm = np.array(misfit_swarm).flatten()
+        LC_swarm = np.array(LC_swarm).flatten()
+        entropy_contribution_swarm = np.array(entropy_contribution_swarm).flatten()
+        print("misfit:{}".format(misfit_swarm))
+        
+        return misfit_swarm, entropy_contribution_swarm, LC_swarm, swarm_performance, setup
 
 def compute_objective_function(swarm, objective_func,setup,iteration, pool=None, **kwargs):
 
@@ -293,7 +467,13 @@ def compute_objective_function(swarm, objective_func,setup,iteration, pool=None,
         misfit_swarm = []
         LC_swarm = []
    
-        swarm_performance = pd.DataFrame(columns = ["EV","tD","F","Phi","LC","tof","iteration","particle_no","misfit"])
+        # swarm_performance = pd.DataFrame(columns = ["EV","tD","F","Phi","LC","tof","iteration","particle_no","misfit"])
+        swarm_performance = pd.DataFrame(columns = ["EV","tD","F","Phi","LC","tof_for","tof_back","tof_combi","prod_part","prod_inj","iteration","particle_no","misfit"])
+        particle_performance["tof_for"] = FD_data[5]
+        particle_performance["tof_back"] = FD_data[6]
+        particle_performance["tof_combi"] = FD_data[7]
+        particle_performance["prod_part"] = FD_data[8]
+        particle_performance["inj_part"] = FD_data[9]
         n_particles = setup["n_particles"]
         for i in range(n_particles):
             if setup["n_voronoi"] > 0:
