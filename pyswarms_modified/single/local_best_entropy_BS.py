@@ -418,8 +418,10 @@ class LocalBestEntropyPSO(SwarmOptimizer):
 
                     cells = np.array(best_tof/60/60/242/365.25)
                     #over 20 years tof is binend together.considered unswept.
-                    cells_binned = np.digitize(cells,bins=[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20])
-
+                    # cells_binned = np.digitize(cells,bins=[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20])
+                    cells_binned = np.digitize(cells,bins = [0.5,1,1.5,2,2.5,3,3.5,4,4.5,5,5.5,6,6.5,7,7.5,8,8.5,9,9.5,10,
+                                                             10.5,11,11.5,12,12.5,13,13.5,14,14.5,15,15.5,16,16.5,17,17.5,
+                                                             18,18.5,19,19.5,20])
                     for i in range(best_tof.shape[1]-2):
                 
                         # calculate entropy based upon clusters
