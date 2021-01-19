@@ -120,7 +120,7 @@ class postprocessing():
         display(self.df_position.head())
         display(self.df_tof.head())
 
-    def get_df_best(self,misfit_tolerance,window_shape = (1,1,1),step_size = 1,tof_type = "tof_back"):
+    def get_df_best(self,misfit_tolerance,entropy_contribution = False,window_shape = (1,1,1),step_size = 1,tof_type = "tof_back"):
         """ create dfs that only contains the models that satisfy the misfit tolerance 
             the tof can also be upscaled by changing the window_shape and step size parameters below."""
          
@@ -131,28 +131,46 @@ class postprocessing():
         ny = 100
         nz= 7
 
-        self.df_best_position =self.df_position[(self.df_position.misfit <= misfit_tolerance)]
-        self.df_best_performance =self.df_performance[(self.df_performance.misfit <= misfit_tolerance)]
+        if entropy_contribution == True:
+            self.df_best_position =self.df_position[(self.df_position.misfit <= misfit_tolerance) & (self.df_position.entropy_contribution >= 0)]
+            self.df_best_performance =self.df_performance[(self.df_performance.misfit <= misfit_tolerance) & (self.df_performance.entropy_contribution >= 0)]
+
+        else:
+            self.df_best_position =self.df_position[(self.df_position.misfit <= misfit_tolerance)]
+            self.df_best_performance =self.df_performance[(self.df_performance.misfit <= misfit_tolerance)]
 
         if window_shape == (1,1,1) and step_size == 1:
             
             self.df_best_tof = pd.DataFrame(columns = np.arange(int(nx/window_shape[0])*int(ny/window_shape[1])*int(nz/window_shape[2])))
 
             # filter out tof for all best models and make it readable for clustering
-            iteration = self.df_best_position.iteration.tolist()
-            particle_no =  self.df_best_position.particle_no.tolist()
+            # iteration = self.df_best_position.iteration.tolist()
+            iteration = np.array(self.df_best_position.iteration.tolist(),dtype = np.int)
+            # particle_no =  self.df_best_position.particle_no.tolist()
+            particle_no =  np.array(self.df_best_position.particle_no.tolist(),dtype = np.int)
+            
+            tof_array = np.array(self.df_tof,dtype = np.float32)
+            
             tof_all = pd.DataFrame()
             for i in range(self.df_best_position.shape[0]):
 
-                tof = self.df_tof[(self.df_tof.iteration == iteration[i]) & (self.df_tof.particle_no == particle_no[i])][tof_type]
-                tof.reset_index(drop=True, inplace=True)
+                # tof = self.df_tof[(self.df_tof.iteration == iteration[i]) & (self.df_tof.particle_no == particle_no[i])][tof_type]
+                tof = tof_array[(tof_array[:,2] == iteration[i]) & (tof_array[:,3] == particle_no[i]),0]
+                tof = pd.DataFrame(tof.reshape((1,(200*100*7))))
+                self.df_best_tof = self.df_best_tof.append(tof,ignore_index = True)
 
-                tof_all = tof_all.append(tof,ignore_index = True)
-
-            self.df_best_tof = tof_all
             self.df_best_tof["iteration"] = iteration
             self.df_best_tof["particle_no"] = particle_no
             self.df_best_tof.set_index(self.df_best_position.index.values,inplace = True)
+
+            # tof.reset_index(drop=True, inplace=True)
+
+            #     tof_all = tof_all.append(tof,ignore_index = True)
+
+            # self.df_best_tof = tof_all
+            # self.df_best_tof["iteration"] = iteration
+            # self.df_best_tof["particle_no"] = particle_no
+            # self.df_best_tof.set_index(self.df_best_position.index.values,inplace = True)
 
 
         elif window_shape != (1,1,1):

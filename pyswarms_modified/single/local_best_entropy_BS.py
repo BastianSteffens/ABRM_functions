@@ -314,7 +314,12 @@ class LocalBestEntropyPSO(SwarmOptimizer):
             )
             ### BS ###
             if self.entropy_plateau>=5:
+                
                 print("No new max entropy for 5 iterations --> resetting PSO")
+                # memorize things i will need after reset
+                tof_based_entropy_best_models = self.swarm.tof_based_entropy_best_models.copy()
+                best_tof = self.swarm.tof_best.copy
+
                 # new init position
                 self.init_pos = np.array(lhsmdu.sample(numDimensions = self.setup["n_particles"],numSamples = self.setup["n_parameters"]))
                 # reset swarm
@@ -325,6 +330,9 @@ class LocalBestEntropyPSO(SwarmOptimizer):
 
                 # reset entropy plateau
                 self.entropy_plateau = 0
+                self.swarm.pbest_cost = np.full(self.swarm_size[0], np.inf)
+                self.swarm.tof_based_entropy_best_models = tof_based_entropy_best_models
+                self.swarm.best_tof = best_tof
 
         # Obtain the final best_cost and the final best_position
         final_best_cost = self.swarm.best_cost#.copy()
@@ -393,6 +401,8 @@ class LocalBestEntropyPSO(SwarmOptimizer):
 
                 else:
                     # filter out tof for all best models and make it readable for clustering
+                    self.entropy_plateau =
+
                     iteration = np.array(particle_values_all_iter_best.iteration.tolist(),dtype = np.int)
                     particle_no =  np.array(particle_values_all_iter_best.particle_no.tolist(),dtype = np.int)  
                     best_tof = pd.DataFrame(columns = np.arange(200*100*7))
