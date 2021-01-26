@@ -375,7 +375,7 @@ class TI_selection():
             mesh.plot(scalars = property,show_edges=False, notebook=False)
 
     def clustering_tof_or_TI_props(self,n_neighbors = 30,min_dist = 0,n_components = 30, min_cluster_size = 10,
-                                min_samples = 1,allow_single_cluster = True,cluster_parameter = "tof",min_tof_bin = 1,max_tof_bin = 20, n_bins = 20):
+                                min_samples = 1,allow_single_cluster = True,cluster_parameter = "tof",use_tof_entropy = True,min_tof_bin = 1,max_tof_bin = 20, n_bins = 20):
         """ Clustering with the help of UMAP (dimension reduction) and HDBSCAN (density based hirachical clustering algo)
             Args: 
                 control of UMAP:
@@ -438,25 +438,27 @@ class TI_selection():
             
             df_best_for_clustering = self.df_tof.drop(columns = ["TI_no"], axis = 1)
 
-            #convert to years and put in bins.
+    
+
+            #convert tof to years and put in bins.
             df_best_for_clustering = df_best_for_clustering/60/60/24/365.25
             bins = np.linspace(min_tof_bin,max_tof_bin,n_bins,dtype=np.float32)
-            df_best_for_clustering = np.digitize(df_best_for_clustering,bins=bins,dtype = np.float32)
+            df_best_for_clustering = np.digitize(df_best_for_clustering,bins=bins)
             df_best_for_clustering = np.array(df_best_for_clustering,dtype = np.float32)
             for i in range(n_bins):
                 df_best_for_clustering[df_best_for_clustering == i+1] = bins[i]
             
-            if tof_entropy == True:
-                if self.n_shedules = 1:
+            if use_tof_entropy == True:
+                if self.n_shedules == 1:
                     df_best_for_clustering["tof_entropy"] = self.df_TI_props["tof_entropy"]
                 else:
-                    for i in range(self.n_shedules):
+                    for shedule_no in range(self.n_shedules):
                         tof_entropy = "tof_entropy_" + str(shedule_no)
-                        df_best_for_clustering[tof_entropy] =  self.df_TI_props[tof_entropy]
+                        df_best_for_clustering =  np.append(df_best_for_clustering,np.array(self.df_TI_props[tof_entropy]).reshape((self.df_TI_props.shape[0],1)),axis = 1)
 
 
             # Create UMAP reducer
-            reducer    = umap.UMAP(n_neighbors=n_neighbors,min_dist = min_dist, n_components =n_components)
+            reducer = umap.UMAP(n_neighbors=n_neighbors,min_dist = min_dist, n_components =n_components)
             embeddings = reducer.fit_transform(df_best_for_clustering)
 
 
@@ -690,12 +692,12 @@ class TI_selection():
                 tof = self.df_tof.iloc[TI_id].drop(["TI_no"])
             else:
                 shedule_id = "_" + str(shedule_no)
-                    col_list = [col for col in self.df_tof.columns if shedule_id in col]
-                    tof = self.df_tof.iloc[TI_id]
-                    tof = tof[col_list]
+                col_list = [col for col in self.df_tof.columns if shedule_id in col]
+                tof = self.df_tof.iloc[TI_id]
+                tof = tof[col_list]
 
             # bin to years
-            tof_years = np.array(TI_tof)/60/60/24/365.25
+            tof_years = np.array(tof)/60/60/24/365.25
             bins = np.linspace(min_tof_bin,max_tof_bin,n_bins,dtype=np.float32)
             tof_years = np.digitize(tof_years,bins= bins)
             tof_years = np.array(tof_years,dtype = np.float32)
