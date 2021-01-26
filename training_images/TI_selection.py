@@ -14,6 +14,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from collections import Counter
 import shutil
+from skimage.util.shape import view_as_windows
 
 
 class TI_selection():
@@ -214,7 +215,7 @@ class TI_selection():
         "plot the median tof for TI to see what areas are unswept in most scenarios"
 
         all_cells_median = []
-        bins = np.linspace(min_tof_bin,max_tof_bin,n_bins)
+        bins = np.linspace(min_tof_bin,max_tof_bin,n_bins,dtype = np.float32)
 
         if self.n_shedules == 1:
         
@@ -222,8 +223,9 @@ class TI_selection():
                 # single cell in all models, from seconds to years    
                 cell = np.round(np.array(self.df_tof[i]).reshape(-1)/60/60/24/365.25)
                 cell_binned = np.digitize(cell,bins=bins)
-                for j in range(1,n_bins+1):
-                    cell_binned[cell_binned == j] = bins[j-1]
+                cell_binned = np.array(cell_binned,dtype = np.float32)
+                for j in range(n_bins):
+                    cell_binned[cell_binned == j+1] = bins[j]
                 # calculate entropy based upon clusters
                 cell_median = np.median(cell_binned)
                 all_cells_median.append(cell_median)
@@ -236,8 +238,10 @@ class TI_selection():
                 # single cell in all models, from seconds to years    
                 cell = np.round(np.array(self.df_tof[col_list[i]]).reshape(-1)/60/60/24/365.25)
                 cell_binned = np.digitize(cell,bins=bins)
-                for j in range(1,n_bins+1):
-                    cell_binned[cell_binned == j] = bins[j-1]
+                cell_binned = np.array(cell_binned,dtype = np.float32)
+
+                for j in range(n_bins):
+                    cell_binned[cell_binned == j+1] = bins[j]
                 # calculate entropy based upon clusters
                 cell_median = np.median(cell_binned)
                 all_cells_median.append(cell_median)
@@ -261,7 +265,7 @@ class TI_selection():
 
         all_cells_entropy = []
         all_cell_cluster_id = []
-        bins = np.linspace(min_tof_bin,max_tof_bin,n_bins)
+        bins = np.linspace(min_tof_bin,max_tof_bin,n_bins,dtype = np.float32)
 
         if self.n_shedules == 1:
 
@@ -269,8 +273,9 @@ class TI_selection():
                 # single cell in all models, from seconds to years    
                 cell = np.round(np.array(self.df_tof[i]).reshape(-1)/60/60/24/365.25)
                 cell_binned = np.digitize(cell,bins= bins)
-                for j in range(1,n_bins+1):
-                    cell_binned[cell_binned == j] = bins[j-1]
+                cell_binned = np.array(cell_binned,dtype = np.float32)
+                for j in range(n_bins):
+                    cell_binned[cell_binned == j+1] = bins[j]
                 # calculate entropy based upon clusters
                 cell_entropy = np.array(ent.shannon_entropy(cell_binned))
                 all_cells_entropy.append(cell_entropy)
@@ -283,8 +288,10 @@ class TI_selection():
                 # single cell in all models, from seconds to years    
                 cell = np.round(np.array(self.df_tof[col_list[i]]).reshape(-1)/60/60/24/365.25)
                 cell_binned = np.digitize(cell,bins= bins)
-                for j in range(1,n_bins+1):
-                    cell_binned[cell_binned == j] = bins[j-1]
+                cell_binned = np.array(cell_binned,dtype = np.float32)
+
+                for j in range(n_bins):
+                    cell_binned[cell_binned == j+1] = bins[j]
                 # calculate entropy based upon clusters
                 cell_entropy = np.array(ent.shannon_entropy(cell_binned))
                 all_cells_entropy.append(cell_entropy)
@@ -325,11 +332,12 @@ class TI_selection():
 
             #tof to years and then binned
             values = np.array(tof)/60/60/24/365.25
-            bins = np.linspace(min_tof_bin,max_tof_bin,n_bins)
+            bins = np.linspace(min_tof_bin,max_tof_bin,n_bins,dtype=np.float32)
             values = np.digitize(values,bins= bins)
+            values = np.array(values,dtype = np.float32)
 
-            for i in range(1,n_bins+1):
-                values[values == i] = bins[i-1]
+            for i in range(n_bins):
+                values[values == i+1] = bins[i]
 
             values = values.reshape(self.nx,self.ny,self.nz)
 
@@ -432,12 +440,20 @@ class TI_selection():
 
             #convert to years and put in bins.
             df_best_for_clustering = df_best_for_clustering/60/60/24/365.25
-            bins = np.linspace(min_tof_bin,max_tof_bin,n_bins)
-            df_best_for_clustering = np.digitize(df_best_for_clustering,bins=bins)
+            bins = np.linspace(min_tof_bin,max_tof_bin,n_bins,dtype=np.float32)
+            df_best_for_clustering = np.digitize(df_best_for_clustering,bins=bins,dtype = np.float32)
+            df_best_for_clustering = np.array(df_best_for_clustering,dtype = np.float32)
+            for i in range(n_bins):
+                df_best_for_clustering[df_best_for_clustering == i+1] = bins[i]
+            
+            if tof_entropy == True:
+                if self.n_shedules = 1:
+                    df_best_for_clustering["tof_entropy"] = self.df_TI_props["tof_entropy"]
+                else:
+                    for i in range(self.n_shedules):
+                        tof_entropy = "tof_entropy_" + str(shedule_no)
+                        df_best_for_clustering[tof_entropy] =  self.df_TI_props[tof_entropy]
 
-            for i in range(1,n_bins+1):
-                df_best_for_clustering[df_best_for_clustering == i] = bins[i-1]
-     
 
             # Create UMAP reducer
             reducer    = umap.UMAP(n_neighbors=n_neighbors,min_dist = min_dist, n_components =n_components)
@@ -662,9 +678,64 @@ class TI_selection():
                 self.df_best_TIs_to_save.to_csv(best_position_path,index=False)
                 # self.df_best_position.to_csv(best_position_path_2,index = False)
                 # self.df_best_tof.to_csv(best_tof_path,index = False)
+    
+    def calculate_TI_tof_entropy(self,shedule_no = 0,min_tof_bin = 0,max_tof_bin = 15,n_bins= 4,window_shape = (2,2),step_size = 1):
+        " with a sliding nxn window scan through time of flight of each training image and calculate entropy based on that"
+        TI_entropy = []
+
+        for TI_id in range(self.df_tof.shape[0]):
+            
+            #get correct tof values
+            if self.n_shedules == 1:
+                tof = self.df_tof.iloc[TI_id].drop(["TI_no"])
+            else:
+                shedule_id = "_" + str(shedule_no)
+                    col_list = [col for col in self.df_tof.columns if shedule_id in col]
+                    tof = self.df_tof.iloc[TI_id]
+                    tof = tof[col_list]
+
+            # bin to years
+            tof_years = np.array(TI_tof)/60/60/24/365.25
+            bins = np.linspace(min_tof_bin,max_tof_bin,n_bins,dtype=np.float32)
+            tof_years = np.digitize(tof_years,bins= bins)
+            tof_years = np.array(tof_years,dtype = np.float32)
+            for i in range(n_bins):
+                tof_years[tof_years == i+1] = bins[i]
+
+            # reshape tof data to training image shape
+            tof_years = tof_years.reshape((self.nx,self.ny))
+
+            # create moving window of tof values
+            moving_window = view_as_windows(tof_years, window_shape, step= step_size)
+
+            # extract all patterns from moving window
+            pattern = []
+            for i in range(moving_window.shape[0]):
+                for j in range(moving_window.shape[1]):
+                    temp_pattern = list(moving_window[i,j].flatten())
+                    pattern.append(temp_pattern)
+
+            # find unique patterns and count their occurance
+            pattern_unique, pattern_unique_counter = np.unique(pattern, return_counts=True,axis = 0)
+            pattern_unique_freq = pattern_unique_counter/np.sum(pattern_unique_counter)
+            
+            # calculate Shannon entropy
+            ent = 0.0
+            for freq in pattern_unique_freq:
+                ent += freq * np.log2(freq)
+            ent = -ent
+            TI_entropy.append(ent)
+
+        # append to existing dfs
+        if self.n_shedules == 1:
+            self.df_TI_props["tof_entropy"] = TI_entropy
+        else:
+            tof_entropy = "tof_entropy_" + str(shedule_no)
+            self.df_TI_props[tof_entropy] = TI_entropy
 
 
-# what do I need? load TI tof into this class. do this by either loading in setup or just using same setup file. 
+
+        # what do I need? load TI tof into this class. do this by either loading in setup or just using same setup file. 
 # then use tof clustering on them as done in postprocessing
 # then decide how many training images I want from each cluster.
 # save these training images in new folder, including the settings to create them. 

@@ -38,7 +38,7 @@ def init():
     min_velocity = -max_velocity
     velocity_clamp = (min_velocity,max_velocity)
     vh_strategy="invert" # velocity handler
-    bh_strategy = "nearest" # boundary handler
+    bh_strategy = "reflective" # boundary handler #used to have nearest here
     # static: bool
     #         a boolean that decides whether the Ring topology
     #         used is static or dynamic. Default is `False`
