@@ -53,11 +53,14 @@ class Model():
         self.initiate_grid()
 
         self.istep = 0
-        self.current_id = 0
+        self.current_id = -1
 
         self.number_of_turns = number_of_turns
         self.new_agent_every_n_turns = new_agent_every_n_turns
+        self.when_new_agent = 0
+
         self.number_of_starting_agents = number_of_starting_agents
+
         # self.new_agents_per_turn = new_agents_per_turn
         # self.bottom_agent_ratio_birth = bottom_agent_ratio_birth
         self.ratio_of_tracked_agents = ratio_of_tracked_agents
@@ -65,8 +68,10 @@ class Model():
         self.move_preference_matrix = move_preference_matrix
         self.stochastic_move_matrix = stochastic_move_matrix
 
-        self.active_agents = set()
-        self.dead_agents = set()
+        # self.active_agents = set()
+        # self.dead_agents = set()
+        self.active_agents = []
+        self.dead_agents = []
         
         self.resultsDF = pd.DataFrame(columns=['Start_x', 'Start_y', 'Start_z','End_x',
                                             'End_y','End_z','End_turn']).astype(dtype={'Start_x': np.int16, 'Start_y': np.int16, 
@@ -83,13 +88,8 @@ class Model():
         print("Grid initiated! -  took {0:2.2f} seconds".format(time.time()-t_igrid))
 
     def generate_new_agent(self):
-        # if self.current_id == 0:
-        #     agentID = 0
-        # else:
-            # agentID = self.next_id()
+
         agentID = self.next_id()
-        print("agent_ID")
-        print(agentID)
 
         ###initiate location
         StartPos = self.grid.find_empty_location()
@@ -110,7 +110,8 @@ class Model():
                 #create not tracked agent
                 agent = Agent(agentID, StartPos, self.istep, isTracked=False)
         self.grid.initiate_agent_on_grid(agent)
-        self.active_agents.add(agent)
+        # self.active_agents.add(agent)
+        self.active_agents.append(agent)
         # print('Generating agent {}/{}'.format(inew_agent+1, self.new_agents_per_turn), end="\r")
 
     def kill_agent(self, agent, next_turn=False):
@@ -119,13 +120,15 @@ class Model():
         else:
             agent.kill(self.istep)
         self.active_agents.discard(agent)
-        self.dead_agents.add(agent)
+        # self.dead_agents.add(agent)
+        self.dead_agents.append(agent)
     
     def move_agents(self):
         copy_active_agents = copy.copy(self.active_agents)
         # n_agents = len(copy_active_agents)
 
         for iagent, agent in enumerate (copy_active_agents):
+            print("moving agent {}".format(iagent))
             new_pos = self.get_agent_movement(agent)
             if type(new_pos) == int:
                 if new_pos == 5:
@@ -138,6 +141,9 @@ class Model():
                 self.grid.move_agent(agent, new_pos)
                 self.generate_voronoi_regions()
                 self.assign_training_image_to_agent()
+                # self.generate_reservoir_model()
+                # self.run_FD()
+                # self.calculate_misfit()
    
 
     def get_agent_movement(self, agent):
@@ -182,17 +188,21 @@ class Model():
 
     def step(self, ):
         print('=======Turn {}========'.format(self.istep))
+        self.istep += 1
 
-        if self.istep > 0:
-            if self.istep % self.new_agent_every_n_turns == 0:
-                self.generate_new_agent()
-                print("generating new agent")
+        if self.new_agent_every_n_turns == self.when_new_agent:
+            # if self.istep % self.new_agent_every_n_turns == 0:
+            self.generate_new_agent()
+            print("generating new agent")
+            self.when_new_agent = 0
 
         self.move_agents()
         print('Moving agents done                  ')
         print('Generating agents done              ')
+        # track agents
+        self.track_agents()
         self.grid.layer = self.Z-1 # not sure what this does.
-        self.istep += 1
+        self.when_new_agent +=1
 
     def run(self):
 
@@ -204,10 +214,16 @@ class Model():
             if self.stop_simulation:
                 print('Simulation stoped because environment is full')
                 break
+    
+    def track_agents(self):
+        "track position etc of each agent at end of each iteration"
+        for agent in self.active_agents:
+            agent.track_agent()
+
 
     def get_all_tracks(self):
         """ Extract the tracking path of all the agents during the simulation in numpy.array of shape (number of agent, number of turns, 3 coordinates) """
-        track_file = np.empty((self.number_of_turns*self.new_agents_per_turn, self.number_of_turns+self.number_extra_turns, 3))
+        track_file = np.empty((self.current_id+1, self.number_of_turns+1  , 4))
         track_file[:] = np.nan
         for agent in self.active_agents:
             if agent.isTracked:
@@ -256,7 +272,8 @@ class Model():
 
         # self.generate_reservoir_model()
         # self.run_FD()
-        # self.calculate_misfit() 
+        # self.calculate_misfit()
+        self.track_agents()
     
     def generate_voronoi_regions(self):
         """ split up model into voronoi regoins, with each agent marking the center of a voronoi region"""
@@ -313,15 +330,23 @@ class Model():
         for i in range(len(grid_points)):
             all_points.append(index_by_id[id(grid_points[i])])
         missed_points =list(set(all_points) - set(detected_points))
-        for points in missed_points:
-            point = grid_points[points]
-            point_shifted = Point(point.x+1e-9,point.y+1e-9)
-            for voronoi_polygon_id in range(len(poly_shapes)):
-                if point_shifted.within(poly_shapes[voronoi_polygon_id]):
-                    print("penis")
-                    point_stats = [point.x,point.y,points]
-                    points_in_polygon[voronoi_polygon_id].append(point_stats)
-            
+        shift = 1e-9
+        while len(missed_points)>0:
+            for points in missed_points:
+                point = grid_points[points]
+                point_shifted = Point(point.x+shift,point.y+shift)
+                for voronoi_polygon_id in range(len(poly_shapes)):
+                    if point_shifted.within(poly_shapes[voronoi_polygon_id]):
+                        point_stats = [point.x,point.y,points]
+                        points_in_polygon[voronoi_polygon_id].append(point_stats)
+            points_in_polygon_temp = [item for sublist in points_in_polygon for item in sublist]
+            detected_points = [row[2] for row in points_in_polygon_temp]
+            all_points = []
+            for i in range(len(grid_points)):
+                all_points.append(index_by_id[id(grid_points[i])])
+            missed_points =list(set(all_points) - set(detected_points))
+            shift += 1e-5
+
         polygon_id = []
 
         for i in range(len(poly_shapes)):
@@ -351,9 +376,6 @@ class Model():
         #         df_points_in_polygon = df_points_in_polygon.append(df_missing_point,ignore_index=True)
 
         df_points_in_polygon = df_points_in_polygon.sort_values(by = ["point_id"])
-        print("df_length")
-        print(len(df_points_in_polygon))
-        print(len(self.env.flatten()))
         df_points_in_polygon["TI_zone"] = self.env.flatten()
 
 
