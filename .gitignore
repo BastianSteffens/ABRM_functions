@@ -6,6 +6,8 @@ batch_files/*
 data/*
 images/*
 Results/*
+abm/training_images/*
+
 GRDECL_file_reader/Results/*
 postprocessing_multi.ipynb
 *.pkl

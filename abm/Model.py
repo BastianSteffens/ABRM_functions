@@ -13,6 +13,8 @@ from shapely.geometry import Polygon
 from geovoronoi import voronoi_regions_from_coords
 from geovoronoi import polygon_lines_from_voronoi
 from collections import Counter
+from GRDECL_file_reader.GRDECL2VTK import*
+import pathlib
 
 from Agent import Agent
 from Grid import Grid
@@ -43,6 +45,10 @@ class Model():
                 move_preference_matrix=preference_mat, 
                 stochastic_move_matrix=stochastic_mat, 
                 ):
+
+        self.base_path = pathlib.Path(__file__).parent
+ 
+
         self.env = env
         (self.X, self.Y, self.Z) = self.env.shape
         print('Shape of your environment: ({}, {}, {})'.format(self.X, self.Y, self.Z))
@@ -50,9 +56,11 @@ class Model():
         self.number_training_image_zones = number_training_image_zones
         self.number_training_images_per_zone = number_training_images_per_zone
         self.training_images = np.linspace((1,1),(number_training_images_per_zone,number_training_images_per_zone),number_training_images_per_zone)
+        self.load_training_images()
 
         self.initiate_grid()
         self.init_TI_zone_grid()
+
 
         self.istep = 0
         self.current_id = -1
@@ -126,8 +134,8 @@ class Model():
     def move_agents(self):
         copy_active_agents = copy.copy(self.active_agents)
         for iagent, agent in enumerate (copy_active_agents):
-            print("moving agent {}".format(iagent), end="\r")
-            new_pos = self.get_agent_movement(agent)
+            print("moving agent {}".format(agent.id), end="\r")
+            new_pos = self.get_agent_movement(agent,copy_active_agents)
             if new_pos ==(None,None,None):
                 print("Killed agent {}        ".format(agent.id))
                 self.kill_agent(agent)
@@ -140,13 +148,11 @@ class Model():
             # self.calculate_misfit()
    
 
-    def get_agent_movement(self, agent,):
+    def get_agent_movement(self, agent,copy_active_agents):
         free_neighborhood_coord = self.grid.get_empty_neighborhood(agent.pos,len(self.active_agents))
-        # if not free_neighborhood_coord:
-        #     agent.blocked_turns += 1
-        #     return agent.blocked_turns
         
-        # if rn.random() <= 0.9:
+        if rn.random() <= 0.9:
+            print("penis will do this later")
         #     #move to max preference position multiply by env value
         #     max_value = -1
         #     for coord in free_neighborhood_coord:
@@ -161,7 +167,18 @@ class Model():
         #         if move_value < 0:
         #             print('Error move value negtive {}'.format(move_value))
         #             self.stop_simulation = True
-        # else:
+        else:
+            print("not random move. not ready now.")
+            #run through all possible szenarios this is the bit that should be parallelized if pool = None else self.evalute_position_iterator position. self.evaluate_position_parallel
+            # for index,coord in enumerate(free_neighborhood_coord):
+            #     self.generate_voronoi_regions()
+            #     possible_training_images = self.get_possible_training_images()
+            #     for training_image in possible_training_images:
+            #         self.assign_training_image_to_agent()
+            #         self.generate_reservoir_model()
+            #         self.run_FD()
+            #         self.calculate_misfit()                
+                
         #     #stochasticly move according to stochastic_move_matrix
         #     stochastic_prob = []
         #     for coord in free_neighborhood_coord:
@@ -393,7 +410,6 @@ class Model():
                 if polygon_id == voronoi_polygon_id:
                     TI_counter_per_polygon.append(point[5])
             if not TI_counter_per_polygon:
-                print("penis")
                 TI_most_common = np.random.randint(len(poly_shapes)+1)
             else:
                 TI_most_common = Counter(TI_counter_per_polygon).most_common(1)[0][0]
@@ -431,3 +447,165 @@ class Model():
         else:
             for agent in self.active_agents:
                 agent.update_agent_TI(TI_type = agent.TI_zone_assigned,TI_no =randint(1,self.number_training_images_per_zone+1) )
+
+    def load_training_images(self):
+        """ upload all training images that are to be used for reservoir model building 1 training image = entire resevoir model. """
+        t_igrid = time.time()
+        print('=======loading training images=========')
+
+        # arrays for storage of TI: N_TI_zones, N_TI_per_zone, N_values_per_TI
+        self.TI_values_permx = np.empty((self.number_training_image_zones,self.number_training_images_per_zone,(self.X*self.Y*7)))
+        self.TI_values_permx[:] = np.nan
+        self.TI_values_permy = np.empty((self.number_training_image_zones,self.number_training_images_per_zone,(self.X*self.Y*7)))
+        self.TI_values_permy[:] = np.nan
+        self.TI_values_permz = np.empty((self.number_training_image_zones,self.number_training_images_per_zone,(self.X*self.Y*7)))
+        self.TI_values_permz[:] = np.nan
+        self.TI_values_poro = np.empty((self.number_training_image_zones,self.number_training_images_per_zone,(self.X*self.Y*7)))
+        self.TI_values_poro[:] = np.nan
+
+        # set up path etc. to allow to extract grdcel file models into np arrays.
+        geomodel_path = str(self.base_path / "training_images/TI_0/INCLUDE/GRID.grdecl")
+        GRID = GeologyModel(filename = geomodel_path)
+
+        # load each model into storage array
+        for TI_zone in range(self.number_training_image_zones):
+            for TI_no in range(self.number_training_images_per_zone):
+                permx_path = str(self.base_path / 'training_images/TI_{}/INCLUDE/PERMX/M{}.GRDECL'.format(TI_zone,TI_no))
+                permy_path = str(self.base_path / 'training_images/TI_{}/INCLUDE/PERMY/M{}.GRDECL'.format(TI_zone,TI_no))
+                permz_path = str(self.base_path / 'training_images/TI_{}/INCLUDE/PERMZ/M{}.GRDECL'.format(TI_zone,TI_no))
+                poro_path = str(self.base_path /'training_images/TI_{}/INCLUDE/PORO/M{}.GRDECL'.format(TI_zone,TI_no))
+
+                permx = GRID.LoadCellData(varname="PERMX",filename=permx_path)
+                permy = GRID.LoadCellData(varname="PERMY",filename=permy_path)
+                permz = GRID.LoadCellData(varname="PERMZ",filename=permz_path)
+                poro = GRID.LoadCellData(varname="PORO",filename=poro_path)
+
+                self.TI_values_permx[TI_zone,TI_no,:] = permx
+                self.TI_values_permy[TI_zone,TI_no,:] = permy
+                self.TI_values_permz[TI_zone,TI_no,:] = permz
+                self.TI_values_poro[TI_zone,TI_no,:] = poro
+        
+        print("Training images loaded! -  took {0:2.2f} seconds".format(time.time()-t_igrid))
+
+
+
+    def get_possible_training_images(self):
+        """ check what training image confiugratinos can be loaded into agent voronoi polygon"""
+
+    def generate_reservoir_model(self):
+        """ generate reservoir model from training images, patched together by voronoi polygons"""
+
+
+
+        for j in range(len(all_cell_center)):
+            for voronoi_polygon_id in range(n_voronoi):
+                
+                polygon = poly_shapes[voronoi_polygon_id]
+                cell_id = Point(all_cell_center[j,0],all_cell_center[j,1])
+                
+                if polygon.intersects(cell_id):
+                    all_cell_center[j,2] = assign_voronoi_zone[voronoi_polygon_id]
+        
+        # load and assign correct grdecl files to each polygon zone and patch togetehr to new model
+        #output from reservoir modelling
+        cell_vornoi_combination = np.tile(all_cell_center[:,2],nz).reshape((nx,ny,nz))
+        cell_vornoi_combination_flatten = cell_vornoi_combination.flatten()
+
+        all_model_values_permx = np.zeros((n_voronoi_zones,len(cell_vornoi_combination_flatten)))
+        all_model_values_permy = np.zeros((n_voronoi_zones,len(cell_vornoi_combination_flatten)))
+        all_model_values_permz = np.zeros((n_voronoi_zones,len(cell_vornoi_combination_flatten)))
+        all_model_values_poro = np.zeros((n_voronoi_zones,len(cell_vornoi_combination_flatten)))
+
+        geomodel_path = str(self.setup["base_path"] / "../FD_Models/INCLUDE/GRID.grdecl")
+        Model = GeologyModel(filename = geomodel_path)
+        data_file_path = self.setup["base_path"] / "../FD_Models/DATA/M_FD_{}.DATA".format(particle_no)
+
+        for j in range(n_voronoi_zones):
+            temp_model_path_permx = self.setup["base_path"] / '../FD_Models/INCLUDE/Voronoi/Patch_{}/PERMX/M{}.GRDECL'.format(j,particle_no)
+            temp_model_path_permy = self.setup["base_path"] / '../FD_Models/INCLUDE/Voronoi/Patch_{}/PERMY/M{}.GRDECL'.format(j,particle_no)
+            temp_model_path_permz = self.setup["base_path"] / '../FD_Models/INCLUDE/Voronoi/Patch_{}/PERMZ/M{}.GRDECL'.format(j,particle_no)
+            temp_model_path_poro = self.setup["base_path"] / '../FD_Models/INCLUDE/Voronoi/Patch_{}/PORO/M{}.GRDECL'.format(j,particle_no)
+            temp_model_permx = Model.LoadCellData(varname="PERMX",filename=temp_model_path_permx)
+            temp_model_permy = Model.LoadCellData(varname="PERMY",filename=temp_model_path_permy)
+            temp_model_permz = Model.LoadCellData(varname="PERMZ",filename=temp_model_path_permz)
+            temp_model_poro = Model.LoadCellData(varname="PORO",filename=temp_model_path_poro)
+
+            all_model_values_permx[j] = temp_model_permx
+            all_model_values_permy[j] = temp_model_permy
+            all_model_values_permz[j] = temp_model_permz
+            all_model_values_poro[j] = temp_model_poro
+
+        # patch things together
+        patch_permx  = []
+        patch_permy  = []
+        patch_permz  = []
+        patch_poro  = []
+        for j in range(len(cell_vornoi_combination_flatten)):
+            for k in range(n_voronoi_zones):
+            
+                if cell_vornoi_combination_flatten[j] == k:
+                    permx = all_model_values_permx[k,j]
+                    permy = all_model_values_permy[k,j]
+                    permz = all_model_values_permz[k,j]
+                    poro = all_model_values_poro[k,j]
+                    patch_permx.append(permx)
+                    patch_permy.append(permy)
+                    patch_permz.append(permz)
+                    patch_poro.append(poro)    
+
+
+        file_permx_beginning = "FILEUNIT\nMETRIC /\n\nPERMX\n"
+        permx_file_path = self.setup["base_path"] / "../FD_Models/INCLUDE/PERMX/M{}.GRDECL".format(particle_no)
+        patch_permx[-1] = "{} /".format(patch_permx[-1])
+        with open(permx_file_path,"w+") as f:
+            f.write(file_permx_beginning)
+            newline_ticker = 0
+            for item in patch_permx:
+                newline_ticker += 1
+                if newline_ticker == 50:
+                    f.write("\n")
+                    newline_ticker = 0
+                f.write("{} ".format(item))
+            f.close()
+
+        file_permy_beginning = "FILEUNIT\nMETRIC /\n\nPERMY\n"
+        permy_file_path = self.setup["base_path"] / "../FD_Models/INCLUDE/PERMY/M{}.GRDECL".format(particle_no)
+        patch_permy[-1] = "{} /".format(patch_permy[-1])
+        with open(permy_file_path,"w+") as f:
+            f.write(file_permy_beginning)
+            newline_ticker = 0
+            for item in patch_permy:
+                newline_ticker += 1
+                if newline_ticker == 50:
+                    f.write("\n")
+                    newline_ticker = 0
+                f.write("{} ".format(item))
+            f.close()
+
+        file_permz_beginning = "FILEUNIT\nMETRIC /\n\nPERMZ\n"
+        permz_file_path = self.setup["base_path"] / "../FD_Models/INCLUDE/PERMZ/M{}.GRDECL".format(particle_no)
+        patch_permz[-1] = "{} /".format(patch_permz[-1])
+        with open(permz_file_path,"w+") as f:
+            f.write(file_permz_beginning)
+            newline_ticker = 0
+            for item in patch_permz:
+                newline_ticker += 1
+                if newline_ticker == 50:
+                    f.write("\n")
+                    newline_ticker = 0
+                f.write("{} ".format(item))
+            f.close()
+
+        file_poro_beginning = "FILEUNIT\nMETRIC /\n\nPORO\n"
+        poro_file_path = self.setup["base_path"] / "../FD_Models/INCLUDE/PORO/M{}.GRDECL".format(particle_no)
+        patch_poro[-1] = "{} /".format(patch_poro[-1])
+        with open(poro_file_path,"w+") as f:
+            f.write(file_poro_beginning)
+            newline_ticker = 0
+            for item in patch_poro:
+                newline_ticker += 1
+                if newline_ticker == 50:
+                    f.write("\n")
+                    newline_ticker = 0
+                f.write("{} ".format(item))
+            f.close()
