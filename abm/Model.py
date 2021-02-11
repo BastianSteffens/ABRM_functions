@@ -112,41 +112,36 @@ class Model():
         self.grid.initiate_agent_on_grid(agent)
         self.active_agents.append(agent)
         print("generated new agent")
-        # print('Generating agent {}/{}'.format(inew_agent+1, self.new_agents_per_turn), end="\r")
 
     def kill_agent(self, agent, next_turn=False):
         if next_turn:
             agent.kill(self.istep+1)
         else:
             agent.kill(self.istep)
-        self.active_agents.discard(agent)
+        for agent_pos_in_list,agent_to_remove in enumerate(self.active_agents):
+            if agent.id == agent_to_remove.id:
+                self.active_agents.pop(agent_pos_in_list)
         self.dead_agents.append(agent)
     
     def move_agents(self):
         copy_active_agents = copy.copy(self.active_agents)
-        # n_agents = len(copy_active_agents)
-
         for iagent, agent in enumerate (copy_active_agents):
             print("moving agent {}".format(iagent), end="\r")
             new_pos = self.get_agent_movement(agent)
-            if type(new_pos) == int:
-                if new_pos == 5:
-                    #kill agent bacause blocked (all neighbors occupied) for the last 5 turns
-                    self.kill_agent(agent)
-                else:
-                    if agent.isTracked:
-                        agent.track.append([agent.pos[0], agent.pos[1], agent.pos[2]])
-            else:
-                self.grid.move_agent(agent, new_pos)
-                self.generate_voronoi_regions()
-                self.assign_training_image_to_agent()
-                # self.generate_reservoir_model()
-                # self.run_FD()
-                # self.calculate_misfit()
+            if new_pos ==(None,None,None):
+                print("Killed agent {}        ".format(agent.id))
+                self.kill_agent(agent)
+
+            self.grid.move_agent(agent, new_pos)
+            self.generate_voronoi_regions()
+            self.assign_training_image_to_agent()
+            # self.generate_reservoir_model()
+            # self.run_FD()
+            # self.calculate_misfit()
    
 
-    def get_agent_movement(self, agent):
-        free_neighborhood_coord = self.grid.get_empty_neighborhood(agent.pos)
+    def get_agent_movement(self, agent,):
+        free_neighborhood_coord = self.grid.get_empty_neighborhood(agent.pos,len(self.active_agents))
         # if not free_neighborhood_coord:
         #     agent.blocked_turns += 1
         #     return agent.blocked_turns
@@ -232,8 +227,6 @@ class Model():
         for agent in self.dead_agents:
             if agent.isTracked:
                 track_file[agent.id, agent.start_iteration:agent.dead_iteration, :] = agent.track
-                if agent.dead_iteration != self.number_of_turns+self.number_extra_turns:
-                    track_file[agent.id, agent.dead_iteration:, :] = [agent.track[-1]]*(self.number_of_turns+self.number_extra_turns-agent.dead_iteration)
         return track_file
 
     def get_final_results(self):
@@ -268,9 +261,7 @@ class Model():
             self.generate_new_agent()
         
         self.generate_voronoi_regions()
-
         self.assign_training_image_to_agent()
-
         # self.generate_reservoir_model()
         # self.run_FD()
         # self.calculate_misfit()
@@ -342,8 +333,6 @@ class Model():
 
         shift = 1e-9
         while len(missed_points)!=0:
-            # print("missing points while loop")
-            # print(missed_points)
             for points in missed_points:
                 point = self.TI_grid_points[points]
                 point_shifted = Point(point.x+shift,point.y+shift)
@@ -429,59 +418,6 @@ class Model():
         # assign polygons to individual agents
         for i,agent in enumerate(self.active_agents):
             agent.update_agent_properties(polygon_id = i,polygon = poly_shapes[i],polygon_area = poly_shapes[i].area,TI_zone_assigned = TI_zone_per_agent[i])
-
-
-###########
-        # # generate df
-        # df_points_in_polygon = pd.DataFrame(points_in_polygon_no_dublicates,columns=["point_x","point_y","point_id","polygon_id","index","TI_zone"])
-
-        # # what TI_zone dominates in which polygon
-        # TI_zone_value_all = []
-        # for voronoi_polygon_id in range(len(poly_shapes)):
-        #     TI_zone_value = df_points_in_polygon[df_points_in_polygon.polygon_id == voronoi_polygon_id]["TI_zone"].value_counts(dropna = False).index
-        #     if len(TI_zone_value) == 0:
-        #         TI_zone_value = TI_zone_value_all[-1]
-        #     else:
-        #         TI_zone_value = TI_zone_value[0].tolist()
-
-        #     TI_zone_value_all.extend([TI_zone_value]*len(df_points_in_polygon[df_points_in_polygon.polygon_id ==voronoi_polygon_id ]))
-
-        # df_points_in_polygon["TI_zone_assigend_to_polygon"] = TI_zone_value_all
-        # df_polygon_TI_zone = df_points_in_polygon.drop_duplicates(subset ="polygon_id", keep = "last")
-        # list_polygon_TI_zone = df_polygon_TI_zone.TI_zone_assigend_to_polygon.tolist()
-
-
-
-         #################       
-        # some points are assigned to multiple polygons. dropping dublicates
-        # df_points_in_polygon = pd.DataFrame(points_in_polygon,columns=["point_x","point_y","point_id","polygon_id"])
-        # df_points_in_polygon.drop_duplicates(subset ="point_id", keep = "last", inplace = True)
-
-        # df_points_in_polygon = df_points_in_polygon.sort_values(by = ["point_id"])
-        # df_points_in_polygon["TI_zone"] = self.env.flatten()
-
-        # df_points_in_polygon = df_points_in_polygon.sort_index()
-
-        # TI_zone_value_all = []
-        # for voronoi_polygon_id in range(len(poly_shapes)):
-        #     TI_zone_value = df_points_in_polygon[df_points_in_polygon.polygon_id == voronoi_polygon_id]["TI_zone"].value_counts(dropna = False).index
-        #     if len(TI_zone_value) == 0:
-        #         TI_zone_value = TI_zone_value_all[-1]
-        #     else:
-        #         TI_zone_value = TI_zone_value[0].tolist()
-
-        #     TI_zone_value_all.extend([TI_zone_value]*len(df_points_in_polygon[df_points_in_polygon.polygon_id ==voronoi_polygon_id ]))
-        # df_points_in_polygon["TI_zone_assigend_to_polygon"] = TI_zone_value_all
-        # df_polygon_TI_zone = df_points_in_polygon.drop_duplicates(subset ="polygon_id", keep = "last")
-        # list_polygon_TI_zone = df_polygon_TI_zone.TI_zone_assigend_to_polygon.tolist() 
-        # # assign polygons to individual agents
-        # for i,agent in enumerate(self.active_agents):
-        #     agent.update_agent_properties(polygon_id = i,polygon = poly_shapes[i],polygon_area = poly_shapes[i].area,TI_zone_assigned = list_polygon_TI_zone[i])
-
-    # def missing_elements(self,L):
-    #     """ check if list of values is throughgoing . return values taht are not """ 
-    #     start, end = L[0], L[-1]
-    #     return sorted(set(range(start, end + 1)).difference(L))
 
     def assign_training_image_to_agent(self):
         """ decide which training image agents and their polygon will get"""

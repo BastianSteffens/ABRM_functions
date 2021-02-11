@@ -92,8 +92,10 @@ class Grid:
     def get_empty_neighborhood(
         self,
         pos: Coordinate,
+        n_active_agents,
         # include_down: bool = False,
         include_center: bool = True,
+        remove_agent: bool = True,
         radius: int = 1,
     ) -> List[Coordinate]:
         """ Return a list of coordinates of empty cells that are in the neighborhood of a
@@ -113,6 +115,10 @@ class Grid:
             free_neighbours.append(pos)
         else:
             free_neighbours = list(self.iter_empty_neighborhood(pos, radius))
+        if remove_agent == True:
+            if n_active_agents >5: # voronoi tesselation does not work with less than 5 agents.
+                free_neighbours.append((None,None,None))
+
         return free_neighbours
 
     def is_cell_empty(self, pos: Coordinate) -> bool:
@@ -129,6 +135,7 @@ class Grid:
             pos: Tuple of new position to move the agent to.
         """
         self._remove_agent(agent.pos)
+
         self._place_agent(pos)
         agent.move_to(pos)
 
@@ -141,12 +148,17 @@ class Grid:
 
     def _place_agent(self, pos: Coordinate) -> None:
         """ Place the agent at the correct location. """
-        if self.is_cell_empty(pos):
-            x, y, z = pos
-            self.grid[x, y, z] = self.agent_val()
-            self.empties_layers[z].discard((x,y,z))
+        if pos != (None,None,None):
+            if self.is_cell_empty(pos):
+                x, y, z = pos
+                self.grid[x, y, z] = self.agent_val()
+                self.empties_layers[z].discard((x,y,z))
+            else:
+                raise Exception("Cell not empty")
         else:
-            raise Exception("Cell not empty")
+            print("agent removed from grid")
+
+
 
     def initiate_agent_on_grid(self, agent: Agent) -> None:
         """ Position an agent on the grid. To be used for new generated agents """
