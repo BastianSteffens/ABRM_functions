@@ -7,6 +7,8 @@ data/*
 images/*
 Results/*
 abm/training_images/*
+abm/training_image_testing/*
+abm/results/*
 
 GRDECL_file_reader/Results/*
 postprocessing_multi.ipynb

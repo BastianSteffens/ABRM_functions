@@ -1,19 +1,11 @@
 ############################################################################
-
-# import pyswarms_modified as ps       # PSO package in Python
-# import matplotlib.pyplot as plt
-# from pyswarms.utils.plotters import (plot_cost_history, plot_contour, plot_surface)
-# import random 
-# import pickle
-# import datetime
-# import lhsmdu
-# import pathlib
-# from pyswarms_modified.particles.particle import particle
+import pickle
 import random as rn
 import numpy as np
 import os 
 from typing import NoReturn, Text
 import time
+import datetime
 
 #import local scripts
 from Agent import Agent
@@ -42,9 +34,14 @@ def init():
     TI_zone = np.zeros((all_vals_len,4))
     TI_zone[:10000,2] = 0
     TI_zone[10000:,2] = 1
-    TI_zone[15000:,2] = 2
-    TI_zone[:3000,2] = 3
+    # TI_zone[15000:,2] = 2
+    # TI_zone[:3000,2] = 3
     TI_zones = TI_zone[:,2].reshape((200,100,1))
+
+    # create curve and save resultign desired LC
+    Phi_points_target = np.linspace(0, 1, num=11, endpoint=True)
+    F_points_target = np.array([0, 0.2, 0.35, 0.6, 0.65, 0.7, 0.8, 0.85, 0.9, 0.95, 1])
+
     # preference_L = [[[2., 1., 0.],[2., 1., 0.], [2., 1., 0.]],
     #             [[2., 1., 0.], [3., 0., 0.], [2., 1., 0.]],
     #             [[2., 1., 0.], [2., 1., 0.], [2., 1., 0.]]]
@@ -54,7 +51,8 @@ def init():
     #             [[0.075, 0.0375, 0.], [0.1, 0., 0.], [0.075, 0.0375, 0.]],
     #             [[0.075, 0.0375, 0.], [0.075, 0.0375, 0.], [0.075, 0.0375, 0.]]]
     # STOCHASTIC_MATRIX = np.array([np.array(np.array([Lii for Lii in Li])) for Li in stochastic_L])
-    
+    output_folder = str(datetime.datetime.today().replace(microsecond= 0, second = 0).strftime("%Y_%m_%d_%H_%M"))
+
     
     seed_everything(SEED)
 
@@ -64,7 +62,8 @@ def init():
 
     model = Model(env = TI_zones, 
                   number_of_turns=TURNS, number_of_starting_agents = 5,new_agent_every_n_turns = 1,max_number_agents = 10,
-                  ratio_of_tracked_agents = 1.,number_training_image_zones = 2, number_training_images_per_zone = 20
+                  ratio_of_tracked_agents = 1.,number_training_image_zones = 2, number_training_images_per_zone = 20,output_folder = output_folder,
+                  Phi_points_target=Phi_points_target,F_points_target=F_points_target
                  )
     model.run()
     print("Simulation took {0:2.2f} seconds".format(time.time()-t1))

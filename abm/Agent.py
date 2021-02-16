@@ -20,6 +20,8 @@ class Agent():
         self.TI_type = None
         # which TI from that TI type is assigned to agent
         self.TI_no = None
+        # misfit of agent
+        self.misfit = None
         #current postition of the agent
         self.pos = pos
         if self.isTracked:
@@ -43,15 +45,19 @@ class Agent():
         """ update agent TI"""
         self.TI_type = TI_type
         self.TI_no = TI_no
+
+    def update_agent_misfit(self,misfit):
+        """ update misfit of all agents for current iteration"""
+        self.misfit = misfit
       
     def track_agent(self):
             """ track agent movement etc."""
 
             if self.isTracked:
                 if self.track is None:
-                    self.track = [[self.pos[0], self.pos[1], self.pos[2],self.TI_zone_assigned]]
+                    self.track = [[self.pos[0], self.pos[1], self.pos[2],self.TI_zone_assigned,self.TI_type,self.TI_no,self.misfit]]
                 else:
-                    self.track.append([self.pos[0], self.pos[1], self.pos[2],self.TI_zone_assigned])
+                    self.track.append([self.pos[0], self.pos[1], self.pos[2],self.TI_zone_assigned,self.TI_type,self.TI_no,self.misfit])
 
     def kill(self, iteration):
         """Kill the agent recordind the iteration when it died (ie. End_Turn)"""
