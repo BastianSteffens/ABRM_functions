@@ -63,7 +63,7 @@ def init():
     model = Model(env = TI_zones, 
                   number_of_turns=TURNS, number_of_starting_agents = 5,new_agent_every_n_turns = 100,max_number_agents = 10,
                   ratio_of_tracked_agents = 1.,number_training_image_zones = 2, number_training_images_per_zone = 20,output_folder = output_folder,
-                  Phi_points_target=Phi_points_target,F_points_target=F_points_target
+                  Phi_points_target=Phi_points_target,F_points_target=F_points_target,max_number_of_position_tests = 6
                  )
     model.run()
     print("Simulation took {0:2.2f} seconds".format(time.time()-t1))
