@@ -40,23 +40,12 @@ class Grid:
     def agent_val() -> int:
         """ Default value for agent cell elements. """
         return 1
-
-    # @staticmethod
-    # def barrier_val() -> int:
-    #     """ Default value for barrier cell elements. """
-    #     return 2
-
-    # def populate_grid_with_barriers(self, barrier_pos) -> None:
-    #     print('Populating grid with barriers...')
-    #     self.grid[barrier_pos[:,0], barrier_pos[:,1], barrier_pos[:,2]] = self.barrier_val()
-    #     for [x, y, z] in barrier_pos:
-    #         self.empties_layers[z].discard((x,y,z))
     
     def iter_empty_neighborhood(
         self,
         pos: Coordinate,
-        # include_down: bool = False,
-        # include_center: bool = False,
+        include_center: bool = True,
+        moore: bool = False,
         radius: int = 1,
     ) -> Iterator[Coordinate]:
         """ Return an iterator over empty cell coordinates that are in the
@@ -68,33 +57,36 @@ class Grid:
             include_center: If True, return the (x, y, z) cell as well.
                             Otherwise, return surrounding cells only.
             radius: radius, in cells, of neighborhood to get.
+            moore: Boolean for whether to use Moore neighborhood (including
+                   diagonals) or Von Neumann (only up/down/left/right).
         Returns:
             An iterator of coordinate tuples representing the empty neighborhood.
         """
         x, y, z = pos
-        # if not include_down:
-        #     zlim = 0
-        # else:
-        #     zlim = radius
-        zlim = 0
-        for dz in range(-radius, zlim + 1):
+        # zlim = 0
+        # for dz in range(-radius, zlim + 1):
+        for dz in range(-radius,radius + 1):
             for dy in range(-radius, radius + 1):
                 for dx in range(-radius, radius + 1):
-                    if dx == 0 and dy == 0 and dz == 0:# and not include_center:
+                    if dx == 0 and dy == 0 and dz == 0 and not include_center:
+                        print("penis")
                         continue
                     # Skip if new coords out of bounds.
                     if (not (0 <= dx + x < self.X) or not (0 <= dy + y < self.Y) or not (0 <= dz + z < self.Z)):
                         continue
+                    # Skip coordinates that are outside manhattan distance
+                    if not moore and abs(dx) + abs(dy) + abs(dz) > radius:
+                        continue
                     coords = ( dx + x, dy + y, dz + z)
-                    if self.is_cell_empty(coords):
+                    if coords ==pos:
+                        yield coords
+                    elif self.is_cell_empty(coords):
                         yield coords
     
     def get_empty_neighborhood(
         self,
         pos: Coordinate,
         n_active_agents,
-        # include_down: bool = False,
-        include_center: bool = True,
         remove_agent: bool = True,
         radius: int = 1,
     ) -> List[Coordinate]:
@@ -110,11 +102,11 @@ class Grid:
         Returns:
             A list of coordinate tuples representing the neighborhood.
         """
-        if include_center == True:
-            free_neighbours = list(self.iter_empty_neighborhood(pos, radius))
-            free_neighbours.append(pos)
-        else:
-            free_neighbours = list(self.iter_empty_neighborhood(pos, radius))
+        # if include_center == True:
+        #     free_neighbours = list(self.iter_empty_neighborhood(pos, radius))
+        #     free_neighbours.append(pos)
+        # else:
+        free_neighbours = list(self.iter_empty_neighborhood(pos = pos, radius = radius))
         if remove_agent == True:
             if n_active_agents >5: # voronoi tesselation does not work with less than 5 agents.
                 free_neighbours.append((None,None,None))
@@ -148,7 +140,7 @@ class Grid:
 
     def _place_agent(self, pos: Coordinate) -> None:
         """ Place the agent at the correct location. """
-        if pos != (None,None,None):
+        if pos[0] != None:
             if self.is_cell_empty(pos):
                 x, y, z = pos
                 self.grid[x, y, z] = self.agent_val()
@@ -177,7 +169,7 @@ class Grid:
                 not_empty = True
                 break
         if not_empty:
-            z = rn.randint(int(0.4*self.Z), self.Z-1)
+            z = rn.randint(0, self.Z-1)
             while len(self.empties_layers[z]) == 0:
                 z = rn.randint(0, self.Z-1)
             pos = self.empties_layers[z].pop()
