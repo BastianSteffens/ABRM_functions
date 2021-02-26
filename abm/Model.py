@@ -31,7 +31,7 @@ class Model():
     def __init__(self, 
                 env,F_points_target, Phi_points_target,output_folder, 
                 number_of_turns=2000,number_of_starting_agents = 5,new_agent_every_n_turns = 1,new_agents_per_n_turns = 1,max_number_agents = 10,max_number_of_position_tests = 30,
-                ratio_of_tracked_agents = 1.,number_training_image_zones = 2, number_training_images_per_zone = 20,n_processes = 6,
+                ratio_of_tracked_agents = 1.,number_training_image_zones = 2, number_training_images_per_zone = 20,n_processes = 6,neighbourhood_radius = 2, neighbourhood_search_step_size = 2,
                 ):
 
         self.base_path = pathlib.Path(__file__).parent
@@ -51,7 +51,7 @@ class Model():
         self.Phi_points_target = Phi_points_target
         self.F_points_target = F_points_target
 
-        self.initiate_grid()
+        self.initiate_grid(neighbourhood_radius = neighbourhood_radius, neighbourhood_search_step_size = neighbourhood_search_step_size)
         self.init_TI_zone_grid()
 
         self.istep = 0
@@ -77,10 +77,11 @@ class Model():
 
         self.stop_simulation = False
 
-    def initiate_grid(self):
+    def initiate_grid(self,neighbourhood_radius,neighbourhood_search_step_size):
         t_igrid = time.time()
         print('=======Initiating grid=========')
-        self.grid = Grid(self.X, self.Y, self.Z)
+        self.grid = Grid(self.X, self.Y, self.Z,neighbourhood_radius = neighbourhood_radius, neighbourhood_search_step_size = neighbourhood_search_step_size)
+
         print("Grid initiated! -  took {0:2.2f} seconds".format(time.time()-t_igrid))
 
     def generate_new_agent(self):

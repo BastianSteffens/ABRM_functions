@@ -14,7 +14,7 @@ Coordinate = Tuple[int, int, int]
 class Grid:
     """ Base class for a 3D grid."""
 
-    def __init__(self, X: int, Y: int, Z: int) -> None:
+    def __init__(self, X: int, Y: int, Z: int,neighbourhood_radius = 1, neighbourhood_search_step_size = 1):
         """ Create a new grid.
         Args:
             X, Y, Z: The 3 dimensions of the grid
@@ -23,6 +23,9 @@ class Grid:
         self.X = X
         self.Y = Y
         self.Z = Z
+
+        self.neighbourhood_radius = neighbourhood_radius
+        self.neighbourhood_search_step_size = neighbourhood_search_step_size
 
         self.grid = np.zeros((self.X, self.Y, self.Z))*self.default_val()
 
@@ -47,6 +50,7 @@ class Grid:
         include_center: bool = True,
         moore: bool = False,
         radius: int = 1,
+        step: int = 1
     ) -> Iterator[Coordinate]:
         """ Return an iterator over empty cell coordinates that are in the
         neighborhood of a certain point.
@@ -63,13 +67,10 @@ class Grid:
             An iterator of coordinate tuples representing the empty neighborhood.
         """
         x, y, z = pos
-        # zlim = 0
-        # for dz in range(-radius, zlim + 1):
-        for dz in range(-radius,radius + 1):
-            for dy in range(-radius, radius + 1):
-                for dx in range(-radius, radius + 1):
+        for dz in range(-radius,radius + 1,step):
+            for dy in range(-radius, radius + 1,step):
+                for dx in range(-radius, radius + 1,step):
                     if dx == 0 and dy == 0 and dz == 0 and not include_center:
-                        print("penis")
                         continue
                     # Skip if new coords out of bounds.
                     if (not (0 <= dx + x < self.X) or not (0 <= dy + y < self.Y) or not (0 <= dz + z < self.Z)):
@@ -102,11 +103,8 @@ class Grid:
         Returns:
             A list of coordinate tuples representing the neighborhood.
         """
-        # if include_center == True:
-        #     free_neighbours = list(self.iter_empty_neighborhood(pos, radius))
-        #     free_neighbours.append(pos)
-        # else:
-        free_neighbours = list(self.iter_empty_neighborhood(pos = pos, radius = radius))
+
+        free_neighbours = list(self.iter_empty_neighborhood(pos = pos, radius = self.neighbourhood_radius,step=self.neighbourhood_search_step_size))
         if remove_agent == True:
             if n_active_agents >5: # voronoi tesselation does not work with less than 5 agents.
                 free_neighbours.append((None,None,None))
