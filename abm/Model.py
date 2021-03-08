@@ -77,6 +77,12 @@ class Model():
 
         self.stop_simulation = False
 
+        # start mrst
+        self.matlab_runner = matlab.engine.start_matlab()
+        # run matlab and mrst
+        self.matlab_runner.matlab_starter(nargout = 0)
+        # self.matlab_script = eng.matlab_starter(nargout = 0)
+
     def initiate_grid(self,neighbourhood_radius,neighbourhood_search_step_size):
         t_igrid = time.time()
         print('=======Initiating grid=========')
@@ -143,7 +149,7 @@ class Model():
     def get_agent_movement(self, agent_to_move,copy_active_agents):
         free_neighborhood_coord = self.grid.get_empty_neighborhood(agent_to_move.pos,len(copy_active_agents))
 
-        if rn.random() >= 0.9:
+        if rn.random() >= 0.95:
             print("random move          ")
 
             # random movement and TI selection
@@ -162,12 +168,11 @@ class Model():
             else:
                 agent_evaluation,misfit_all = self.evaluate_agent_position_parallel(free_neighborhood_coord = free_neighborhood_coord,agent_to_move = agent_to_move,copy_active_agents = copy_active_agents)
 
-            # evaluate best position. right now just go for lowest misfit
-            misfit_all_array = np.array(misfit_all)
-            misfit_sum = np.sum(misfit_all_array)
-            misfit_prob = misfit_all_array/misfit_sum
+            
+            # evaluate best position for agent based on misfit and goodness of TI fit
+            best_new_position = self.get_best_quality_fit_agent(agent_evaluation,misfit_all)
 
-            best_new_position = choice(np.arange(len(agent_evaluation)),1, p = misfit_prob)[0]
+
             new_pos = agent_evaluation[int(best_new_position)][0:3]
             new_TI_zone = agent_evaluation[int(best_new_position)][3]
             new_TI_no = agent_evaluation[int(best_new_position)][4]
@@ -177,43 +182,131 @@ class Model():
 
         return(new_pos,training_image)
 
+    def get_best_quality_fit_agent(self,agent_evaluation,misfit_all):
+        """ combine misfit with how good the selected training image fits in with its surroundings"""
+
+
+        # misfit_all_reshaped = np.array(misfit_all).reshape(-1,1)
+        # scaler = MinMaxScaler()
+        # scaler.fit(misfit_all_reshaped)
+        # misfit_scaled = scaler.transform(misfit_all_reshaped)
+        # misfit_scaled_inverted = max(misfit_scaled)-misfit_scaled
+        # misfit_sum = np.sum(misfit_scaled_inverted)
+        # misfit_prob = misfit_scaled_inverted/misfit_sum
+        # misfit_prob = misfit_prob.flatten()
+        # misfit_all_array = np.array(misfit_all)
+        # best_new_position = choice(np.arange(len(agent_evaluation)),1, p = misfit_prob)[0]
+        # best_new_position =np.argmin(misfit_all_array)
+
+        #get rank of each misfit
+        misfit_rank_order = np.array(misfit_all).argsort()
+        misfit_quality = misfit_rank_order.argsort()
+
+        #get quality level of each TI
+        TI_quality = []
+        for i in range(len(agent_evaluation)):
+            TI_quality.append(agent_evaluation[i][6])
+        TI_quality = np.array(TI_quality)
+
+        # add msifit and TI quality. lowest value is best. can also think about making this into probability to sample from
+        best_quality_fit = np.add(misfit_quality, TI_quality)
+
+        return np.argmin(best_quality_fit)  
+
+
     def evaluate_agent_position(self,free_neighborhood_coord,agent_to_move,copy_active_agents):
         """single core evaluation of every possible position that particle could take""" 
         all_possible_positions_training_images = []
         # generate all possible training images and coords for each position
-        for index,coord in enumerate(free_neighborhood_coord):
+        model_index = -1
+        model_index = 0
+
+        model_index_list = []
+        while len(all_possible_positions_training_images) < self.max_number_of_position_tests:
+            coord = rn.sample(free_neighborhood_coord,1)[0]
             copy_active_agents  =self.generate_voronoi_regions(coord = coord,agent_to_move = agent_to_move,copy_active_agents = copy_active_agents)
-            possible_training_images = self.get_possible_training_images(copy_active_agents = copy_active_agents)
-            for training_image in possible_training_images:
-                all_possible_positions_training_images.append([coord[0],coord[1],coord[2],training_image[0],training_image[1],index])
-        
+            possible_training_images = self.get_possible_training_images(copy_active_agents = copy_active_agents,agent_to_move = agent_to_move)
+            training_image = rn.sample(possible_training_images,1)[0]
+            copy_active_agents = self.assign_training_image_to_agent(copy_active_agents = copy_active_agents,agent_to_move = agent_to_move, training_image=training_image)
+            self.generate_reservoir_model(copy_active_agents = copy_active_agents,agent_to_move = agent_to_move,model_type = "training_image_testing", model_index = model_index, training_image = training_image)
+            all_possible_positions_training_images.append([coord[0],coord[1],coord[2],training_image[0],training_image[1],model_index,training_image[2]])
+            model_index_list.append(model_index)
+            model_index += 1
+
+        # filter dublicates
+        all_possible_positions_training_images_filtered = []
+        for test_position in all_possible_positions_training_images:
+            if test_position not in all_possible_positions_training_images_filtered:
+                all_possible_positions_training_images_filtered.append(test_position)
+        all_possible_positions_training_images = all_possible_positions_training_images_filtered
+
+        # for index,coord in enumerate(free_neighborhood_coord):
+        #     copy_active_agents  =self.generate_voronoi_regions(coord = coord,agent_to_move = agent_to_move,copy_active_agents = copy_active_agents)
+        #     possible_training_images = self.get_possible_training_images(copy_active_agents = copy_active_agents,agent_to_move = agent_to_move)
+        #     for training_image in possible_training_images:
+        #         model_index += 1
+        #         model_index_list.append(model_index)
+        #         all_possible_positions_training_images.append([coord[0],coord[1],coord[2],training_image[0],training_image[1],model_index])
+        #         copy_active_agents = self.assign_training_image_to_agent(copy_active_agents = copy_active_agents,agent_to_move = agent_to_move, training_image=training_image)
+        #         self.generate_reservoir_model(copy_active_agents = copy_active_agents,agent_to_move = agent_to_move,model_type = "training_image_testing", model_index = model_index, training_image = training_image)
+
         # random selection of n szenarios to test out.
         all_possible_positions_training_images_random = rn.sample(all_possible_positions_training_images, len(all_possible_positions_training_images))     
-        
+        model_index_list_random = rn.sample(model_index_list,len(model_index_list))
+
         # check if available positions is larger than max to run
         if self.max_number_of_position_tests>len(all_possible_positions_training_images_random):
             number_test_runs = len(all_possible_positions_training_images_random)
         else:
             number_test_runs = self.max_number_of_position_tests
+        
+        
+        # check if available positions is larger than max to run
+        if self.max_number_of_position_tests>len(model_index_list_random):
+            number_test_runs = len(model_index_list_random)
+        else:
+            number_test_runs = self.max_number_of_position_tests
+        model_index_list_random = []
 
+        all_possible_positions_training_images_random = all_possible_positions_training_images[0:number_test_runs]
+        for i in range(number_test_runs):
+            model_index_list_random.append(all_possible_positions_training_images_random[i][-1])
+        
         agent_evaluation = []
         misfit_all = []
+
         # run test FD simulations
-        for i in range(number_test_runs):
-            test_run = all_possible_positions_training_images_random[i]
-            coord = [test_run[0],test_run[1],test_run[2]]
-            index = test_run[5]
-            training_image = [test_run[3],test_run[4]]
-            copy_active_agents  =self.generate_voronoi_regions(coord = coord,agent_to_move = agent_to_move,copy_active_agents = copy_active_agents)
-            copy_active_agents = self.assign_training_image_to_agent(copy_active_agents = copy_active_agents,agent_to_move = agent_to_move, training_image=training_image)
-            self.generate_reservoir_model(copy_active_agents = copy_active_agents,agent_to_move = agent_to_move,model_type = "training_image_testing", index = index, training_image = training_image)
-            FD_performance = self.run_FD(model_type = "training_image_testing",index = index,training_image = training_image)
-            misfit = self.calculate_misfit(FD_performance)
-            agent_evaluation.append([coord[0],coord[1],coord[2],training_image[0],training_image[1],misfit])
-            misfit_all.append(misfit)
-            print("misfit:{}".format(misfit))
+        # for i in range(number_test_runs):
+        #     test_run = all_possible_positions_training_images_random[i]
+        #     coord = [test_run[0],test_run[1],test_run[2]]
+        #     index = test_run[5]
+        #     training_image = [test_run[3],test_run[4]]
+        #     copy_active_agents  =self.generate_voronoi_regions(coord = coord,agent_to_move = agent_to_move,copy_active_agents = copy_active_agents)
+        #     copy_active_agents = self.assign_training_image_to_agent(copy_active_agents = copy_active_agents,agent_to_move = agent_to_move, training_image=training_image)
+        #     self.generate_reservoir_model(copy_active_agents = copy_active_agents,agent_to_move = agent_to_move,model_type = "training_image_testing", index = index, training_image = training_image)
+        #     FD_performance = self.run_FD(model_type = "training_image_testing",index = index,training_image = training_image)
+        #     misfit = self.calculate_misfit(FD_performance)
+        #     agent_evaluation.append([coord[0],coord[1],coord[2],training_image[0],training_image[1],misfit])
+        #     misfit_all.append(misfit)
+        #     print("misfit:{}".format(misfit))
+
+        # for model_index in range(number_test_runs):
+        #     test_run = all_possible_positions_training_images_random[model_index]
+        #     coord = [test_run[0],test_run[1],test_run[2]]
+        #     index = test_run[5]
+        #     training_image = [test_run[3],test_run[4]]
+        #     copy_active_agents  =self.generate_voronoi_regions(coord = coord,agent_to_move = agent_to_move,copy_active_agents = copy_active_agents)
+        #     copy_active_agents = self.assign_training_image_to_agent(copy_active_agents = copy_active_agents,agent_to_move = agent_to_move, training_image=training_image)
+        #     self.generate_reservoir_model(copy_active_agents = copy_active_agents,agent_to_move = agent_to_move,model_type = "training_image_testing", model_index = model_index, training_image = training_image)
         
-        return agent_evaluation,misfit_all
+        FD_performance_all = self.run_FD(model_type = "training_image_testing",index = None,training_image = training_image,number_test_runs = number_test_runs,models_to_run  = model_index_list_random)
+        for i, model_id in enumerate(model_index_list_random):
+            FD_performance = FD_performance_all[FD_performance_all.model_id==model_id]
+            misfit = self.calculate_misfit(FD_performance)
+            all_possible_positions_training_images_random[i].append(misfit)
+            misfit_all.append(misfit)
+        
+        return all_possible_positions_training_images_random,misfit_all
 
     def evaluate_agent_position_parallel_calculation(self,ti_id):
         """ calculation of FD for parallel processing """
@@ -235,7 +328,7 @@ class Model():
         # generate all possible training images and coords for each position
         for index,coord in enumerate(free_neighborhood_coord):
             copy_active_agents  =self.generate_voronoi_regions(coord = coord,agent_to_move = agent_to_move,copy_active_agents = copy_active_agents)
-            possible_training_images = self.get_possible_training_images(copy_active_agents = copy_active_agents)
+            possible_training_images = self.get_possible_training_images(copy_active_agents = copy_active_agents,agent_to_move = agent_to_move)
             for i, training_image in enumerate(possible_training_images):
                 all_possible_positions_training_images.append([coord[0],coord[1],coord[2],training_image[0],training_image[1],index,agent_to_move,copy_active_agents])
 
@@ -257,7 +350,7 @@ class Model():
             training_image = [test_run[3],test_run[4]]
             copy_active_agents  =self.generate_voronoi_regions(coord = coord,agent_to_move = agent_to_move,copy_active_agents = copy_active_agents)
             copy_active_agents = self.assign_training_image_to_agent(copy_active_agents = copy_active_agents,agent_to_move = agent_to_move, training_image=training_image)
-            self.generate_reservoir_model(copy_active_agents = copy_active_agents,agent_to_move = agent_to_move,model_type = "training_image_testing", index = index, training_image = training_image)
+            self.generate_reservoir_model(copy_active_agents = copy_active_agents,agent_to_move = agent_to_move,model_type = "training_image_testing", model_index = index, training_image = training_image)
             self.agent_model_configuration.append([coord[0],coord[1],coord[2],training_image[0],training_image[1],index])
         
         # run FD in multiprocessing
@@ -269,7 +362,6 @@ class Model():
         misfit_all = []
         for misfit in agent_evaluation:
             misfit_all.append(misfit[5])
-            # print("misfit:{}".format(misfit[5]))
     
         return agent_evaluation,misfit_all
 
@@ -449,11 +541,8 @@ class Model():
 
         # figure out which points of grid lie in which polygon
         points_in_polygon = []
-        # tree_TI_grid_points = STRtree(self.TI_grid_points)
-        # index_by_id = dict((id(points), i) for i, points in enumerate(self.TI_grid_points))
 
         for voronoi_polygon_id in range(len(poly_shapes)):
-            # points_in_polygon.append([[point.x, point.y,self.index_by_id[id(point)]] for point in self.TI_grid_points if point.intersects(poly_shapes[voronoi_polygon_id])])
             points_in_polygon.append([[point.x, point.y,self.index_by_id[id(point)]] for point in self.tree_TI_grid_points.query(poly_shapes[voronoi_polygon_id]) if point.intersects(poly_shapes[voronoi_polygon_id])])
        # if points not within polygon due to vertices problem of shapely (point lies on vertices --> point undetected)
         points_in_polygon_temp = [item for sublist in points_in_polygon for item in sublist]
@@ -556,15 +645,10 @@ class Model():
                 if agent.pos[0] == None: # only updating the agent that is moved around
                     index -= 1
                 else:
-                    # agent_to_move.update_agent_properties(polygon_id = i,polygon = poly_shapes[i],polygon_area = poly_shapes[i].area,TI_zone_assigned = TI_zone_per_agent[i])
                     agent.update_agent_properties(polygon_id = index,polygon = poly_shapes[index],polygon_area = poly_shapes[index].area,TI_zone_assigned = TI_zone_per_agent[index])
                 if agent.polygon == None: # add polygons to new agents that have nothing assinged to them yet but are present in simulation
                     agent.update_agent_properties(polygon_id = index,polygon = poly_shapes[index],polygon_area = poly_shapes[index].area,TI_zone_assigned = TI_zone_per_agent[index])
 
-            # # add polygons to new agents that have nothing assinged to them yet but are present in simulation
-            # for i,agent in enumerate(self.active_agents):
-            #     if agent.polygon == None: # only updating the agent that is moved around
-            #         agent.update_agent_properties(polygon_id = i,polygon = poly_shapes[i],polygon_area = poly_shapes[i].area,TI_zone_assigned = TI_zone_per_agent[i])
             return copy_active_agents
 
     def assign_training_image_to_agent(self,copy_active_agents = None,training_image = None,agent_to_move = None,agent_new_TI = None):
@@ -630,26 +714,68 @@ class Model():
         
         print("Training images loaded! -  took {0:2.2f} seconds".format(time.time()-t_igrid))
 
-    def get_possible_training_images(self,copy_active_agents):
+    def get_possible_training_images(self,copy_active_agents,agent_to_move):
         """ check what training image confiugratinos can be loaded into agent voronoi polygon"""
-        # that would be the Training images of the current TI_zone that is dominating. Here we want to look at the training image to the left and the right of the current training image in use.
-        # if TI zone before was a different one, pick a random training image from new TI_zone
-        # Most commom training image in directly neihgbouring polygons
-        TI_zone = []
-        TI_no = []
-        TI_zone.append(randint(0,self.number_training_image_zones))
-        TI_zone.append(randint(0,self.number_training_images_per_zone))
-        TI_no.append(randint(0,self.number_training_image_zones))
-        TI_no.append(randint(0,self.number_training_images_per_zone))
+        TI = []
 
-        return [TI_zone,TI_no] 
+        # training image of TI_zone that agent currently is in. but plus one and minus one too
+        TI.append([agent_to_move.TI_type,agent_to_move.TI_no])
+        if  0 < agent_to_move.TI_no:
+            TI.append([agent_to_move.TI_type,agent_to_move.TI_no-1])        
+        if  agent_to_move.TI_no < self.number_training_images_per_zone-1:
+            TI.append([agent_to_move.TI_type,agent_to_move.TI_no+1])
+        
+        # most common TI in neighbourhood
+        TI_zone_neighbours = []
+        TI_zone_most_common = []
+        TI_no_most_common = []
+        buffer_value = 0
+        while len(TI_zone_most_common) == 0:
+            buffer_value += 0.5
+            for agent in copy_active_agents:
+                if agent.id == agent_to_move.id:
+                    continue
+                if agent_to_move.polygon.buffer(buffer_value).intersects(agent.polygon):
+                    TI_zone_neighbours.append(agent.TI_type)
+            TI_zone_most_common = Counter(np.array(TI_zone_neighbours)).most_common(1)
 
-    def generate_reservoir_model(self,copy_active_agents = None,agent_to_move = None,model_type = None, index = None, training_image = None):
+        TI_zone_most_common = TI_zone_most_common[0][0]
+        TI_no_neighbours = []
+        for agent in copy_active_agents:
+            if agent.id == agent_to_move.id:
+                continue
+            if agent_to_move.polygon.buffer(buffer_value).intersects(agent.polygon):
+                TI_no_neighbours.append(agent.TI_no)
+        TI_no_most_common = Counter(np.array(TI_no_neighbours)).most_common(1)[0][0]
+        TI.append([TI_zone_most_common,TI_no_most_common])
+
+        # random TI
+        TI.append([randint(0,self.number_training_image_zones),randint(0,self.number_training_images_per_zone)])
+
+        # get "goodness"/quality rank for each training image
+        for index,training_image in enumerate(TI):
+            # most common training image and correct TI_zone
+            if training_image[0] == TI_zone_most_common and training_image[1] == TI_no_most_common and TI_zone_most_common == agent_to_move.TI_zone_assigned:
+                TI[index].append(0)
+            # correct TI_zone
+            elif training_image[0] == agent_to_move.TI_zone_assigned:
+                TI[index].append(1)
+            # most common but incorrec TI_zone
+            elif training_image[0] == TI_zone_most_common and training_image[1] == TI_no_most_common and TI_zone_most_common != agent_to_move.TI_zone_assigned:
+                TI[index].append(2)
+            # incorrect TI_zone
+            elif training_image[0] != agent_to_move.TI_zone_assigned:
+                TI[index].append(3)
+
+
+
+
+        return TI       
+
+    def generate_reservoir_model(self,copy_active_agents = None,agent_to_move = None,model_type = None, model_index = None, training_image = None):
         """ generate reservoir model from training images, patched together by voronoi polygons"""
 
         # assign each point in grid to TI that belongs to polygon that point sits in. either the final model or one of the tset models to figure out which one is best suited
-        # tree_TI_grid_points = STRtree(self.TI_grid_points)
-        # index_by_id = dict((id(points), i) for i, points in enumerate(self.TI_grid_points))
         TI_assigned_to_grid_point_2D = []
         if model_type == "final_model_per_iteration":
             for agent in self.active_agents:
@@ -745,21 +871,25 @@ class Model():
             patch_poro.append(poro)
 
         # save generated patched reservoir model properties
-        self.save_reservoir_model_properties(dataset = patch_permx,prop = "PERMX",model_type = model_type,index = index, training_image = training_image)
-        self.save_reservoir_model_properties(dataset = patch_permy,prop = "PERMY",model_type = model_type,index = index, training_image = training_image)
-        self.save_reservoir_model_properties(dataset = patch_permz,prop = "PERMZ",model_type = model_type,index = index, training_image = training_image)
-        self.save_reservoir_model_properties(dataset = patch_poro,prop = "PORO",model_type = model_type,index = index, training_image = training_image)
+        self.save_reservoir_model_properties(dataset = patch_permx,prop = "PERMX",model_type = model_type,index = model_index, training_image = training_image)
+        self.save_reservoir_model_properties(dataset = patch_permy,prop = "PERMY",model_type = model_type,index = model_index, training_image = training_image)
+        self.save_reservoir_model_properties(dataset = patch_permz,prop = "PERMZ",model_type = model_type,index = model_index, training_image = training_image)
+        self.save_reservoir_model_properties(dataset = patch_poro,prop = "PORO",model_type = model_type,index = model_index, training_image = training_image)
 
         # generate and save DATA file
-        self.built_Data_files(index = index, training_image = training_image,model_type= model_type)
+        self.built_Data_files(index = model_index, training_image = training_image,model_type= model_type)
 
     def save_reservoir_model_properties(self,dataset,index = None,training_image = None,prop = None,model_type = None):
         """ save properties of patched reservoir model so that they can be run with FD"""
 
-        file_beginning = "FILEUNIT\nMETRIC /\n\n{}\n".format(prop)
-        if model_type == "training_image_testing":
-            file_path = self.base_path / "training_image_testing/INCLUDE/{}/M_{}_{}_{}.GRDECL".format(prop,index,training_image[0],training_image[1]) # saved in test folder to decide which TI to go forward with
-        elif model_type == "final_model_per_iteration":
+        # file_beginning = "FILEUNIT\nMETRIC /\n\n{}\n".format(prop)
+        if self.n_processes == None:
+            if model_type == "training_image_testing":
+                file_path = self.base_path / 'training_image_testing/INCLUDE/{}/M{}.GRDECL'.format(prop,index)
+        else: 
+            if model_type == "training_image_testing":
+                file_path = self.base_path / "training_image_testing/INCLUDE/{}/M_{}_{}_{}.GRDECL".format(prop,index,training_image[0],training_image[1]) # saved in test folder to decide which TI to go forward with
+        if model_type == "final_model_per_iteration":
             file_path = self.base_path / 'results/INCLUDE/{}/M{}.GRDECL'.format(prop,self.istep)
 
         file_beginning = "FILEUNIT\nMETRIC /\n\n{}\n".format(prop)
@@ -777,12 +907,18 @@ class Model():
 
     def built_Data_files(self,index = None,training_image = None,model_type = None):
         """ built Data files to run FD and full flow simulations on """
+        
+        if self.n_processes == None:
+            if model_type == "training_image_testing":
+                file_path = self.base_path / 'training_image_testing/DATA/M{}.DATA'.format(index)
+                data_file = "RUNSPEC\n\nTITLE\nModel_{}\n\nDIMENS\n--NX NY NZ\n200 100 7 /\n\n--Phases\nOIL\nWATER\n\n--DUALPORO\n--NODPPM\n\n--Units\nMETRIC\n\n--Number of Saturation Tables\nTABDIMS\n1 /\n\n--Maximum number of Wells\nWELLDIMS\n10 100 5 10 /\n\n--First Oil\nSTART\n1 OCT 2017 /\n\n--Memory Allocation\nNSTACK\n100 /\n\n--How many warnings allowed, but terminate after first error\nMESSAGES\n11*5000 1 /\n\n--Unified Output Files\nUNIFOUT\n\n--======================================================================\n\nGRID\n--Include corner point geometry model\nINCLUDE\n'..\INCLUDE\GRID.GRDECL'\n/\n\nACTNUM\n140000*1 /\n\n--Porosity\nINCLUDE\n'..\INCLUDE\PORO\M{}.GRDECL'\n/\n\n--Permeability\nINCLUDE\n'..\INCLUDE\PERMX\M{}.GRDECL'\n/\nINCLUDE\n'..\INCLUDE\PERMY\M{}.GRDECL'\n/\nINCLUDE\n'..\INCLUDE\PERMZ\M{}.GRDECL'\n/\n\n--Net to Gross\nNTG\n140000*1\n/\n\n--Output .INIT file to allow viewing of grid data in post proessor\nINIT\n\n--======================================================================\n\nPROPS\n\nINCLUDE\n'..\INCLUDE\DP_pvt.inc' /\n\nINCLUDE\n'..\INCLUDE\ROCK_RELPERMS.INC' /\n\n--======================================================================\n\nREGIONS\n\nEQLNUM\n140000*1\n/\nSATNUM\n140000*1\n/\nPVTNUM\n140000*1\n/\n\n--======================================================================\n\nSOLUTION\n\nINCLUDE\n'..\INCLUDE\SOLUTION.INC' /\n\n--======================================================================\n\nSUMMARY\n\nINCLUDE\n'..\INCLUDE\SUMMARY.INC' /\n\n--======================================================================\n\nSCHEDULE\n\nINCLUDE\n'..\INCLUDE\SCHEDULE.INC' /\n\nEND".format(index,index,index,index,index)  
 
-        if model_type == "training_image_testing":
-            file_path = self.base_path / "training_image_testing/DATA/M_{}_{}_{}.DATA".format(index,training_image[0],training_image[1])# saved in test folder to decide which TI to go forward with
-            data_file = "RUNSPEC\n\nTITLE\nModel_{}\n\nDIMENS\n--NX NY NZ\n200 100 7 /\n\n--Phases\nOIL\nWATER\n\n--DUALPORO\n--NODPPM\n\n--Units\nMETRIC\n\n--Number of Saturation Tables\nTABDIMS\n1 /\n\n--Maximum number of Wells\nWELLDIMS\n10 100 5 10 /\n\n--First Oil\nSTART\n1 OCT 2017 /\n\n--Memory Allocation\nNSTACK\n100 /\n\n--How many warnings allowed, but terminate after first error\nMESSAGES\n11*5000 1 /\n\n--Unified Output Files\nUNIFOUT\n\n--======================================================================\n\nGRID\n--Include corner point geometry model\nINCLUDE\n'..\INCLUDE\GRID.GRDECL'\n/\n\nACTNUM\n140000*1 /\n\n--Porosity\nINCLUDE\n'..\INCLUDE\PORO\M_{}_{}_{}.GRDECL'\n/\n\n--Permeability\nINCLUDE\n'..\INCLUDE\PERMX\M_{}_{}_{}.GRDECL'\n/\nINCLUDE\n'..\INCLUDE\PERMY\M_{}_{}_{}.GRDECL'\n/\nINCLUDE\n'..\INCLUDE\PERMZ\M_{}_{}_{}.GRDECL'\n/\n\n--Net to Gross\nNTG\n140000*1\n/\n\n--Output .INIT file to allow viewing of grid data in post proessor\nINIT\n\n--======================================================================\n\nPROPS\n\nINCLUDE\n'..\INCLUDE\DP_pvt.inc' /\n\nINCLUDE\n'..\INCLUDE\ROCK_RELPERMS.INC' /\n\n--======================================================================\n\nREGIONS\n\nEQLNUM\n140000*1\n/\nSATNUM\n140000*1\n/\nPVTNUM\n140000*1\n/\n\n--======================================================================\n\nSOLUTION\n\nINCLUDE\n'..\INCLUDE\SOLUTION.INC' /\n\n--======================================================================\n\nSUMMARY\n\nINCLUDE\n'..\INCLUDE\SUMMARY.INC' /\n\n--======================================================================\n\nSCHEDULE\n\nINCLUDE\n'..\INCLUDE\SCHEDULE.INC' /\n\nEND".format(self.istep,index,training_image[0],training_image[1],index,training_image[0],training_image[1],index,training_image[0],training_image[1],index,training_image[0],training_image[1])  
+        else:
+            if model_type == "training_image_testing":
+                file_path = self.base_path / "training_image_testing/DATA/M_{}_{}_{}.DATA".format(index,training_image[0],training_image[1])# saved in test folder to decide which TI to go forward with
+                data_file = "RUNSPEC\n\nTITLE\nModel_{}\n\nDIMENS\n--NX NY NZ\n200 100 7 /\n\n--Phases\nOIL\nWATER\n\n--DUALPORO\n--NODPPM\n\n--Units\nMETRIC\n\n--Number of Saturation Tables\nTABDIMS\n1 /\n\n--Maximum number of Wells\nWELLDIMS\n10 100 5 10 /\n\n--First Oil\nSTART\n1 OCT 2017 /\n\n--Memory Allocation\nNSTACK\n100 /\n\n--How many warnings allowed, but terminate after first error\nMESSAGES\n11*5000 1 /\n\n--Unified Output Files\nUNIFOUT\n\n--======================================================================\n\nGRID\n--Include corner point geometry model\nINCLUDE\n'..\INCLUDE\GRID.GRDECL'\n/\n\nACTNUM\n140000*1 /\n\n--Porosity\nINCLUDE\n'..\INCLUDE\PORO\M_{}_{}_{}.GRDECL'\n/\n\n--Permeability\nINCLUDE\n'..\INCLUDE\PERMX\M_{}_{}_{}.GRDECL'\n/\nINCLUDE\n'..\INCLUDE\PERMY\M_{}_{}_{}.GRDECL'\n/\nINCLUDE\n'..\INCLUDE\PERMZ\M_{}_{}_{}.GRDECL'\n/\n\n--Net to Gross\nNTG\n140000*1\n/\n\n--Output .INIT file to allow viewing of grid data in post proessor\nINIT\n\n--======================================================================\n\nPROPS\n\nINCLUDE\n'..\INCLUDE\DP_pvt.inc' /\n\nINCLUDE\n'..\INCLUDE\ROCK_RELPERMS.INC' /\n\n--======================================================================\n\nREGIONS\n\nEQLNUM\n140000*1\n/\nSATNUM\n140000*1\n/\nPVTNUM\n140000*1\n/\n\n--======================================================================\n\nSOLUTION\n\nINCLUDE\n'..\INCLUDE\SOLUTION.INC' /\n\n--======================================================================\n\nSUMMARY\n\nINCLUDE\n'..\INCLUDE\SUMMARY.INC' /\n\n--======================================================================\n\nSCHEDULE\n\nINCLUDE\n'..\INCLUDE\SCHEDULE.INC' /\n\nEND".format(self.istep,index,training_image[0],training_image[1],index,training_image[0],training_image[1],index,training_image[0],training_image[1],index,training_image[0],training_image[1])  
 
-        elif model_type == "final_model_per_iteration":
+        if model_type == "final_model_per_iteration":
             file_path = self.base_path / 'results/DATA/M{}.DATA'.format(self.istep)
             data_file = "RUNSPEC\n\nTITLE\nModel_{}\n\nDIMENS\n--NX NY NZ\n200 100 7 /\n\n--Phases\nOIL\nWATER\n\n--DUALPORO\n--NODPPM\n\n--Units\nMETRIC\n\n--Number of Saturation Tables\nTABDIMS\n1 /\n\n--Maximum number of Wells\nWELLDIMS\n10 100 5 10 /\n\n--First Oil\nSTART\n1 OCT 2017 /\n\n--Memory Allocation\nNSTACK\n100 /\n\n--How many warnings allowed, but terminate after first error\nMESSAGES\n11*5000 1 /\n\n--Unified Output Files\nUNIFOUT\n\n--======================================================================\n\nGRID\n--Include corner point geometry model\nINCLUDE\n'..\INCLUDE\GRID.GRDECL'\n/\n\nACTNUM\n140000*1 /\n\n--Porosity\nINCLUDE\n'..\INCLUDE\PORO\M{}.GRDECL'\n/\n\n--Permeability\nINCLUDE\n'..\INCLUDE\PERMX\M{}.GRDECL'\n/\nINCLUDE\n'..\INCLUDE\PERMY\M{}.GRDECL'\n/\nINCLUDE\n'..\INCLUDE\PERMZ\M{}.GRDECL'\n/\n\n--Net to Gross\nNTG\n140000*1\n/\n\n--Output .INIT file to allow viewing of grid data in post proessor\nINIT\n\n--======================================================================\n\nPROPS\n\nINCLUDE\n'..\INCLUDE\DP_pvt.inc' /\n\nINCLUDE\n'..\INCLUDE\ROCK_RELPERMS.INC' /\n\n--======================================================================\n\nREGIONS\n\nEQLNUM\n140000*1\n/\nSATNUM\n140000*1\n/\nPVTNUM\n140000*1\n/\n\n--======================================================================\n\nSOLUTION\n\nINCLUDE\n'..\INCLUDE\SOLUTION.INC' /\n\n--======================================================================\n\nSUMMARY\n\nINCLUDE\n'..\INCLUDE\SUMMARY.INC' /\n\n--======================================================================\n\nSCHEDULE\n\nINCLUDE\n'..\INCLUDE\SCHEDULE.INC' /\n\nEND".format(self.istep,self.istep,self.istep,self.istep,self.istep)  
 
@@ -793,41 +929,59 @@ class Model():
         # close file
         file.close()
     
-    def run_FD(self,model_type = None,index = None,training_image = None):
+    def run_FD(self,model_type = None,index = None,training_image = None,number_test_runs = None,models_to_run = None):
         """ run Flow Diagnostics on selected reservoir model"""
 
-        eng = matlab.engine.start_matlab()
-        # run matlab and mrst
-        eng.matlab_starter(nargout = 0)
+        if self.n_processes == None:
+            if model_type == "training_image_testing":
+                FD_data = self.matlab_runner.FD_ABM_testrun_multimodel(models_to_run)
+                # split into Ev tD F Phi and LC and tof column
+                FD_data = np.array(FD_data._data).reshape((10,len(FD_data)//10))
+                FD_performance = pd.DataFrame()
+                
+                FD_performance["EV"] = FD_data[0]
+                FD_performance["tD"] = FD_data[1]
+                FD_performance["F"] = FD_data[2]
+                FD_performance["Phi"] = FD_data[3]
+                FD_performance["LC"] = FD_data[4]
+                FD_performance["tof_for"] = FD_data[5]
+                FD_performance["tof_back"] = FD_data[6]
+                FD_performance["tof_combi"] = FD_data[7]
+                FD_performance["prod_part"] = FD_data[8]
+                FD_performance["inj_part"] = FD_data[9]
+                model_id_all = []
+                for model_id in models_to_run:
+                    for n_cells in range(self.X*self.Y*7):
+                        model_id_all.append(model_id)
+                FD_performance["model_id"] = model_id_all
 
-        if model_type == "training_image_testing":
+
+        elif model_type == "training_image_testing":
             model_id = "M_{}_{}_{}".format(index,training_image[0],training_image[1])
             # run FD and output dictionary
-            FD_data = eng.FD_ABM_testrun(model_id)
+            FD_data = self.matlab_runner.FD_ABM_testrun(model_id)
 
-        elif model_type == "final_model_per_iteration":
+        if model_type == "final_model_per_iteration":
             model_id = "M{}".format(self.istep)
             # run FD and output dictionary
-            FD_data = eng.FD_ABM(model_id)
-
-        # split into Ev tD F Phi and LC and tof column
-        FD_data = np.array(FD_data._data).reshape((10,len(FD_data)//10))
-        FD_performance = pd.DataFrame()
-        
-        FD_performance["EV"] = FD_data[0]
-        FD_performance["tD"] = FD_data[1]
-        FD_performance["F"] = FD_data[2]
-        FD_performance["Phi"] = FD_data[3]
-        FD_performance["LC"] = FD_data[4]
-        FD_performance["tof_for"] = FD_data[5]
-        FD_performance["tof_back"] = FD_data[6]
-        FD_performance["tof_combi"] = FD_data[7]
-        FD_performance["prod_part"] = FD_data[8]
-        FD_performance["inj_part"] = FD_data[9]
+            FD_data = self.matlab_runner.FD_ABM(model_id)
+            # split into Ev tD F Phi and LC and tof column
+            FD_data = np.array(FD_data._data).reshape((10,len(FD_data)//10))
+            FD_performance = pd.DataFrame()
+            
+            FD_performance["EV"] = FD_data[0]
+            FD_performance["tD"] = FD_data[1]
+            FD_performance["F"] = FD_data[2]
+            FD_performance["Phi"] = FD_data[3]
+            FD_performance["LC"] = FD_data[4]
+            FD_performance["tof_for"] = FD_data[5]
+            FD_performance["tof_back"] = FD_data[6]
+            FD_performance["tof_combi"] = FD_data[7]
+            FD_performance["prod_part"] = FD_data[8]
+            FD_performance["inj_part"] = FD_data[9]
   
 
         FD_performance = FD_performance.astype("float32")
-
         return(FD_performance)
 
     def calculate_misfit(self,FD_performance):

@@ -574,9 +574,9 @@ class TI_selection():
         fig.add_trace(go.Scatter(x = self.df_best_TIs_to_save[cluster_x],
                                     y = self.df_best_TIs_to_save[cluster_y],
                                     mode='markers',
-                                    text = self.df_TI_props.index,
+                                    # text = self.df_TI_props.index,
                                     marker = dict(
-                                                size = 14,
+                                                size = 10,
                                                 color = 0,
                                                 )
                                 ))
@@ -680,6 +680,60 @@ class TI_selection():
                 self.df_best_TIs_to_save.to_csv(best_position_path,index=False)
                 # self.df_best_position.to_csv(best_position_path_2,index = False)
                 # self.df_best_tof.to_csv(best_tof_path,index = False)
+    
+    def calculate_TI_static_property_entropy(self,shedule_no = 0,prop = "PERMX",window_shape = (2,2),step_size = 1):
+        " with a sliding nxn window scan through time of flight of each training image and calculate entropy based on that"
+        TI_entropy = []
+        prop = prop
+        for TI_id in range(self.df_tof.shape[0]):
+            
+            #get correct tof values
+            if self.n_shedules == 1:
+                tof = self.df_tof.iloc[TI_id].drop(["TI_no"])
+            else:
+                shedule_id = "_" + str(shedule_no)
+                col_list = [col for col in self.df_tof.columns if shedule_id in col]
+                tof = self.df_tof.iloc[TI_id]
+                tof = tof[col_list]
+
+            # bin to years
+            tof_years = np.array(tof)/60/60/24/365.25
+            bins = np.linspace(min_tof_bin,max_tof_bin,n_bins,dtype=np.float32)
+            tof_years = np.digitize(tof_years,bins= bins)
+            tof_years = np.array(tof_years,dtype = np.float32)
+            for i in range(n_bins):
+                tof_years[tof_years == i+1] = bins[i]
+
+            # reshape tof data to training image shape
+            tof_years = tof_years.reshape((self.nx,self.ny))
+
+            # create moving window of tof values
+            moving_window = view_as_windows(tof_years, window_shape, step= step_size)
+
+            # extract all patterns from moving window
+            pattern = []
+            for i in range(moving_window.shape[0]):
+                for j in range(moving_window.shape[1]):
+                    temp_pattern = list(moving_window[i,j].flatten())
+                    pattern.append(temp_pattern)
+
+            # find unique patterns and count their occurance
+            pattern_unique, pattern_unique_counter = np.unique(pattern, return_counts=True,axis = 0)
+            pattern_unique_freq = pattern_unique_counter/np.sum(pattern_unique_counter)
+            
+            # calculate Shannon entropy
+            ent = 0.0
+            for freq in pattern_unique_freq:
+                ent += freq * np.log2(freq)
+            ent = -ent
+            TI_entropy.append(ent)
+
+        # append to existing dfs
+        if self.n_shedules == 1:
+            self.df_TI_props["tof_entropy"] = TI_entropy
+        else:
+            tof_entropy = "tof_entropy_" + str(shedule_no)
+            self.df_TI_props[tof_entropy] = TI_entropy
     
     def calculate_TI_tof_entropy(self,shedule_no = 0,min_tof_bin = 0,max_tof_bin = 15,n_bins= 4,window_shape = (2,2),step_size = 1):
         " with a sliding nxn window scan through time of flight of each training image and calculate entropy based on that"

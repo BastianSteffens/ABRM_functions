@@ -25,22 +25,35 @@ def init():
     
     
     ### set parameters 
-    TURNS = 40
+    TURNS = 10
     AGENTSPERTURN = 5
     RANDOMAGENTSGENRATIONBOTTOM = 0.75
     RATIOTRACKEDAGENTS = 1.
     SEED = 3721286
     all_vals_len = 200*100
-    TI_zone = np.zeros((all_vals_len,4))
-    TI_zone[:10000,2] = 0
-    TI_zone[10000:,2] = 1
-    # TI_zone[15000:,2] = 2
-    # TI_zone[:3000,2] = 3
-    TI_zones = TI_zone[:,2].reshape((200,100,1))
+
+    # set up TI_zone env
+    # generate 2D mesh
+    x = np.arange(0,200+1,1,)
+    y = np.arange(0,100+1,1)
+    x_grid, y_grid = np.meshgrid(x,y)
+    #get cell centers of mesh
+    x_cell_center = x_grid[:-1,:-1]+0.5
+    y_cell_center = y_grid[:-1,:-1]+0.5
+    TI_zones = []
+    for y in range(x_cell_center.shape[0]):
+        for x in range(len(x_cell_center[1])):
+            if 70 <= x_cell_center[y,x] <=130:
+                TI_zones.append(1)
+            else:
+                TI_zones.append(0)
+    TI_zones = np.array(TI_zones)
+    TI_zones = TI_zones.reshape((200,100,1))
 
     # create curve and save resultign desired LC
     Phi_points_target = np.linspace(0, 1, num=11, endpoint=True)
-    F_points_target = np.array([0, 0.2, 0.35, 0.6, 0.65, 0.7, 0.8, 0.85, 0.9, 0.95, 1])
+    # F_points_target = np.array([0, 0.2, 0.35, 0.6, 0.65, 0.7, 0.8, 0.85, 0.9, 0.95, 1])
+    F_points_target = np.array([0, 0.7, 0.85, 0.9, 0.95, 0.96, 0.97, 0.98, 0.99, 0.999, 1])
 
     output_folder = str(datetime.datetime.today().replace(microsecond= 0, second = 0).strftime("%Y_%m_%d_%H_%M"))
 
@@ -54,7 +67,7 @@ def init():
     model = Model(env = TI_zones, 
                   number_of_turns=TURNS, number_of_starting_agents = 5,new_agent_every_n_turns = 1,max_number_agents = 25,
                   ratio_of_tracked_agents = 1.,number_training_image_zones = 2, number_training_images_per_zone = 20,output_folder = output_folder,
-                  Phi_points_target=Phi_points_target,F_points_target=F_points_target,max_number_of_position_tests = 6 ,n_processes = 6,neighbourhood_radius = 2, neighbourhood_search_step_size = 2,
+                  Phi_points_target=Phi_points_target,F_points_target=F_points_target,max_number_of_position_tests = 15 ,n_processes = None,neighbourhood_radius = 10, neighbourhood_search_step_size = 5,
                  )
     model.run()
     print("Simulation took {0:2.2f} seconds".format(time.time()-t1))
