@@ -260,7 +260,7 @@ class LocalBestEntropyPSO(SwarmOptimizer):
 
             # Update gbest from local neighborhood
             self.swarm.best_pos, self.swarm.best_cost = self.top.compute_gbest(
-                self.swarm, p=self.p, k=self.k)
+                self.swarm,neighbours_random = True, p=self.p, k=self.k)
 
             ### BS ###
 
@@ -714,7 +714,7 @@ class LocalBestEntropyPSO(SwarmOptimizer):
         projectpath = []
         parallel_petrel_licenses = np.arange(0,n_parallel_petrel_licenses,1)
         for i in range(0,len(parallel_petrel_licenses)):
-            path_petrel_projects = self.setup["base_path"] / "../Petrel_Projects/ABRM_"
+            path_petrel_projects = self.setup["base_path"] / "../Petrel_Projects/ABRM_PSO_"
             path = '\n"{}{}.pet"'.format(path_petrel_projects,parallel_petrel_licenses[i])
             projectpath.append(path)
         projectpath_repeat = projectpath * (len(slicer))    

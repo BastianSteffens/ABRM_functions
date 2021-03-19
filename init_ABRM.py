@@ -20,7 +20,7 @@ def init():
 
     ###### Set hyperparmeters for PSO ######
     n_parameters = 13#24
-    n_iters = 50
+    n_iters = 100
     n_particles = 36 # always pick multiple of 3. need to fix this 
     min_bound = 0 * np.ones(n_parameters)
     max_bound = 1 * np.ones(n_parameters)
@@ -132,8 +132,8 @@ def init():
     # misfit values
     # create curve and save resultign desired LC
     Phi_points_target = np.linspace(0, 1, num=11, endpoint=True)
-    F_points_target = np.array([0, 0.2, 0.35, 0.6, 0.65, 0.7, 0.8, 0.85, 0.9, 0.95, 1])
-    # F_points_target = np.array([0, 0.2, 0.4, 0.55, 0.65, 0.75, 0.8, 0.85, 0.9, 0.95, 1])
+    # F_points_target = np.array([0, 0.3, 0.45, 0.6, 0.68, 0.75, 0.8, 0.85, 0.9, 0.95, 1])
+    F_points_target = np.array([0, 0.3, 0.45, 0.6, 0.68, 0.75, 0.8, 0.85, 0.9, 0.95, 1])
 
     # what schedule 5_spot or line_drive
     schedule = "5_spot"
@@ -180,7 +180,7 @@ def init():
     setup["path"] = file_path
     setup["folder_path"] = folder_path
     setup["base_path"] = base_path
-    setup["pool"] = 6
+    setup["pool"] = 3
     setup["entropy_PSO"] = True
     setup["fitness_weight"] = 0.3
     setup["entropy_contribution_weight"] = 0.7

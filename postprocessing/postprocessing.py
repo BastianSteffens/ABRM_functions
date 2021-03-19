@@ -394,17 +394,21 @@ class postprocessing():
         fig.show()
 
     def plot_tof_best_models(self):
+
         "plot the median tof for best models to see what areas are unswept in most scenarios"
         nx = 200
         ny = 100
         nz = 7
         all_cells_median = []
+        cells = np.array(self.df_best_tof/60/60/242/365.25)
+        cells_binned = np.digitize(cells,bins = [0.5,1,1.5,2,2.5,3,3.5,4,4.5,5,5.5,6,6.5,7,7.5,8,8.5,9,9.5,10,
+                                         10.5,11,11.5,12,12.5,13,13.5,14,14.5,15,15.5,16,16.5,17,17.5,
+                                         18,18.5,19,19.5,20])
+
         for i in range(self.df_best_tof.shape[1]-2):
-            # single cell in all models, from seconds to years    
-            cell = np.round(np.array(self.df_best_tof[i]).reshape(-1)/60/60/24/365.25)
-            cell_binned = np.digitize(cell,bins=[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20])
+
             # calculate entropy based upon clusters
-            cell_median = np.median(cell_binned)
+            cell_median = np.median(cells_binned[:,i])
             all_cells_median.append(cell_median)
             
         # plot the whole thing
@@ -421,22 +425,57 @@ class postprocessing():
         boring_cmap = plt.cm.get_cmap("viridis")
         grid.plot(show_edges=False,cmap = boring_cmap)
 
-    def plot_tof_entropy(self):
-
+    def plot_tof_entropy(self,best_selected = False):
         """ plot distribution of entropy based on grid for the best models """
         nx = 200
         ny = 100
         nz = 7
         all_cells_entropy = []
         all_cell_cluster_id = []
-        for i in range(self.df_best_tof.shape[1]-2):
-            # single cell in all models, from seconds to years    
-            cell = np.round(np.array(self.df_best_tof[i]).reshape(-1)/60/60/24/365.25)
-            cell_binned = np.digitize(cell,bins=[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20])
-            # calculate entropy based upon clusters
-            cell_entropy = np.array(ent.shannon_entropy(cell_binned))
-            all_cells_entropy.append(cell_entropy)
+        if best_selected == True:
+
+            self.df_best_tof_selected = pd.DataFrame(columns = np.arange(int(200)*int(100)*int(7)))
+
+            iteration = np.array(self.df_best_models_to_save.iteration.tolist(),dtype = np.int)
+            particle_no =  np.array(self.df_best_models_to_save.particle_no.tolist(),dtype = np.int)
             
+            tof_array = np.array(self.df_tof,dtype = np.float32)
+            
+            tof_all = pd.DataFrame()
+            for i in range(self.df_best_models_to_save.shape[0]):
+
+                tof = tof_array[(tof_array[:,2] == iteration[i]) & (tof_array[:,3] == particle_no[i]),0]
+                tof = pd.DataFrame(tof.reshape((1,(200*100*7))))
+                self.df_best_tof_selected = self.df_best_tof_selected.append(tof,ignore_index = True)
+
+            cells = np.array(self.df_best_tof_selected/60/60/242/365.25)
+            cells_binned = np.digitize(cells,bins = [0.5,1,1.5,2,2.5,3,3.5,4,4.5,5,5.5,6,6.5,7,7.5,8,8.5,9,9.5,10,
+                                         10.5,11,11.5,12,12.5,13,13.5,14,14.5,15,15.5,16,16.5,17,17.5,
+                                         18,18.5,19,19.5,20])
+
+            for i in range(self.df_best_tof_selected.shape[1]):
+
+                # calculate entropy based upon clusters
+                cell_entropy = np.array(ent.shannon_entropy(cells_binned[:,i]))
+                all_cells_entropy.append(cell_entropy)
+
+            # sum up entropy for all cells
+            tof_based_entropy_best_models_selected = np.sum(np.array(all_cells_entropy))
+            print("entropy selected models: {}".format(tof_based_entropy_best_models_selected))
+        
+        else:
+
+            cells = np.array(self.df_best_tof/60/60/242/365.25)
+            cells_binned = np.digitize(cells,bins = [0.5,1,1.5,2,2.5,3,3.5,4,4.5,5,5.5,6,6.5,7,7.5,8,8.5,9,9.5,10,
+                                         10.5,11,11.5,12,12.5,13,13.5,14,14.5,15,15.5,16,16.5,17,17.5,
+                                         18,18.5,19,19.5,20])
+
+            for i in range(self.df_best_tof.shape[1]-2):
+
+                # calculate entropy based upon clusters
+                cell_entropy = np.array(ent.shannon_entropy(cells_binned[:,i]))
+                all_cells_entropy.append(cell_entropy)
+
         # plot the whole thing    
         values = np.array(all_cells_entropy).reshape(nx,ny,nz)
         # Create the spatial reference
@@ -468,7 +507,10 @@ class postprocessing():
             nz = 7
             #tof to years and then binned
             values = np.array(tof).reshape(nx,ny,nz)/60/60/24/365.25
-            values = np.digitize(values,bins=[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20])
+            
+            values = np.digitize(cells,bins = [0.5,1,1.5,2,2.5,3,3.5,4,4.5,5,5.5,6,6.5,7,7.5,8,8.5,9,9.5,10,
+                                         10.5,11,11.5,12,12.5,13,13.5,14,14.5,15,15.5,16,16.5,17,17.5,
+                                         18,18.5,19,19.5,20])
 
             # Create the spatial reference
             grid = pv.UniformGrid()
@@ -565,8 +607,12 @@ class postprocessing():
             df_best_for_clustering = self.df_best_tof.drop(columns = ["particle_no","iteration"])
 
             #convert to years and put in bins.
-            df_best_for_clustering = df_best_for_clustering/60/60/24/365.25
-            df_best_for_clustering = np.digitize(df_best_for_clustering,bins=[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20])
+            df_best_for_clustering = np.array(df_best_for_clustering/60/60/242/365.25)
+            df_best_for_clustering = np.digitize(cells,bins = [0.5,1,1.5,2,2.5,3,3.5,4,4.5,5,5.5,6,6.5,7,7.5,8,8.5,9,9.5,10,
+                                         10.5,11,11.5,12,12.5,13,13.5,14,14.5,15,15.5,16,16.5,17,17.5,
+                                         18,18.5,19,19.5,20])
+            # df_best_for_clustering = df_best_for_clustering/60/60/24/365.25
+            # df_best_for_clustering = np.digitize(df_best_for_clustering,bins=[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20])
 
 
             # Create UMAP reducer
@@ -867,7 +913,7 @@ class postprocessing():
 
     def save_best_clustered_models(self):
         """ save the best,previously selected reservoir models that are ready for full reservoir simulations
-            also generate 2 csv files with df best_position of selected and all best models. """        
+            also generate 2 csv files with df best_position of selected and all best models. and a tof fileand FD performance file """        
 
         # save best models
         n_datasets = len(self.data_to_process)
@@ -876,10 +922,21 @@ class postprocessing():
 
             # open df_position to figure out which models performed best
             # path = str(self.setup["base_path"] / "../Output/") + "/" + self.data_to_process[i] + "/"
-            path = str(self.setup["base_path"] / "../../Output/")+ "/"+ self.data_to_process[i] + "/"
+            path = str(self.setup["base_path"] / "../../Output/PSO_modelling")+ "/"+ self.data_to_process[i] + "/"
 
             n_best_models_selected = len(self.df_best_models_to_save)
             best_models_selected_index = self.df_best_models_to_save.index.tolist()
+            
+            # get FD_performance and tof df
+            # iteration = self.df_best_models_to_save.iteration.tolist()
+            # particle_no =  self.df_best_models_to_save.particle_no.tolist()
+            # EV_all = pd.DataFrame()
+            # tD_all = pd.DataFrame()
+            # for i in range(self.df_best_models_to_save.shape[0]):
+            #     # df_performance_best_models_to_save = 
+
+            #     EV = self.df_performance[(self.df_performance.iteration == iteration[i]) & (self.df_performance.particle_no == particle_no[i])].EV
+            #     tD = self.df_performance[(self.df_performance.iteration == iteration[i]) & (self.df_performance.particle_no == particle_no[i])].tD
 
             #path to all models 
             all_path = path + "all_models/"

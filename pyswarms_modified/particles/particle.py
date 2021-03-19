@@ -169,7 +169,8 @@ class particle():
 
         else:
             # as particle does not qualify for fitness misfit cirterion the dynamic response is too far off to be of any interest, tehrefore not considered.
-            entropy_contribution = np.nan
+            # entropy_contribution = np.nan
+            entropy_contribution = 0 #consider setting entropy contribution to 0 instead of np.nan. this could perhabs make the algo more exploratiory if it cant find new bests
         
         return entropy_contribution
 
