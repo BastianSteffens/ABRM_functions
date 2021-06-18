@@ -118,7 +118,6 @@ class TI_generator():
     
     def sample_from_distribution(self,sampling_style,property_stats):
         """ random sample from uniform/gaussian/logarithmic/bimodal distribution """
-        # from scipy.stats import gamma
 
         if sampling_style == "uniform":
             low = property_stats[0]
@@ -505,6 +504,7 @@ class TI_generator():
         file.close()
     
     def Remove_Comment_Lines(self,data,commenter='--'):
+
         #Remove comment and empty lines as well as -- Generated : Petrel
         data_lines=data.strip().split('\n')
         newdata=[]

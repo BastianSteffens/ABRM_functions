@@ -30,7 +30,7 @@ def init():
     inertia = 0.9
     damping_factor = 0.99
     direction  = 1
-    n_neighbors  =  5
+    n_neighbors  =  20
     distance_measure  = 2 # 2 = euclidian 1 = manhatten
     dimensions = n_parameters
     options = {'c1': social_component, 'c2': cognitive_component, 'w':inertia, 'k':n_neighbors, 'p':distance_measure,'d':damping_factor, "direction": direction}
@@ -191,8 +191,8 @@ def init():
     #                                    bounds= bounds, velocity_clamp= velocity_clamp, vh_strategy=vh_strategy,
     #                                    bh_strategy = bh_strategy,init_pos= init_pos)
     optimizer = ps.single.LocalBestEntropyPSO(n_particles=n_particles, dimensions=dimensions, options=options, setup = setup,
-                                       bounds= bounds, velocity_clamp= velocity_clamp, vh_strategy=vh_strategy,
-                                       bh_strategy = bh_strategy,init_pos= init_pos)
+                                                bounds= bounds, velocity_clamp= velocity_clamp, vh_strategy=vh_strategy,
+                                                bh_strategy = bh_strategy,init_pos= init_pos)
 
     cost, pos = optimizer.optimize(particle, iters=n_iters,n_processes=setup["pool"])
 

@@ -211,7 +211,7 @@ class Model():
         scaler = MinMaxScaler()
         scaler.fit(misfit_quality)
         misfit_quality_scaled = scaler.transform(misfit_quality)
-        misfit_quality_scaled = misfit_quality_scaled * 0.3
+        misfit_quality_scaled = misfit_quality_scaled * 0.2
 
         #get quality level of each TI
         TI_quality = []
@@ -221,9 +221,21 @@ class Model():
         scaler = MinMaxScaler()
         scaler.fit(TI_quality)
         TI_quality_scaled = scaler.transform(TI_quality)
-        TI_quality_scaled = TI_quality_scaled * 0.7
-        # add msifit and TI quality. lowest value is best. can also think about making this into probability to sample from
+        TI_quality_scaled = TI_quality_scaled * 0.6
+
+        # preference to move towards a TI zone boundary
+        move_quality = []
+        for i in range(len(agent_evaluation)):
+            move_quality.append(agent_evaluation[i][8])
+        move_quality = np.array(move_quality).reshape(-1,1)
+        scaler = MinMaxScaler()
+        scaler.fit(move_quality)
+        move_quality_scaled = scaler.transform(move_quality)
+        move_quality_scaled = move_quality_scaled * 0.2
+
+        # add msifit and TI quality and move quality. lowest value is best. can also think about making this into probability to sample from
         best_quality_fit = np.add(misfit_quality_scaled, TI_quality_scaled)
+        best_quality_fit = np.add(best_quality_fit,move_quality_scaled)
 
         return np.argmin(best_quality_fit)  
 
@@ -282,13 +294,22 @@ class Model():
         
         agent_evaluation = []
         misfit_all = []
-
+        # run flow diagnostics 
         FD_performance_all = self.run_FD(model_type = "training_image_testing",index = None,training_image = training_image,number_test_runs = number_test_runs,models_to_run  = model_index_list_random)
         for i, model_id in enumerate(model_index_list_random):
             FD_performance = FD_performance_all[FD_performance_all.model_id==model_id]
             misfit = self.calculate_misfit(FD_performance)
             all_possible_positions_training_images_random[i].append(misfit)
             misfit_all.append(misfit)
+        
+        # check distance to closest TI zone boundary
+        for i in range(len(model_index_list_random)):
+            if abs(all_possible_positions_training_images_random[i][1]-70)<abs(all_possible_positions_training_images_random[i][1]-130):
+                distance_to_a_boundary = abs(all_possible_positions_training_images_random[i][1]-70)
+            else:
+                distance_to_a_boundary = abs(all_possible_positions_training_images_random[i][1]-130)
+            all_possible_positions_training_images_random[i].append(distance_to_a_boundary)
+
         
         return all_possible_positions_training_images_random,misfit_all
 
@@ -380,6 +401,9 @@ class Model():
         self.when_new_agent +=1
         self.grid.layer = self.Z-1 # not sure what this does.
 
+        # shuffle agent list for random picking of new agents
+        self.active_agents = rn.sample(self.active_agents,len(self.active_agents))
+    
     def run(self):
 
         #init model
@@ -665,7 +689,7 @@ class Model():
             return copy_active_agents
         
     def load_training_images(self):
-        """ upload all training images that are to be used for reservoir model building 1 training image = entire resevoir model. """
+        """ upload all training images that are to be used for reservoir model building 1 training image = entire reservoir model. """
         t_igrid = time.time()
         print('=======loading training images=========')
 

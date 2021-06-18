@@ -25,7 +25,7 @@ def init():
     
     
     ### set parameters 
-    TURNS = 2
+    TURNS = 6
     AGENTSPERTURN = 1
     RANDOMAGENTSGENRATIONBOTTOM = 0.75
     RATIOTRACKEDAGENTS = 1.
@@ -66,10 +66,10 @@ def init():
     t1 = time.time()
 
     model = Model(env = TI_zones, 
-                  number_of_turns=TURNS, number_of_starting_agents = 6,new_agent_every_n_turns = 100,max_number_agents = 10,
-                  ratio_of_tracked_agents = 1.,number_training_image_zones = 2, number_training_images_per_zone = 4,output_folder = output_folder,
-                  Phi_points_target=Phi_points_target,F_points_target=F_points_target,max_number_of_position_tests = 3 ,n_processes = None,neighbourhood_radius = 2, neighbourhood_search_step_size = 1,
-                 )
+                number_of_turns=TURNS, number_of_starting_agents = 6,new_agent_every_n_turns = 100,max_number_agents = 10,
+                ratio_of_tracked_agents = 1.,number_training_image_zones = 2, number_training_images_per_zone = 4,output_folder = output_folder,
+                Phi_points_target=Phi_points_target,F_points_target=F_points_target,max_number_of_position_tests = 3 ,n_processes = None,neighbourhood_radius = 2, neighbourhood_search_step_size = 1,
+                )
     model.run()
     print("Simulation took {0:2.2f} seconds".format(time.time()-t1))
     test_df =model.get_final_results()
