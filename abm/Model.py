@@ -35,7 +35,7 @@ class Model():
                 env,F_points_target, Phi_points_target,output_folder, 
                 number_of_turns=2000,number_of_starting_agents = 5,new_agent_every_n_turns = 1,new_agents_per_n_turns = 1,max_number_agents = 10,max_number_of_position_tests = 30,
                 ratio_of_tracked_agents = 1.,number_training_image_zones = 2, number_training_images_per_zone = 20,n_processes = 6,neighbourhood_radius = 2, neighbourhood_search_step_size = 2,
-                ):
+                boundary_rule_weight = 0.2,misfit_rule_weight = 0.2,TI_zone_rule_weight = 0.6):
 
         self.base_path = pathlib.Path(__file__).parent
         self.output_folder = output_folder
@@ -71,6 +71,11 @@ class Model():
 
         self.active_agents = []
         self.dead_agents = []
+
+        # rule weightings
+        self.boundary_rule_weight = boundary_rule_weight
+        self.misfit_rule_weight = misfit_rule_weight
+        self.TI_zone_rule_weight = TI_zone_rule_weight
         
         self.resultsDF = pd.DataFrame(columns=['Start_x', 'Start_y', 'Start_z','End_x',
                                             'End_y','End_z','End_turn']).astype(dtype={'Start_x': np.int16, 'Start_y': np.int16, 
@@ -146,11 +151,12 @@ class Model():
             misfit = self.calculate_misfit(FD_performance)
             for agent in self.active_agents:
                 agent.update_agent_misfit(misfit)
+            self.track_agents()  # testing out how tracking agents after every single move will look like.  
    
     def get_agent_movement(self, agent_to_move,copy_active_agents):
         free_neighborhood_coord = self.grid.get_empty_neighborhood(agent_to_move.pos,len(copy_active_agents))
 
-        if rn.random() >= 0.95:
+        if rn.random() >= 0.99:
             print("random move          ")
 
             # random movement and TI selection
@@ -211,7 +217,7 @@ class Model():
         scaler = MinMaxScaler()
         scaler.fit(misfit_quality)
         misfit_quality_scaled = scaler.transform(misfit_quality)
-        misfit_quality_scaled = misfit_quality_scaled * 0.2
+        misfit_quality_scaled = misfit_quality_scaled * self.misfit_rule_weight
 
         #get quality level of each TI
         TI_quality = []
@@ -221,17 +227,18 @@ class Model():
         scaler = MinMaxScaler()
         scaler.fit(TI_quality)
         TI_quality_scaled = scaler.transform(TI_quality)
-        TI_quality_scaled = TI_quality_scaled * 0.6
+        TI_quality_scaled = TI_quality_scaled * self.TI_zone_rule_weight
 
         # preference to move towards a TI zone boundary
         move_quality = []
         for i in range(len(agent_evaluation)):
             move_quality.append(agent_evaluation[i][8])
+        move_quality[move_quality == np.nan] = int(np.nanmin(move_quality))
         move_quality = np.array(move_quality).reshape(-1,1)
         scaler = MinMaxScaler()
         scaler.fit(move_quality)
         move_quality_scaled = scaler.transform(move_quality)
-        move_quality_scaled = move_quality_scaled * 0.2
+        move_quality_scaled = move_quality_scaled * self.boundary_rule_weight
 
         # add msifit and TI quality and move quality. lowest value is best. can also think about making this into probability to sample from
         best_quality_fit = np.add(misfit_quality_scaled, TI_quality_scaled)
@@ -304,7 +311,9 @@ class Model():
         
         # check distance to closest TI zone boundary
         for i in range(len(model_index_list_random)):
-            if abs(all_possible_positions_training_images_random[i][1]-70)<abs(all_possible_positions_training_images_random[i][1]-130):
+            if all_possible_positions_training_images_random[i][1] == None:
+                distance_to_a_boundary = np.nan
+            elif abs(all_possible_positions_training_images_random[i][1]-70)<abs(all_possible_positions_training_images_random[i][1]-130):
                 distance_to_a_boundary = abs(all_possible_positions_training_images_random[i][1]-70)
             else:
                 distance_to_a_boundary = abs(all_possible_positions_training_images_random[i][1]-130)
@@ -396,7 +405,7 @@ class Model():
         print("Misfit: {}".format(misfit))
         for agent in self.active_agents:
             agent.update_agent_misfit(misfit)
-        self.track_agents()
+        # self.track_agents() testing out how tracking agents after every single agent movement looks like. track agent is now under self.move_agents
 
         self.when_new_agent +=1
         self.grid.layer = self.Z-1 # not sure what this does.
@@ -936,16 +945,42 @@ class Model():
 
         file_beginning = "FILEUNIT\nMETRIC /\n\n{}\n".format(prop)
         dataset[-1] = "{} /".format(dataset[-1])
-        with open(file_path,"w+") as f:
-            f.write(file_beginning)
-            newline_ticker = 0
-            for item in dataset:
-                newline_ticker += 1
-                if newline_ticker == 50:
-                    f.write("\n")
-                    newline_ticker = 0
-                f.write("{} ".format(item))
-            f.close()
+        dataset = ["{} ".format(str(element)) for element in dataset]
+        # dataset = ["{} ".format(element) for element in dataset]
+
+
+        skipline = "\n"
+        newline_ticker = 50
+        datset_newlines = []
+        for idx, ele in enumerate(dataset):
+            
+            # if index multiple of N
+            if idx % newline_ticker == 0:
+                datset_newlines.append(skipline)
+            datset_newlines.append(ele)
+
+
+
+        # dataset = list(''.join(i + skipline * (newline_ticker % 3 == 2) 
+        #         for newline_ticker, i in enumerate(dataset)))
+        
+        fil = open(file_path,"w+")
+        fil.writelines(file_beginning)
+        fil.writelines(datset_newlines)
+        fil.close()
+
+
+
+        # with open(file_path,"w+") as f:
+        #     f.write(file_beginning)
+        #     newline_ticker = 0
+        #     for item in dataset:
+        #         newline_ticker += 1
+        #         if newline_ticker == 50:
+        #             f.write("\n")
+        #             newline_ticker = 0
+        #         f.write("{} ".format(item))
+        #     f.close()
 
     def built_Data_files(self,index = None,training_image = None,model_type = None):
         """ built Data files to run FD and full flow simulations on """

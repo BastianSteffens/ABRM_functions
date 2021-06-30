@@ -88,7 +88,7 @@ class Grid:
         self,
         pos: Coordinate,
         n_active_agents,
-        remove_agent: bool = True,
+        remove_agent: bool = False,
         radius: int = 1,
     ) -> List[Coordinate]:
         """ Return a list of coordinates of empty cells that are in the neighborhood of a
