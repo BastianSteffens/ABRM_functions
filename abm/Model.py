@@ -137,7 +137,9 @@ class Model():
             copy_active_agents = copy.deepcopy(self.active_agents)
             agent_to_move = copy.deepcopy(agent)
 
-            print("moving agent {}".format(agent.id), end="\r")
+            # print("moving agent {}".format(agent.id), end="\r")
+            print("moving agent {}".format(iagent), end="\r")
+
             new_pos,training_image = self.get_agent_movement(agent_to_move,copy_active_agents)
             if new_pos[0] ==None:
                 print("Killed agent {}        ".format(agent.id))
@@ -149,6 +151,7 @@ class Model():
             self.generate_reservoir_model(model_type="final_model_per_iteration")
             FD_performance =  self.run_FD(model_type = "final_model_per_iteration")
             misfit = self.calculate_misfit(FD_performance)
+            # misfit = 0
             for agent in self.active_agents:
                 agent.update_agent_misfit(misfit)
             self.track_agents()  # testing out how tracking agents after every single move will look like.  
@@ -177,7 +180,6 @@ class Model():
             
             # evaluate best position for agent based on misfit and goodness of TI fit
             best_new_position = self.get_best_quality_fit_agent(agent_evaluation,misfit_all)
-
             new_pos = agent_evaluation[int(best_new_position)][0:3]
             new_TI_zone = agent_evaluation[int(best_new_position)][3]
             new_TI_no = agent_evaluation[int(best_new_position)][4]
@@ -243,26 +245,36 @@ class Model():
         # add msifit and TI quality and move quality. lowest value is best. can also think about making this into probability to sample from
         best_quality_fit = np.add(misfit_quality_scaled, TI_quality_scaled)
         best_quality_fit = np.add(best_quality_fit,move_quality_scaled)
-
-        return np.argmin(best_quality_fit)  
+        # best_position = np.argmin(best_quality_fit)
+        best_position_all = list(np.where(best_quality_fit == best_quality_fit.min())[0])
+        best_position =rn.sample(best_position_all,1)[0] # sample from all best positions
+        return best_position 
 
 
     def evaluate_agent_position(self,free_neighborhood_coord,agent_to_move,copy_active_agents):
         """single core evaluation of every possible position that particle could take""" 
         all_possible_positions_training_images = []
+        all_possible_positions_training_images_no_index = []
+
         # generate all possible training images and coords for each position
         model_index = 0
-
         model_index_list = []
-        while len(all_possible_positions_training_images) < self.max_number_of_position_tests:
+        loop_counter = 0
+
+        while len(all_possible_positions_training_images) < self.max_number_of_position_tests and loop_counter < (1.5*self.max_number_of_position_tests):
             coord = rn.sample(free_neighborhood_coord,1)[0]
             copy_active_agents = self.generate_voronoi_regions(coord = coord,agent_to_move = agent_to_move,copy_active_agents = copy_active_agents)
             possible_training_images = self.get_possible_training_images(copy_active_agents = copy_active_agents,agent_to_move = agent_to_move)
             training_image = rn.sample(possible_training_images,1)[0]
             copy_active_agents = self.assign_training_image_to_agent(copy_active_agents = copy_active_agents,agent_to_move = agent_to_move, training_image=training_image)
             self.generate_reservoir_model(copy_active_agents = copy_active_agents,agent_to_move = agent_to_move,model_type = "training_image_testing", model_index = model_index, training_image = training_image)
-            all_possible_positions_training_images.append([coord[0],coord[1],coord[2],training_image[0],training_image[1],model_index,training_image[2]])
-            model_index_list.append(model_index)
+            test_position = [coord[0],coord[1],coord[2],training_image[0],training_image[1],training_image[2]]
+            test_position_indexed = [coord[0],coord[1],coord[2],training_image[0],training_image[1],model_index,training_image[2]]
+            if test_position not in all_possible_positions_training_images_no_index:
+                all_possible_positions_training_images_no_index.append(test_position)
+                all_possible_positions_training_images.append(test_position_indexed)
+                model_index_list.append(model_index)
+            loop_counter += 1
             model_index += 1
 
         # add current position to evaluation.
@@ -272,55 +284,42 @@ class Model():
         training_image = rn.sample(possible_training_images,1)[0]
         copy_active_agents = self.assign_training_image_to_agent(copy_active_agents = copy_active_agents,agent_to_move = agent_to_move, training_image=training_image)
         self.generate_reservoir_model(copy_active_agents = copy_active_agents,agent_to_move = agent_to_move,model_type = "training_image_testing", model_index = model_index, training_image = training_image)
-        all_possible_positions_training_images.append([coord[0],coord[1],coord[2],training_image[0],training_image[1],model_index,training_image[2]])
-        model_index_list.append(model_index)
-        model_index += 1
+        test_position = [coord[0],coord[1],coord[2],training_image[0],training_image[1],training_image[2]]
+        test_position_indexed = [coord[0],coord[1],coord[2],training_image[0],training_image[1],model_index,training_image[2]]
 
-        # filter dublicates
-        all_possible_positions_training_images_filtered = []
-        for test_position in all_possible_positions_training_images:
-            if test_position not in all_possible_positions_training_images_filtered:
-                all_possible_positions_training_images_filtered.append(test_position)
-        all_possible_positions_training_images = all_possible_positions_training_images_filtered
+        if test_position not in all_possible_positions_training_images_no_index:
+            all_possible_positions_training_images_no_index.append(test_position)
+            all_possible_positions_training_images.append(test_position_indexed)
+            model_index_list.append(model_index)    
 
-        # random selection of n szenarios to test out.
-        all_possible_positions_training_images_random = rn.sample(all_possible_positions_training_images, len(all_possible_positions_training_images))     
-        model_index_list_random = rn.sample(model_index_list,len(model_index_list))
-        
-        # check if available positions is larger than max to run
-        if self.max_number_of_position_tests+1>len(model_index_list_random):
-            number_test_runs = len(model_index_list_random)
-        else:
-            number_test_runs = self.max_number_of_position_tests
-        number_test_runs = len(all_possible_positions_training_images_random)
-        model_index_list_random = []
-
-        all_possible_positions_training_images_random = all_possible_positions_training_images[0:number_test_runs]
-        for i in range(number_test_runs):
-            model_index_list_random.append(all_possible_positions_training_images_random[i][5])
-        
-        agent_evaluation = []
         misfit_all = []
         # run flow diagnostics 
-        FD_performance_all = self.run_FD(model_type = "training_image_testing",index = None,training_image = training_image,number_test_runs = number_test_runs,models_to_run  = model_index_list_random)
-        for i, model_id in enumerate(model_index_list_random):
+        FD_performance_all = self.run_FD(model_type = "training_image_testing",index = None,training_image = training_image,number_test_runs = len(model_index_list),models_to_run  = model_index_list)
+        for i, model_id in enumerate(model_index_list):
+
             FD_performance = FD_performance_all[FD_performance_all.model_id==model_id]
             misfit = self.calculate_misfit(FD_performance)
-            all_possible_positions_training_images_random[i].append(misfit)
+            # misfit = 0
+            all_possible_positions_training_images[i].append(misfit)
+
             misfit_all.append(misfit)
         
         # check distance to closest TI zone boundary
-        for i in range(len(model_index_list_random)):
-            if all_possible_positions_training_images_random[i][1] == None:
-                distance_to_a_boundary = np.nan
-            elif abs(all_possible_positions_training_images_random[i][1]-70)<abs(all_possible_positions_training_images_random[i][1]-130):
-                distance_to_a_boundary = abs(all_possible_positions_training_images_random[i][1]-70)
-            else:
-                distance_to_a_boundary = abs(all_possible_positions_training_images_random[i][1]-130)
-            all_possible_positions_training_images_random[i].append(distance_to_a_boundary)
+        for i in range(len(model_index_list)):
 
+            # if all_possible_positions_training_images_random[i][0] == None:
+            if all_possible_positions_training_images[i][0] == None:
+
+                distance_to_a_boundary = np.nan
+            
+            elif abs(all_possible_positions_training_images[i][1]-70)<abs(all_possible_positions_training_images[i][0]-130):
+                distance_to_a_boundary = abs(all_possible_positions_training_images[i][0]-70)
+            else:
+                distance_to_a_boundary = abs(all_possible_positions_training_images[i][0]-130)
+            all_possible_positions_training_images[i].append(distance_to_a_boundary)
         
-        return all_possible_positions_training_images_random,misfit_all
+        return all_possible_positions_training_images,misfit_all
+
 
     def evaluate_agent_position_parallel_calculation(self,ti_id):
         """ calculation of FD for parallel processing """
@@ -402,6 +401,7 @@ class Model():
         self.generate_reservoir_model(model_type="final_model_per_iteration")
         FD_performance =  self.run_FD(model_type = "final_model_per_iteration")
         misfit = self.calculate_misfit(FD_performance)
+        # misfit = 0
         print("Misfit: {}".format(misfit))
         for agent in self.active_agents:
             agent.update_agent_misfit(misfit)
@@ -477,6 +477,7 @@ class Model():
         self.generate_reservoir_model(model_type="final_model_per_iteration")
         FD_performance =  self.run_FD(model_type = "final_model_per_iteration")
         misfit = self.calculate_misfit(FD_performance)
+        # misfit = 0
         print("Misfit: {}".format(misfit))
         for agent in self.active_agents:
             agent.update_agent_misfit(misfit)
@@ -740,7 +741,7 @@ class Model():
         """ check what training image confiugratinos can be loaded into agent voronoi polygon"""
         TI = []
 
-        # # training image of TI_zone that agent currently has. but plus one and minus one too
+        # training image of TI_zone that agent currently has. but plus one and minus one too
         TI.append([agent_to_move.TI_type,agent_to_move.TI_no])
         if  0 < agent_to_move.TI_no:
             TI.append([agent_to_move.TI_type,agent_to_move.TI_no-1])        
@@ -802,7 +803,7 @@ class Model():
             # incorrect TI_zone
             elif training_image[0] != agent_to_move.TI_zone_assigned:
                 TI[index].append(3)
-
+            
         return TI       
 
     def generate_reservoir_model(self,copy_active_agents = None,agent_to_move = None,model_type = None, model_index = None, training_image = None):
@@ -946,8 +947,6 @@ class Model():
         file_beginning = "FILEUNIT\nMETRIC /\n\n{}\n".format(prop)
         dataset[-1] = "{} /".format(dataset[-1])
         dataset = ["{} ".format(str(element)) for element in dataset]
-        # dataset = ["{} ".format(element) for element in dataset]
-
 
         skipline = "\n"
         newline_ticker = 50
@@ -958,29 +957,12 @@ class Model():
             if idx % newline_ticker == 0:
                 datset_newlines.append(skipline)
             datset_newlines.append(ele)
-
-
-
-        # dataset = list(''.join(i + skipline * (newline_ticker % 3 == 2) 
-        #         for newline_ticker, i in enumerate(dataset)))
         
         fil = open(file_path,"w+")
         fil.writelines(file_beginning)
         fil.writelines(datset_newlines)
         fil.close()
 
-
-
-        # with open(file_path,"w+") as f:
-        #     f.write(file_beginning)
-        #     newline_ticker = 0
-        #     for item in dataset:
-        #         newline_ticker += 1
-        #         if newline_ticker == 50:
-        #             f.write("\n")
-        #             newline_ticker = 0
-        #         f.write("{} ".format(item))
-        #     f.close()
 
     def built_Data_files(self,index = None,training_image = None,model_type = None):
         """ built Data files to run FD and full flow simulations on """
@@ -1037,7 +1019,7 @@ class Model():
             model_id = "M_{}_{}_{}".format(index,training_image[0],training_image[1])
             # run FD and output dictionary
             FD_data = self.matlab_runner.FD_ABM_testrun(model_id)
-
+        
         if model_type == "final_model_per_iteration":
             model_id = "M{}".format(self.istep)
             # run FD and output dictionary
