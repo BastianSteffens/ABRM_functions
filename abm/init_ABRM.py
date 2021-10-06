@@ -25,7 +25,7 @@ def init():
     
     
     ### set parameters 
-    TURNS = 1
+    TURNS = 2
     AGENTSPERTURN = 1
     RANDOMAGENTSGENRATIONBOTTOM = 0.75
     RATIOTRACKEDAGENTS = 1.
@@ -62,9 +62,9 @@ def init():
     seed_everything(SEED)
 
     model = Model(env = TI_zones, 
-                number_of_turns=TURNS, number_of_starting_agents =6,new_agent_every_n_turns = 100,max_number_agents = 70,
+                number_of_turns=TURNS, number_of_starting_agents =5,new_agent_every_n_turns = 100,max_number_agents = 70,
                 ratio_of_tracked_agents = 1.,number_training_image_zones = 2, number_training_images_per_zone = 4,output_folder = output_folder,
-                Phi_points_target=Phi_points_target,F_points_target=F_points_target,max_number_of_position_tests = 10 ,n_processes = None,neighbourhood_radius = 10, neighbourhood_search_step_size = 1,
+                Phi_points_target=Phi_points_target,F_points_target=F_points_target,max_number_of_position_tests = 10 ,n_processes = None,neighbourhood_radius = 20, neighbourhood_search_step_size = 20,
                 boundary_rule_weight = 1,misfit_rule_weight = 0,TI_zone_rule_weight = 0)
 
     model.run()

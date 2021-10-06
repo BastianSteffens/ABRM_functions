@@ -1,3 +1,4 @@
+from numpy.lib.polynomial import poly
 from numpy.random import randint
 from numpy.random import choice
 import numpy as np
@@ -307,15 +308,20 @@ class Model():
         # check distance to closest TI zone boundary
         for i in range(len(model_index_list)):
 
-            # if all_possible_positions_training_images_random[i][0] == None:
             if all_possible_positions_training_images[i][0] == None:
 
                 distance_to_a_boundary = np.nan
             
-            elif abs(all_possible_positions_training_images[i][1]-70)<abs(all_possible_positions_training_images[i][0]-130):
-                distance_to_a_boundary = abs(all_possible_positions_training_images[i][0]-70)
+            elif abs(all_possible_positions_training_images[i][0]-70)<abs(all_possible_positions_training_images[i][0]-130):
+                if all_possible_positions_training_images[i][0] >= 50 and all_possible_positions_training_images[i][0] <= 90:
+                    distance_to_a_boundary = 0
+                else:
+                    distance_to_a_boundary = abs(all_possible_positions_training_images[i][0]-70)
             else:
-                distance_to_a_boundary = abs(all_possible_positions_training_images[i][0]-130)
+                if all_possible_positions_training_images[i][0] >= 110 and all_possible_positions_training_images[i][0] <= 150:
+                    distance_to_a_boundary = 0
+                else:
+                    distance_to_a_boundary = abs(all_possible_positions_training_images[i][0]-130)
             all_possible_positions_training_images[i].append(distance_to_a_boundary)
         
         return all_possible_positions_training_images,misfit_all
@@ -405,7 +411,7 @@ class Model():
         print("Misfit: {}".format(misfit))
         for agent in self.active_agents:
             agent.update_agent_misfit(misfit)
-        # self.track_agents() testing out how tracking agents after every single agent movement looks like. track agent is now under self.move_agents
+        # self.track_agents() #testing out how tracking agents after every single agent movement looks like. track agent is now under self.move_agents
 
         self.when_new_agent +=1
         self.grid.layer = self.Z-1 # not sure what this does.
@@ -661,15 +667,26 @@ class Model():
         
         # assign polygons to individual agents
         if agent_to_move == None:
+            if len(TI_zone_per_agent) < len(self.active_agents):
+                TI_zone_per_agent.append(point[6])
+                print("TI zone per agent not correct lenght. append false TI zone")
+
             for index,agent in enumerate(self.active_agents):
                 agent.update_agent_properties(polygon_id = index,polygon = poly_shapes[index],polygon_area = poly_shapes[index].area,TI_zone_assigned = TI_zone_per_agent[index])
         else:
             index = -1
+            if len(TI_zone_per_agent) < len(copy_active_agents):
+                TI_zone_per_agent.append(point[6])
+                print("TI zone per agent not correct lenght. append false TI zone")
+
             for i, agent in enumerate(copy_active_agents):
                 index += 1
+                if index < 0:
+                    index = 0
                 if agent.pos[0] == None:
                     index -= 1
                 else:
+
                     agent.update_agent_properties(polygon_id = index,polygon = poly_shapes[index],polygon_area = poly_shapes[index].area,TI_zone_assigned = TI_zone_per_agent[index])
 
             return copy_active_agents
@@ -1062,7 +1079,7 @@ class Model():
 
         LC = self.compute_LC(FD_performance["F"],FD_performance["Phi"])
         # calculate rmse for each curve and LC
-        rmse_0 = mean_squared_error(F_interpolated,FD_performance["F"],squared=False)
+        rmse_0 = mean_squared_error(F_interpolated,FD_performance["F"],squared=False) # setting squared to false calculates RMSE instead of MSE. check documentation if i dont believe myself again
         rmse_1 = mean_squared_error(F_interpolated_first_derr,F_first_derr,squared=False)
         rmse_2 = mean_squared_error(F_interpolated_second_derr,F_second_derr,squared=False)
         LC_error = abs(LC-LC_interpolated)

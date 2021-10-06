@@ -474,7 +474,7 @@ class TI_selection():
             self.df_TI_props["cluster_tof"] = scoreTitles.labels_
             self.df_TI_props["cluster_tof_x"] =  embeddings[:,0]
             self.df_TI_props["cluster_tof_y"] = embeddings[:,1]
-
+            
             fig = go.Figure(data=go.Scatter(x = embeddings[:,0],
                                             y = embeddings[:,1],
 
@@ -485,7 +485,9 @@ class TI_selection():
                                                 color=self.df_TI_props.cluster_tof, #set color equal to a variable
                                                 colorscale= "deep",#'Viridis', # one of plotly colorscales
                                                 showscale=True,
-                                                colorbar=dict(title="Clusters")
+                                                colorbar=dict(title="Clusters"),
+                                                line=dict(width=1,
+                                                color='black')
                                                 )
                                             ))
             fig.update_layout(title='Clustering of {} best models - Number of clusters found: {} - Unclustered models: {}'.format(self.df_TI_props.shape[0],self.df_TI_props.cluster_tof.max()+1,abs(self.df_TI_props.cluster_tof[self.df_TI_props.cluster_tof == -1].sum())))
@@ -568,7 +570,9 @@ class TI_selection():
                                             color=self.df_TI_props[cluster], #set color equal to a variable
                                             colorscale= "deep",#'Viridis', # one of plotly colorscales
                                             showscale=True,
-                                            colorbar=dict(title="Clusters")
+                                            colorbar=dict(title="Clusters"),
+                                            line=dict(width=1,
+                                            color='black')
                                             )
                                 ))
         fig.add_trace(go.Scatter(x = self.df_best_TIs_to_save[cluster_x],
@@ -578,6 +582,8 @@ class TI_selection():
                                     marker = dict(
                                                 size = 10,
                                                 color = 0,
+                                                line=dict(width=1,
+                                                color='black')
                                                 )
                                 ))
                         

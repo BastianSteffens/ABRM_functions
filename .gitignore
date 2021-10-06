@@ -10,6 +10,8 @@ abm/training_images/*
 abm/training_image_testing/*
 abm/results/*
 abm/figures/*
+notebooks/chapter3_data/*
+notebooks/images/*
 
 GRDECL_file_reader/Results/*
 postprocessing_multi.ipynb
