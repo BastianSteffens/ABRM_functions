@@ -469,11 +469,11 @@ def compute_objective_function(swarm, objective_func,setup,iteration, pool=None,
    
         # swarm_performance = pd.DataFrame(columns = ["EV","tD","F","Phi","LC","tof","iteration","particle_no","misfit"])
         swarm_performance = pd.DataFrame(columns = ["EV","tD","F","Phi","LC","tof_for","tof_back","tof_combi","prod_part","prod_inj","iteration","particle_no","misfit"])
-        particle_performance["tof_for"] = FD_data[5]
-        particle_performance["tof_back"] = FD_data[6]
-        particle_performance["tof_combi"] = FD_data[7]
-        particle_performance["prod_part"] = FD_data[8]
-        particle_performance["inj_part"] = FD_data[9]
+        # particle_performance["tof_for"] = FD_data[5]
+        # particle_performance["tof_back"] = FD_data[6]
+        # particle_performance["tof_combi"] = FD_data[7]
+        # particle_performance["prod_part"] = FD_data[8]
+        # particle_performance["inj_part"] = FD_data[9]
         n_particles = setup["n_particles"]
         for i in range(n_particles):
             if setup["n_voronoi"] > 0:

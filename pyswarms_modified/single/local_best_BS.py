@@ -305,10 +305,11 @@ class LocalBestPSO(SwarmOptimizer):
             )
             ### BS ###
             if self.swarm.entropy_gradient<0:
+                # print("entropy gradient is negative --> currentlz NOT resetting PSO")
                 print("entropy gradient is negative --> resetting PSO")
                 # new init position
                 self.init_pos = np.array(lhsmdu.sample(numDimensions = self.setup["n_particles"],numSamples = self.setup["n_parameters"]))
-                # reset swarm
+                # # reset swarm
                 self.reset()
                 self.swarm.pbest_cost = np.full(self.swarm_size[0], np.inf)
                 # reset inertia
@@ -357,7 +358,7 @@ class LocalBestPSO(SwarmOptimizer):
             best_tof["particle_no"] = particle_no
             best_tof.set_index(particle_values_all_iter_best.index.values,inplace = True)
 
-            cells = np.array(best_tof/60/60/242/365.25)
+            cells = np.array(best_tof/60/60/24/365.25)
             # over 20 years tof is binend together.considered unswept.
             cells_binned = np.digitize(cells,bins=[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20])
 
@@ -767,10 +768,13 @@ class LocalBestPSO(SwarmOptimizer):
                 subprocess.call([run_multibat])
                 # not continue until lock files are gone and petrel is finished.
                 time.sleep(120)
-                kill_timer = 1 # waits 2h before petrel project is shut down if it has a bug 
-                while len(glob.glob(lock_files)) >= 1 or kill_timer > 7200:
+                kill_timer = 1 # waits 4h before petrel project is shut down if it has a bug 
+                while len(glob.glob(lock_files)) >= 1:
+                    
+                    if kill_timer > 7200:
+                        break
                     kill_timer += 1
-                    time.sleep(5)
+                    time.sleep(2)
                 time.sleep(30)
                 subprocess.call([kill_petrel]) # might need to add something that removes lock file here.
 

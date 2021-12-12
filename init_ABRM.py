@@ -20,7 +20,7 @@ def init():
 
     ###### Set hyperparmeters for PSO ######
     n_parameters = 13#24
-    n_iters = 100
+    n_iters = 50
     n_particles = 36 # always pick multiple of 3. need to fix this 
     min_bound = 0 * np.ones(n_parameters)
     max_bound = 1 * np.ones(n_parameters)
@@ -30,7 +30,7 @@ def init():
     inertia = 0.9
     damping_factor = 0.99
     direction  = 1
-    n_neighbors  =  20
+    n_neighbors  =  5  # use 35 for entropy PSO
     distance_measure  = 2 # 2 = euclidian 1 = manhatten
     dimensions = n_parameters
     options = {'c1': social_component, 'c2': cognitive_component, 'w':inertia, 'k':n_neighbors, 'p':distance_measure,'d':damping_factor, "direction": direction}
@@ -112,8 +112,8 @@ def init():
     #            "F1_Curve_Prob","F3_Curve_Prob","FracpermX","MatrixpermX",
     #            "FracpermY","MatrixpermY","FracpermZ","MatrixpermZ","Hinge_min","Hinge_max"]    columns = ["TI1","F1_I_MIN","F1_I_MAX","F1_J_MIN","F1_J_MAX",
     columns = ["TI1","F1_I_MIN","F1_I_MAX","F1_J_MIN","F1_J_MAX",
-               "TI3","F3_I_MIN","F3_I_MAX","F3_J_MIN","F3_J_MAX",
-               "Hinge_min","Hinge_max","Matrix_perm"]   
+                "TI3","F3_I_MIN","F3_I_MAX","F3_J_MIN","F3_J_MAX",
+                "Hinge_min","Hinge_max","Matrix_perm"]   
                   # columns = ["P32","n_sides","elongation_ratio","shape","scale","mean_dip",
     #            "mean_dip_azimuth","concentration","aperture_mean","aperture_std"]
     
@@ -147,7 +147,7 @@ def init():
     set_seed = random.randint(0,10000000)
     random.seed(set_seed)
     # models per petrel workflow (limited to 3 atm)
-    n_modelsperbatch = 3
+    n_modelsperbatch = 1
     # how many potrel licenses to run at onces
     n_parallel_petrel_licenses = 3
     # which workflow to run in petrel
@@ -160,15 +160,15 @@ def init():
     save_all_models = True
 
     setup = dict(varminmax = varminmax, columns = columns, set_seed = set_seed, parameter_type = parameter_type,
-                 n_modelsperbatch = n_modelsperbatch, runworkflow = runworkflow, n_iters = n_iters,
-                 n_particles = n_particles,n_parameters = n_parameters, Phi_points_target = Phi_points_target,
-                 F_points_target =F_points_target, petrel_on = petrel_on,velocity_clamp = velocity_clamp, 
-                 save_all_models = save_all_models, vh_strategy=vh_strategy,
-                 bh_strategy = bh_strategy, n_parallel_petrel_licenses = n_parallel_petrel_licenses,
-                 n_neighbors = n_neighbors,petrel_path = petrel_path, n_trainingimages = n_trainingimages,
-                 continuous_discrete = continuous_discrete,schedule = schedule,penalty = penalty, best_models = best_models,
-                 nx = nx, ny = ny, nz = nz, n_voronoi = n_voronoi,n_voronoi_zones = n_voronoi_zones,iter_ticker = 0,
-                 PSO_parameters = options,initial_inertia = inertia)
+                n_modelsperbatch = n_modelsperbatch, runworkflow = runworkflow, n_iters = n_iters,
+                n_particles = n_particles,n_parameters = n_parameters, Phi_points_target = Phi_points_target,
+                F_points_target =F_points_target, petrel_on = petrel_on,velocity_clamp = velocity_clamp, 
+                save_all_models = save_all_models, vh_strategy=vh_strategy,
+                bh_strategy = bh_strategy, n_parallel_petrel_licenses = n_parallel_petrel_licenses,
+                n_neighbors = n_neighbors,petrel_path = petrel_path, n_trainingimages = n_trainingimages,
+                continuous_discrete = continuous_discrete,schedule = schedule,penalty = penalty, best_models = best_models,
+                nx = nx, ny = ny, nz = nz, n_voronoi = n_voronoi,n_voronoi_zones = n_voronoi_zones,iter_ticker = 0,
+                PSO_parameters = options,initial_inertia = inertia)
 
     base_path = pathlib.Path(__file__).parent
     output_path = base_path / "../Output/PSO_modelling/"
@@ -188,8 +188,8 @@ def init():
 
     # Call instance of PSO
     # optimizer = ps.single.LocalBestPSO(n_particles=n_particles, dimensions=dimensions, options=options, setup = setup,
-    #                                    bounds= bounds, velocity_clamp= velocity_clamp, vh_strategy=vh_strategy,
-    #                                    bh_strategy = bh_strategy,init_pos= init_pos)
+                                    # bounds= bounds, velocity_clamp= velocity_clamp, vh_strategy=vh_strategy,
+                                    # bh_strategy = bh_strategy,init_pos= init_pos)
     optimizer = ps.single.LocalBestEntropyPSO(n_particles=n_particles, dimensions=dimensions, options=options, setup = setup,
                                                 bounds= bounds, velocity_clamp= velocity_clamp, vh_strategy=vh_strategy,
                                                 bh_strategy = bh_strategy,init_pos= init_pos)

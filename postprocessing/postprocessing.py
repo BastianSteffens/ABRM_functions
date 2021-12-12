@@ -280,10 +280,11 @@ class postprocessing():
         for j in range(0,len(columns)):
             fig = go.Figure()
             for i in range (0,max_iters):
-                fig.add_trace(go.Box(y=self.df_position[self.df_position.iteration ==i][columns[j]],name="Iteration {}".format(i)))
+                fig.add_trace(go.Box(y=self.df_position[self.df_position.iteration ==i][columns[j]],name="{}".format(i)))
 
             fig.update_layout(
                 title= columns[j],
+                xaxis_title="Iteration",
                 showlegend=False
             )
             fig.show()
@@ -393,23 +394,53 @@ class postprocessing():
 
         fig.show()
 
-    def plot_tof_best_models(self):
+    def plot_tof_best_models(self,min_color = 0, max_color = 20,best_selected = False):
 
         "plot the median tof for best models to see what areas are unswept in most scenarios"
         nx = 200
         ny = 100
         nz = 7
         all_cells_median = []
-        cells = np.array(self.df_best_tof/60/60/242/365.25)
-        cells_binned = np.digitize(cells,bins = [0.5,1,1.5,2,2.5,3,3.5,4,4.5,5,5.5,6,6.5,7,7.5,8,8.5,9,9.5,10,
-                                         10.5,11,11.5,12,12.5,13,13.5,14,14.5,15,15.5,16,16.5,17,17.5,
-                                         18,18.5,19,19.5,20])
+        if best_selected == True:
+            
+            self.df_best_tof_selected = pd.DataFrame(columns = np.arange(int(200)*int(100)*int(7)))
 
-        for i in range(self.df_best_tof.shape[1]-2):
+            iteration = np.array(self.df_best_models_to_save.iteration.tolist(),dtype = np.int)
+            particle_no =  np.array(self.df_best_models_to_save.particle_no.tolist(),dtype = np.int)
+            
+            tof_array = np.array(self.df_tof,dtype = np.float32)
+            
+            tof_all = pd.DataFrame()
+            for i in range(self.df_best_models_to_save.shape[0]):
 
-            # calculate entropy based upon clusters
-            cell_median = np.median(cells_binned[:,i])
-            all_cells_median.append(cell_median)
+                tof = tof_array[(tof_array[:,2] == iteration[i]) & (tof_array[:,3] == particle_no[i]),0]
+                tof = pd.DataFrame(tof.reshape((1,(200*100*7))))
+                self.df_best_tof_selected = self.df_best_tof_selected.append(tof,ignore_index = True)
+
+            cells = np.array(self.df_best_tof_selected/60/60/24/365.25)
+            # cells_binned = np.digitize(cells,bins = [0.5,1,1.5,2,2.5,3,3.5,4,4.5,5,5.5,6,6.5,7,7.5,8,8.5,9,9.5,10,
+            #                                         10.5,11,11.5,12,12.5,13,13.5,14,14.5,15,15.5,16,16.5,17,17.5,
+            #                                         18,18.5,19,19.5,20])
+            
+            for i in range(self.df_best_tof_selected.shape[1]):
+
+                # calculate entropy based upon clusters
+                # cell_median = np.median(cells_binned[:,i])
+                cell_median = np.median(cells[:,i])
+                all_cells_median.append(cell_median)
+        
+        else:
+            cells = np.array(self.df_best_tof/60/60/24/365.25)
+            # cells_binned = np.digitize(cells,bins = [0.5,1,1.5,2,2.5,3,3.5,4,4.5,5,5.5,6,6.5,7,7.5,8,8.5,9,9.5,10,
+                                            # 10.5,11,11.5,12,12.5,13,13.5,14,14.5,15,15.5,16,16.5,17,17.5,
+                                            # 18,18.5,19,19.5,20])
+
+            for i in range(self.df_best_tof.shape[1]-2):
+
+                # calculate median based upon clusters
+                # cell_median = np.median(cells_binned[:,i])
+                cell_median = np.median(cells[:,i])
+                all_cells_median.append(cell_median)
             
         # plot the whole thing
         values = np.array(all_cells_median).reshape(nx,ny,nz)
@@ -423,7 +454,7 @@ class postprocessing():
         # Add the data values to the cell data
         grid.cell_arrays["Median tof in years"] =values.flatten()# np.log10(tof)# np.log10(tof)# values.flatten(order="C")  # Flatten the array! C F A K
         boring_cmap = plt.cm.get_cmap("viridis")
-        grid.plot(show_edges=False,cmap = boring_cmap)
+        grid.plot(show_edges=False,cmap = boring_cmap,clim=[min_color, max_color])
 
     def plot_tof_entropy(self,best_selected = False):
         """ plot distribution of entropy based on grid for the best models """
@@ -448,10 +479,10 @@ class postprocessing():
                 tof = pd.DataFrame(tof.reshape((1,(200*100*7))))
                 self.df_best_tof_selected = self.df_best_tof_selected.append(tof,ignore_index = True)
 
-            cells = np.array(self.df_best_tof_selected/60/60/242/365.25)
+            cells = np.array(self.df_best_tof_selected/60/60/24/365.25)
             cells_binned = np.digitize(cells,bins = [0.5,1,1.5,2,2.5,3,3.5,4,4.5,5,5.5,6,6.5,7,7.5,8,8.5,9,9.5,10,
-                                         10.5,11,11.5,12,12.5,13,13.5,14,14.5,15,15.5,16,16.5,17,17.5,
-                                         18,18.5,19,19.5,20])
+                                                    10.5,11,11.5,12,12.5,13,13.5,14,14.5,15,15.5,16,16.5,17,17.5,
+                                                    18,18.5,19,19.5,20])
 
             for i in range(self.df_best_tof_selected.shape[1]):
 
@@ -465,7 +496,7 @@ class postprocessing():
         
         else:
 
-            cells = np.array(self.df_best_tof/60/60/242/365.25)
+            cells = np.array(self.df_best_tof/60/60/24/365.25)
             cells_binned = np.digitize(cells,bins = [0.5,1,1.5,2,2.5,3,3.5,4,4.5,5,5.5,6,6.5,7,7.5,8,8.5,9,9.5,10,
                                         10.5,11,11.5,12,12.5,13,13.5,14,14.5,15,15.5,16,16.5,17,17.5,
                                         18,18.5,19,19.5,20])
@@ -488,7 +519,7 @@ class postprocessing():
         # Add the data values to the cell data
         grid.cell_arrays["Entropy"] =values.flatten()# np.log10(tof)# np.log10(tof)# values.flatten(order="C")  # Flatten the array! C F A K
         boring_cmap = plt.cm.get_cmap("viridis")
-        grid.plot(show_edges=False,cmap = boring_cmap)
+        grid.plot(show_edges=False,cmap = boring_cmap,clim=[0.0, 5.32]) # maximum possible entropy
 
     def plot_best_model(self,random_model = True,model_id = 0,property = "PORO"):
         "visualize the properties of either a radom best model or a specific best model"
@@ -508,9 +539,9 @@ class postprocessing():
             #tof to years and then binned
             values = np.array(tof).reshape(nx,ny,nz)/60/60/24/365.25
             
-            values = np.digitize(cells,bins = [0.5,1,1.5,2,2.5,3,3.5,4,4.5,5,5.5,6,6.5,7,7.5,8,8.5,9,9.5,10,
-                                        10.5,11,11.5,12,12.5,13,13.5,14,14.5,15,15.5,16,16.5,17,17.5,
-                                        18,18.5,19,19.5,20])
+            # values = np.digitize(values,bins = [0.5,1,1.5,2,2.5,3,3.5,4,4.5,5,5.5,6,6.5,7,7.5,8,8.5,9,9.5,10,
+            #                             10.5,11,11.5,12,12.5,13,13.5,14,14.5,15,15.5,16,16.5,17,17.5,
+            #                             18,18.5,19,19.5,20])
 
             # Create the spatial reference
             grid = pv.UniformGrid()
@@ -526,7 +557,7 @@ class postprocessing():
             grid.cell_arrays["tof"] =values.flatten()# np.log10(tof)# np.log10(tof)# values.flatten(order="C")  # Flatten the array! C F A K
 
             boring_cmap = plt.cm.get_cmap("viridis")
-            grid.plot(show_edges=False,cmap = boring_cmap)
+            grid.plot(show_edges=False,cmap = boring_cmap,clim=[0.0, 20])
 
         else:   
             geomodel_path = str(self.setup["base_path"] / "../Output/"/ self.data_to_process[0] / "all_models/INCLUDE/GRID.GRDECL")
@@ -596,9 +627,12 @@ class postprocessing():
                                                 color=self.df_best_position.cluster_PSO_parameters, #set color equal to a variable
                                                 colorscale= "deep",#'Viridis', # one of plotly colorscales
                                                 showscale=True,
-                                                colorbar=dict(title="Clusters")
+                                                colorbar=dict(title="Clusters"),
+                                                line=dict(width=1,
+                                                color='black')
                                                 )
                                             ))
+                                            
             fig.update_layout(title='Clustering of {} best models - Number of clusters found: {} - Unclustered models: {}'.format(self.df_best_position.shape[0],self.df_best_position.cluster_PSO_parameters.max()+1,abs(self.df_best_position.cluster_PSO_parameters[self.df_best_position.cluster_PSO_parameters == -1].sum())))
             fig.show()
 
@@ -607,10 +641,10 @@ class postprocessing():
             df_best_for_clustering = self.df_best_tof.drop(columns = ["particle_no","iteration"])
 
             #convert to years and put in bins.
-            df_best_for_clustering = np.array(df_best_for_clustering/60/60/242/365.25)
-            df_best_for_clustering = np.digitize(cells,bins = [0.5,1,1.5,2,2.5,3,3.5,4,4.5,5,5.5,6,6.5,7,7.5,8,8.5,9,9.5,10,
-                                         10.5,11,11.5,12,12.5,13,13.5,14,14.5,15,15.5,16,16.5,17,17.5,
-                                         18,18.5,19,19.5,20])
+            df_best_for_clustering = np.array(df_best_for_clustering/60/60/24/365.25)
+            # df_best_for_clustering = np.digitize(df_best_for_clustering,bins = [0.5,1,1.5,2,2.5,3,3.5,4,4.5,5,5.5,6,6.5,7,7.5,8,8.5,9,9.5,10,
+            #                              10.5,11,11.5,12,12.5,13,13.5,14,14.5,15,15.5,16,16.5,17,17.5,
+            #                              18,18.5,19,19.5,20])
             # df_best_for_clustering = df_best_for_clustering/60/60/24/365.25
             # df_best_for_clustering = np.digitize(df_best_for_clustering,bins=[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20])
 
@@ -643,8 +677,10 @@ class postprocessing():
                                                 color=self.df_best_position.cluster_tof, #set color equal to a variable
                                                 colorscale= "deep",#'Viridis', # one of plotly colorscales
                                                 showscale=True,
-                                                colorbar=dict(title="Clusters")
-                                                )
+                                                colorbar=dict(title="Clusters"),
+                                                line=dict(width=1,
+                                                color='black')
+                                            )
                                             ))
             fig.update_layout(title='Clustering of {} best models - Number of clusters found: {} - Unclustered models: {}'.format(self.df_best_position.shape[0],self.df_best_position.cluster_tof.max()+1,abs(self.df_best_position.cluster_tof[self.df_best_position.cluster_tof == -1].sum())))
             fig.show()

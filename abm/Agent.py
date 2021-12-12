@@ -22,6 +22,12 @@ class Agent():
         self.TI_no = None
         # misfit of agent
         self.misfit = None
+        # best quality fit of agent
+        self.best_quality_fit = None
+        # best quality fit of agent
+        self.TI_quality = None
+        # best quality fit of agent
+        self.move_quality = None
         #current postition of the agent
         self.pos = pos
         if self.isTracked:
@@ -49,15 +55,27 @@ class Agent():
     def update_agent_misfit(self,misfit):
         """ update misfit of all agents for current iteration"""
         self.misfit = misfit
+
+    def update_agent_best_fit(self,best_quality_fit):
+        """ update best_quality_fit of all agents for current iteration"""
+        self.best_quality_fit = best_quality_fit
+
+    def update_agent_best_TI_quality(self,TI_quality):
+        """ update best_quality_fit of all agents for current iteration"""
+        self.TI_quality = TI_quality    
+    
+    def update_agent_move_quality(self,move_quality):
+        """ update best_quality_fit of all agents for current iteration"""
+        self.move_quality = move_quality
       
     def track_agent(self):
             """ track agent movement etc."""
 
             if self.isTracked:
                 if self.track is None:
-                    self.track = [[self.pos[0], self.pos[1], self.pos[2],self.TI_zone_assigned,self.TI_type,self.TI_no,self.misfit]]
+                    self.track = [[self.pos[0], self.pos[1], self.pos[2],self.TI_zone_assigned,self.TI_type,self.TI_no,self.misfit,self.best_quality_fit,self.TI_quality,self.move_quality]]
                 else:
-                    self.track.append([self.pos[0], self.pos[1], self.pos[2],self.TI_zone_assigned,self.TI_type,self.TI_no,self.misfit])
+                    self.track.append([self.pos[0], self.pos[1], self.pos[2],self.TI_zone_assigned,self.TI_type,self.TI_no,self.misfit,self.best_quality_fit,self.TI_quality,self.move_quality])
 
     def kill(self, iteration):
         """Kill the agent recordind the iteration when it died (ie. End_Turn)"""

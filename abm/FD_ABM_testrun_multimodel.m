@@ -24,7 +24,6 @@ function [FD_performance] = FD_BS(x)
         ModelName = 'M%s.DATA';
         ModelIndex = string(model_id);
         ModelNameIndex = sprintf(ModelName,ModelIndex);
-
         current_dir = 'C:\AgentBased_RM\ABRM_functions\abm\training_image_testing\DATA\';
         fn = fullfile(current_dir, ModelNameIndex);
         deck = readEclipseDeck(fn);

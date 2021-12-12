@@ -25,7 +25,7 @@ def init():
     
     
     ### set parameters 
-    TURNS = 2
+    TURNS = 5
     AGENTSPERTURN = 1
     RANDOMAGENTSGENRATIONBOTTOM = 0.75
     RATIOTRACKEDAGENTS = 1.
@@ -52,9 +52,7 @@ def init():
 
     # create curve and save resultign desired LC
     Phi_points_target = np.linspace(0, 1, num=11, endpoint=True)
-    # F_points_target = np.array([0, 0.2, 0.35, 0.6, 0.65, 0.7, 0.8, 0.85, 0.9, 0.95, 1])
-    # F_points_target = np.array([0, 0.7, 0.85, 0.9, 0.95, 0.96, 0.97, 0.98, 0.99, 0.999, 1])
-    F_points_target = np.array([0, 0.3, 0.45, 0.6, 0.68, 0.75, 0.8, 0.85, 0.9, 0.95, 1])
+    F_points_target = np.array([0, 0.3, 0.5, 0.6, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1])
 
     output_folder = str(datetime.datetime.today().replace(microsecond= 0, second = 0).strftime("%Y_%m_%d_%H_%M"))
 
@@ -63,9 +61,9 @@ def init():
 
     model = Model(env = TI_zones, 
                 number_of_turns=TURNS, number_of_starting_agents =5,new_agent_every_n_turns = 100,max_number_agents = 70,
-                ratio_of_tracked_agents = 1.,number_training_image_zones = 2, number_training_images_per_zone = 4,output_folder = output_folder,
-                Phi_points_target=Phi_points_target,F_points_target=F_points_target,max_number_of_position_tests = 10 ,n_processes = None,neighbourhood_radius = 20, neighbourhood_search_step_size = 20,
-                boundary_rule_weight = 1,misfit_rule_weight = 0,TI_zone_rule_weight = 0)
+                ratio_of_tracked_agents = 1.,number_training_image_zones = 2, number_training_images_per_zone = 20,output_folder = output_folder,
+                Phi_points_target=Phi_points_target,F_points_target=F_points_target,max_number_of_position_tests = 10 ,n_processes = None,neighbourhood_radius = 10, neighbourhood_search_step_size = 10,
+                boundary_rule_weight = 1,misfit_rule_weight = 1,TI_zone_rule_weight = 1)
 
     model.run()
     test_df =model.get_final_results()

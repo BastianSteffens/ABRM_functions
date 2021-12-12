@@ -149,7 +149,7 @@ class particle():
                 tof_best = tof_best.append(tof_particle,ignore_index = True)
                 
                 # calculate entropy
-                cells = np.array(tof_best/60/60/242/365.25)
+                cells = np.array(tof_best/60/60/24/365.25)
                 # over 20 years tof is binend together.considered unswept.
                 # cells_binned = np.digitize(cells,bins=[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20])
                 cells_binned = np.digitize(cells,bins = [0.5,1,1.5,2,2.5,3,3.5,4,4.5,5,5.5,6,6.5,7,7.5,8,8.5,9,9.5,10,
